@@ -9,42 +9,59 @@ export interface Team {
   created_at: string
 }
 
+export type PenaltyA = '0' | '20' | '40' | 'dnf' | 'disq'
+export type RunPhase = 'qualification' | 'final'
+export type StartingPosition = 'face' | 'side' | 'back'
+export type MatchPhase = 'group' | 'extra' | 'penalties'
+
 export interface ResultA {
+  id?: string
+  scheduled_match_id: string | null
   team_id: string
   run1: number | null
   run2: number | null
-  penalty: '0' | '20' | '40' | 'dnf' | 'disq'
+  penalty: PenaltyA
   total: number | null
+  notes: string | null
+  run_phase: RunPhase
   updated_at: string
 }
 
 export interface MatchB {
   id: string
+  match_number: number | null
   team1_id: string
   team2_id: string
   winner: 1 | 2 | 0
   rounds1: number
   rounds2: number
+  starting_position: StartingPosition
+  notes: string | null
   created_at: string
 }
 
 export interface FightC {
   id: string
+  fight_number: number | null
   team1_id: string
   team2_id: string
   winner: 1 | 2
   method: 'KO' | 'IMM' | 'JD'
   judge_score1: number
   judge_score2: number
+  notes: string | null
   created_at: string
 }
 
 export interface MatchD {
   id: string
+  match_number: number | null
   team1_id: string
   team2_id: string
   goals1: number
   goals2: number
+  match_phase: MatchPhase
+  notes: string | null
   created_at: string
 }
 

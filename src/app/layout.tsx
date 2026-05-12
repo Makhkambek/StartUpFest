@@ -4,6 +4,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'SFRC 2026 — Event Results',
   description: 'Startup Fest Robotics Challenge 2026 — Live Results',
+  manifest: '/manifest.webmanifest',
+  themeColor: '#111827',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SFRC',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

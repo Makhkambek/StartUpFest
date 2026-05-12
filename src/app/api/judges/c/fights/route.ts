@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
     team1_id: string; team2_id: string
     winner: 1 | 2; method: FightC['method']
     judge_score1: number; judge_score2: number
+    fight_number?: number | null
+    notes?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })

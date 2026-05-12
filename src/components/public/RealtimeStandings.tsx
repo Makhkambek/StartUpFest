@@ -5,6 +5,7 @@ import StandingsTableA from './StandingsTableA'
 import StandingsTableB from './StandingsTableB'
 import StandingsTableC from './StandingsTableC'
 import StandingsTableD from './StandingsTableD'
+import PublicMatchesList from './PublicMatchesList'
 
 type Standings =
   | { category: 'a'; data: StandingA[] }
@@ -27,6 +28,7 @@ const hasSupabase = !!(
 export default function RealtimeStandings(props: Standings) {
   const [standings, setStandings] = useState(props.data as never[])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [view, setView] = useState<'standings' | 'matches'>('standings')
 
   const refetch = useCallback(async () => {
     const res = await fetch(`/api/standings/${props.category}`, { cache: 'no-store' })
@@ -74,12 +76,26 @@ export default function RealtimeStandings(props: Standings) {
 
   return (
     <div className="relative">
-      {lastUpdate && (
-        <div className="absolute top-0 right-0 text-[10px] text-green-600 font-semibold animate-pulse px-1">
-          ● LIVE
+      <div className="flex items-center justify-between border-b border-gray-200 px-4">
+        <div className="flex gap-1">
+          <button onClick={() => setView('standings')}
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              view === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            }`}>
+            Standings
+          </button>
+          <button onClick={() => setView('matches')}
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+              view === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
+            }`}>
+            Matches
+          </button>
         </div>
-      )}
-      {table()}
+        {lastUpdate && (
+          <span className="text-[10px] text-green-600 font-semibold animate-pulse">● LIVE</span>
+        )}
+      </div>
+      {view === 'standings' ? table() : <PublicMatchesList category={props.category} />}
     </div>
   )
 }

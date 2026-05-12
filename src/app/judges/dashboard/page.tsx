@@ -1,36 +1,98 @@
-const CATEGORIES = [
-  { id: 'a', label: 'A · Line Follower', icon: '🏎️', desc: 'Enter run times and penalties' },
-  { id: 'b', label: 'B · Mini Sumo',     icon: '🤼', desc: 'Record match results and round wins' },
-  { id: 'c', label: 'C · MiniRoboWar',  icon: '⚔️', desc: 'Log fights — KO, Immobilization, Judge' },
-  { id: 'd', label: 'D · Robo Football', icon: '⚽', desc: 'Enter match scores and goals' },
+import { getSession } from '@/lib/session'
+import { redirect } from 'next/navigation'
+
+const ALL_CATEGORIES = [
+  {
+    id: 'a',
+    label: 'Line Follower',
+    full: 'A · Line Follower',
+    icon: '🏎️',
+    color: 'border-l-blue-500',
+    desc: 'Qualification & final runs — record time and penalties per match',
+  },
+  {
+    id: 'b',
+    label: 'Mini Sumo',
+    full: 'B · Mini Sumo',
+    icon: '🤼',
+    color: 'border-l-purple-500',
+    desc: 'Match-based — record winner, rounds, starting position',
+  },
+  {
+    id: 'c',
+    label: 'MiniRoboWar',
+    full: 'C · MiniRoboWar',
+    icon: '⚔️',
+    color: 'border-l-red-500',
+    desc: 'Fight-based — KO, Immobilization or Judge Decision',
+  },
+  {
+    id: 'd',
+    label: 'Robo Football',
+    full: 'D · Robo Football',
+    icon: '⚽',
+    color: 'border-l-green-500',
+    desc: 'Group & knockout matches — record score per match',
+  },
 ]
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSession()
+  if (!session) redirect('/judges/login')
+
+  const categories = ALL_CATEGORIES.filter(c => session.categories.includes(c.id))
+
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-16 flex items-center px-10 justify-between sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-8 justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 border-2 border-gray-900 rounded-md flex items-center justify-center font-black text-[10px]">SFRC</div>
-          <span className="text-sm font-bold">STARTUP FEST</span>
-          <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold px-3 py-1 rounded-full">⚖️ JUDGES PANEL</span>
+          <div className="w-8 h-8 border-2 border-gray-900 rounded flex items-center justify-center font-black text-[9px]">SFRC</div>
+          <span className="font-black text-sm tracking-wide">STARTUP FEST</span>
+          <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full">JUDGES PANEL</span>
         </div>
-        <div className="flex items-center gap-3">
-          <a href="/a" target="_blank" className="text-sm text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50">View Results ↗</a>
-          <a href="/api/auth/logout" className="text-sm text-red-600 hover:text-red-700 px-3 py-1.5 rounded-md border border-red-200 hover:bg-red-50">Log Out</a>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-gray-400">@{session.username}</span>
+          {session.role === 'admin' && (
+            <>
+              <a href="/judges/admin/teams" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Teams</a>
+              <a href="/judges/admin/users" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Judges</a>
+            </>
+          )}
+          <a href="/display" target="_blank" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Display ↗</a>
+          <a href="/a" target="_blank" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Public ↗</a>
+          <a href="/api/auth/logout" className="text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded border border-red-200 hover:bg-red-50">Log Out</a>
         </div>
       </header>
 
-      <div className="px-10 py-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Results Management</h1>
-        <p className="text-sm text-gray-500 mb-8">Select a category to add teams or enter results.</p>
+      <div className="px-8 py-8 max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-xl font-black text-gray-900">
+            {categories.length === 1
+              ? `${categories[0].icon} ${categories[0].full}`
+              : 'Judges Dashboard'}
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {session.role === 'admin'
+              ? 'Admin — full access to all categories'
+              : `Assigned to ${categories.map(c => c.id.toUpperCase()).join(', ')}`}
+          </p>
+        </div>
 
         <div className="grid grid-cols-2 gap-4 max-w-2xl">
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <a key={cat.id} href={`/judges/${cat.id}`}
-              className="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group">
-              <div className="text-3xl mb-3">{cat.icon}</div>
-              <div className="text-sm font-bold text-gray-900 group-hover:text-amber-700 mb-1">{cat.label}</div>
-              <div className="text-xs text-gray-500">{cat.desc}</div>
+              className={`bg-white rounded-xl border-l-4 ${cat.color} border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group flex flex-col gap-3`}>
+              <div className="flex items-start justify-between">
+                <span className="text-3xl">{cat.icon}</span>
+                <span className="text-[10px] font-bold text-gray-300 group-hover:text-gray-400 transition-colors">CAT {cat.id.toUpperCase()}</span>
+              </div>
+              <div>
+                <div className="font-black text-gray-900 group-hover:text-gray-700 text-base">{cat.label}</div>
+                <div className="text-xs text-gray-400 leading-relaxed mt-0.5">{cat.desc}</div>
+              </div>
+              <div className="text-xs font-bold text-gray-900 group-hover:translate-x-0.5 transition-transform">
+                Open →
+              </div>
             </a>
           ))}
         </div>

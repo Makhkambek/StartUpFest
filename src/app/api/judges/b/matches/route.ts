@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { MatchB } from '@/types/database'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as {
     team1_id: string; team2_id: string
     winner: 0 | 1 | 2; rounds1: number; rounds2: number
+    match_number?: number | null
+    starting_position?: MatchB['starting_position']
+    notes?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })

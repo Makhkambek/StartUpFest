@@ -8,3 +8,42 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
 }
+
+/* Judge form utilities */
+.field-label {
+  @apply block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1;
+}
+.field-input {
+  @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300;
+}
+.field-select {
+  @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300;
+}
+
+/* iPad landscape optimization — judges panel */
+@media (orientation: landscape) and (max-width: 1366px) {
+  /* Prevent iOS auto-zoom on focused inputs (font-size >= 16px) */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Larger touch targets (Apple HIG: 44pt min, 56px for primary actions) */
+  .judges-page button {
+    min-height: 44px;
+  }
+
+  /* Primary action buttons — larger */
+  .judges-page button[type="submit"],
+  .judges-page .btn-primary {
+    min-height: 56px;
+  }
+}
+
+/* Two-column layout helper for iPad landscape */
+@media (orientation: landscape) and (min-width: 1024px) and (max-width: 1366px) {
+  .judges-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}

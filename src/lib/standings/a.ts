@@ -2,8 +2,13 @@ import type { Team, ResultA, StandingA, StatusA } from '@/types/database'
 
 export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[] {
   const rows = teams.map((team) => {
-    const r = results.find((x) => x.team_id === team.id)
-    if (!r) return { team, run1: null, run2: null, penalty: '0', total: 99997, status: null as StatusA | null }
+    const teamResults = results.filter((x) => x.team_id === team.id)
+    if (!teamResults.length) return { team, run1: null, run2: null, penalty: '0', total: 99997, status: null as StatusA | null }
+    // Best completed result; fall back to last dnf/disq if nothing else
+    const completed = teamResults.filter(r => r.penalty !== 'dnf' && r.penalty !== 'disq' && r.total !== null)
+    const r = completed.length
+      ? completed.reduce((a, b) => (a.total! <= b.total! ? a : b))
+      : teamResults[teamResults.length - 1]
     const isDnf = r.penalty === 'dnf'
     const isDisq = r.penalty === 'disq'
     return {

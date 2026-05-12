@@ -28,7 +28,7 @@ export async function getResultsA(): Promise<ResultA[]> {
   if (!supabase) {
     const { getTeams: storeGet, getResultsA: storeResults } = await import('./mock-store')
     const stored = storeGet('a')
-    if (stored.length > 0) return storeResults(stored.map(t => t.id))
+    if (stored.length > 0) return storeResults()
     return getMockResultsA()
   }
   const { data } = await supabase.from('results_a').select('*')

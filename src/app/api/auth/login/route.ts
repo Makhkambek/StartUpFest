@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Mock credentials for dev (no Supabase)
 const MOCK_USERS: Record<string, { password: string; role: string; categories: string[] }> = {
-  admin:     { password: 'admin',           role: 'admin', categories: ['a','b','c','d'] },
+  admin:     { password: 'admin1',          role: 'admin', categories: ['a','b','c','d'] },
   judge_a1:  { password: 'Line@Track#2026', role: 'judge', categories: ['a'] },
   judge_a2:  { password: 'Fast@Racer#2026', role: 'judge', categories: ['a'] },
   judge_b1:  { password: 'Sumo@Ring#2026',  role: 'judge', categories: ['b'] },
