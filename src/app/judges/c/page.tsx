@@ -100,21 +100,21 @@ export default function JudgeCPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-4 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-3 sm:px-6 gap-4 sticky top-0 z-10">
         <a href="/judges/dashboard" className="text-sm text-gray-400 hover:text-gray-700">← Dashboard</a>
         <span className="font-black text-sm text-gray-900">⚔️ MiniRoboWar</span>
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex gap-1 overflow-x-auto">
           {(['schedule', 'teams'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${view === v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}>
               {v === 'schedule' ? 'Fights' : 'Teams'}
             </button>
           ))}
-          <a href="/c" target="_blank" className="ml-2 text-xs text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded border border-gray-200">Public ↗</a>
+          <a href="/judges/view/c" className="ml-2 text-xs text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded border border-gray-200">Public ↗</a>
         </div>
       </header>
 
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-3 sm:p-6 max-w-5xl mx-auto">
         {loading && <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>}
 
         {!loading && view === 'schedule' && schedule.length > 0 && (
@@ -144,14 +144,14 @@ export default function JudgeCPage() {
         })()}
 
         {!loading && view === 'schedule' && (
-          <div className="flex gap-5 items-start">
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 lg:items-start">
             <div className="flex-1 min-w-0 space-y-3">
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Generate Schedule</h2>
                   {schedule.length > 0 && <span className="text-xs text-gray-400">{schedule.length} fight{schedule.length !== 1 ? 's' : ''} scheduled</span>}
                 </div>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="text-xs text-gray-500 shrink-0">Fights per team:</span>
                   <input type="number" min="1" max="20" value={genN} onChange={e => setGenN(e.target.value)}
                     className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-16 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
@@ -175,7 +175,7 @@ export default function JudgeCPage() {
 
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Add Fight to Schedule</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="F-1"
                     onKeyDown={e => e.key === 'Enter' && addScheduledMatch()}
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
@@ -201,7 +201,8 @@ export default function JudgeCPage() {
                 {schedule.length === 0
                   ? <p className="text-center text-sm text-gray-300 py-10">No fights scheduled yet</p>
                   : (
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wide">
                           <th className="text-left px-4 py-3 w-20">Fight</th>
@@ -252,22 +253,22 @@ export default function JudgeCPage() {
                                 <div className="flex items-center justify-end gap-1">
                                   {!done && (
                                     <button onClick={() => setStatus(m.id, m.status === 'waiting' ? 'pending' : 'waiting')}
-                                      className={`px-2.5 py-1 rounded text-xs font-bold border transition-colors ${m.status === 'waiting' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'border-gray-200 text-gray-400 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}>
+                                      className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${m.status === 'waiting' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'border-gray-200 text-gray-400 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}>
                                       {m.status === 'waiting' ? '⏳' : 'Wait'}
                                     </button>
                                   )}
                                   <button onClick={() => router.push('/judges/c/record/' + m.id)}
-                                    className="px-2.5 py-1 rounded text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
+                                    className="px-2.5 py-1.5 rounded text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
                                     {done ? 'Edit' : 'Record'}
                                   </button>
                                   {r && (
                                     <button onClick={() => setActiveMatch(isOpen ? null : m)}
-                                      className={`px-2.5 py-1 rounded text-xs font-bold border transition-colors ${isOpen ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                                      className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${isOpen ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
                                       See
                                     </button>
                                   )}
                                   <button onClick={() => { if (confirm(`Delete ${m.match_id}?`)) deleteScheduledMatch(m.id) }}
-                                    className="px-2 py-1 rounded text-xs text-red-300 hover:text-red-500 border border-transparent hover:border-red-200 transition-colors">✕</button>
+                                    className="px-2 py-1.5 rounded text-xs text-red-300 hover:text-red-500 border border-transparent hover:border-red-200 transition-colors">✕</button>
                                 </div>
                               </td>
                             </tr>
@@ -276,10 +277,11 @@ export default function JudgeCPage() {
                         })()}
                       </tbody>
                     </table>
+                    </div>
                   )}
               </div>
             </div>
-            <div className="w-72 shrink-0 sticky top-16 self-start">
+            <div className="w-full lg:w-72 lg:shrink-0 lg:sticky lg:top-16 lg:self-start">
               {activeMatch && (() => {
                 const r = resultFor(activeMatch)
                 if (!r) return null

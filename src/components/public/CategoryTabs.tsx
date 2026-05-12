@@ -12,14 +12,14 @@ const TABS = [
 export default function CategoryTabs() {
   const path = usePathname()
   return (
-    <div className="flex border-b border-gray-200 px-4">
+    <div className="flex border-b border-gray-200 px-2 sm:px-4 overflow-x-auto">
       {TABS.map((tab) => {
         const active = path === tab.href
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`px-4 py-[15px] text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
+            className={`px-3 sm:px-4 py-3 sm:py-[15px] text-xs sm:text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
               active
                 ? 'text-blue-600 border-blue-600 font-semibold'
                 : 'text-gray-500 border-transparent hover:text-gray-900'

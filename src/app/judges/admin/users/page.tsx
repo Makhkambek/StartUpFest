@@ -9,23 +9,30 @@ interface Judge {
 }
 
 const CATEGORIES = ['a', 'b', 'c', 'd']
-const CAT_LABELS: Record<string, string> = {
-  a: 'A · Line Follower',
-  b: 'B · Mini Sumo',
-  c: 'C · MiniRoboWar',
-  d: 'D · Robo Football',
-}
 
 export default function UsersPage() {
   const [judges, setJudges] = useState<Judge[]>([])
   const [loadingList, setLoadingList] = useState(true)
+  const [currentUser, setCurrentUser] = useState<string | null>(null)
+
+  // create form
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [cats, setCats] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  // password reset
   const [resetting, setResetting] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
+
+  // edit permissions
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editCats, setEditCats] = useState<string[]>([])
+  const [editIsAdmin, setEditIsAdmin] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   async function load() {
     setLoadingList(true)
@@ -34,37 +41,66 @@ export default function UsersPage() {
     setLoadingList(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    fetch('/api/auth/me').then(r => r.json()).then(d => setCurrentUser(d.username ?? null))
+  }, [])
 
   function toggleCat(c: string) {
     setCats(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
   }
 
+  function toggleEditCat(c: string) {
+    setEditCats(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
+  }
+
+  function handleAdminToggle(val: boolean) {
+    setIsAdmin(val)
+    if (val) setCats(['a', 'b', 'c', 'd'])
+  }
+
+  function handleEditAdminToggle(val: boolean) {
+    setEditIsAdmin(val)
+    if (val) setEditCats(['a', 'b', 'c', 'd'])
+  }
+
+  function openEdit(j: Judge) {
+    if (editing === j.id) { setEditing(null); return }
+    setEditing(j.id)
+    setEditCats(j.categories)
+    setEditIsAdmin(j.is_admin)
+    setResetting(null)
+  }
+
+  function openReset(id: string) {
+    setResetting(resetting === id ? null : id)
+    setNewPassword('')
+    setEditing(null)
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!username || !password || !cats.length) {
-      setMsg({ ok: false, text: 'Fill all fields and select at least one category' })
-      return
-    }
-    setLoading(true); setMsg(null)
+    if (!username || !password) { setMsg({ ok: false, text: 'Fill username and password' }); return }
+    if (!isAdmin && !cats.length) { setMsg({ ok: false, text: 'Select at least one category' }); return }
+    setCreating(true); setMsg(null)
     const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username.toLowerCase(), password, categories: cats }),
+      body: JSON.stringify({ username: username.toLowerCase(), password, categories: cats, is_admin: isAdmin }),
     })
     const data = await res.json()
-    setLoading(false)
+    setCreating(false)
     if (res.ok) {
-      setMsg({ ok: true, text: `Judge "${username}" created` })
-      setUsername(''); setPassword(''); setCats([])
+      setMsg({ ok: true, text: `${isAdmin ? 'Admin' : 'Judge'} "${username}" created` })
+      setUsername(''); setPassword(''); setCats([]); setIsAdmin(false)
       await load()
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed to create user' })
+      setMsg({ ok: false, text: data.error ?? 'Failed' })
     }
   }
 
-  async function handleDelete(id: string, judgeName: string) {
-    if (!confirm(`Delete judge "${judgeName}"? This cannot be undone.`)) return
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
     const res = await fetch('/api/admin/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -72,18 +108,16 @@ export default function UsersPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      setMsg({ ok: true, text: `Deleted "${judgeName}"` })
+      setMsg({ ok: true, text: `Deleted "${name}"` })
+      setEditing(null); setResetting(null)
       await load()
     } else {
       setMsg({ ok: false, text: data.error ?? 'Failed to delete' })
     }
   }
 
-  async function handleResetPassword(id: string, judgeName: string) {
-    if (!newPassword || newPassword.length < 6) {
-      setMsg({ ok: false, text: 'Password min 6 chars' })
-      return
-    }
+  async function handleResetPassword(id: string, name: string) {
+    if (!newPassword || newPassword.length < 6) { setMsg({ ok: false, text: 'Password min 6 chars' }); return }
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -91,156 +125,281 @@ export default function UsersPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      setMsg({ ok: true, text: `Password reset for "${judgeName}"` })
+      setMsg({ ok: true, text: `Password reset for "${name}"` })
       setResetting(null); setNewPassword('')
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed to reset password' })
+      setMsg({ ok: false, text: data.error ?? 'Failed' })
+    }
+  }
+
+  async function handleSaveEdit(j: Judge) {
+    setSaving(true); setMsg(null)
+    const finalCats = editIsAdmin ? [] : editCats
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: j.id, is_admin: editIsAdmin, categories: finalCats }),
+    })
+    const data = await res.json()
+    setSaving(false)
+    if (res.ok) {
+      setMsg({ ok: true, text: `Updated "${j.username}"` })
+      setEditing(null)
+      await load()
+    } else {
+      setMsg({ ok: false, text: data.error ?? 'Failed to update' })
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-16 flex items-center px-10 justify-between">
+      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 sm:px-10 justify-between">
         <div className="flex items-center gap-3">
           <a href="/judges/dashboard" className="text-sm text-gray-500 hover:text-gray-900">← Dashboard</a>
-          <span className="text-gray-300">|</span>
-          <span className="text-sm font-bold">Judges Management</span>
+          <span className="text-gray-300 hidden sm:inline">|</span>
+          <span className="text-sm font-bold hidden sm:inline">User Management</span>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <a href="/judges/admin/teams" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Teams</a>
-        </div>
+        <a href="/judges/admin/teams" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Teams</a>
       </header>
 
-      <div className="px-10 py-10 max-w-5xl">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Judges</h1>
-        <p className="text-sm text-gray-500 mb-8">Create judge accounts and assign categories.</p>
+      <div className="px-4 sm:px-10 py-6 sm:py-10 max-w-5xl">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Users & Permissions</h1>
+        <p className="text-sm text-gray-500 mb-6 sm:mb-8">Create judge and admin accounts, assign categories and roles.</p>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900 mb-4">Create Judge</h2>
+        {msg && (
+          <div className={`mb-4 text-xs px-4 py-2.5 rounded-lg ${msg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {msg.text}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ── Create form ── */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
+              <h2 className="text-sm font-bold text-gray-900 mb-4">Add Account</h2>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Username</label>
                   <input value={username} onChange={e => setUsername(e.target.value)}
-                    placeholder="e.g. judge_a1" autoCapitalize="none"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    placeholder="e.g. judge_a1" autoCapitalize="none" autoCorrect="off"
+                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5">Password</label>
                   <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
                 </div>
+
+                {/* Role toggle */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Categories</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Role</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => handleAdminToggle(false)}
+                      className={`flex-1 py-2 rounded-md text-xs font-bold border transition-colors ${
+                        !isAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                      }`}>
+                      Judge
+                    </button>
+                    <button type="button" onClick={() => handleAdminToggle(true)}
+                      className={`flex-1 py-2 rounded-md text-xs font-bold border transition-colors ${
+                        isAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-400'
+                      }`}>
+                      Admin
+                    </button>
+                  </div>
+                </div>
+
+                {/* Categories */}
+                <div>
+                  <label className={`block text-xs font-semibold mb-2 ${isAdmin ? 'text-gray-400' : 'text-gray-700'}`}>
+                    {isAdmin ? 'Categories (all — admin)' : 'Categories'}
+                  </label>
                   <div className="flex gap-1.5 flex-wrap">
                     {CATEGORIES.map(c => (
-                      <button key={c} type="button" onClick={() => toggleCat(c)}
-                        className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                          cats.includes(c)
+                      <button key={c} type="button"
+                        onClick={() => !isAdmin && toggleCat(c)}
+                        disabled={isAdmin}
+                        className={`px-2.5 py-1.5 rounded-md text-xs font-bold border transition-colors ${
+                          cats.includes(c) || isAdmin
                             ? 'bg-amber-600 text-white border-amber-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'
-                        }`}>
+                            : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
+                        } ${isAdmin ? 'opacity-60 cursor-default' : ''}`}>
                         {c.toUpperCase()}
                       </button>
                     ))}
                   </div>
                 </div>
-                {msg && (
-                  <div className={`text-xs px-3 py-2 rounded ${msg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                    {msg.text}
-                  </div>
-                )}
-                <button type="submit" disabled={loading}
-                  className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-md hover:bg-gray-800 disabled:opacity-50">
-                  {loading ? 'Creating...' : 'Create Judge'}
+
+                <button type="submit" disabled={creating}
+                  className="w-full bg-gray-900 text-white text-sm font-bold py-2.5 rounded-md hover:bg-gray-800 disabled:opacity-50 min-h-[44px]">
+                  {creating ? 'Creating…' : `Create ${isAdmin ? 'Admin' : 'Judge'}`}
                 </button>
               </form>
             </div>
           </div>
 
-          <div className="col-span-2">
+          {/* ── Users list ── */}
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-900">
-                  {judges.length} judge{judges.length === 1 ? '' : 's'}
+                  {loadingList ? 'Loading…' : `${judges.length} user${judges.length === 1 ? '' : 's'}`}
                 </h2>
               </div>
+
               {loadingList ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">Loading...</div>
+                <div className="px-5 py-12 text-center text-sm text-gray-400">Loading…</div>
               ) : judges.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">No judges yet.</div>
+                <div className="px-5 py-12 text-center text-sm text-gray-400">No users yet.</div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500 font-semibold">
-                    <tr>
-                      <th className="text-left px-5 py-2.5">Username</th>
-                      <th className="text-left px-5 py-2.5">Role</th>
-                      <th className="text-left px-5 py-2.5">Categories</th>
-                      <th className="text-right px-5 py-2.5">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {judges.map(j => (
-                      <Fragment key={j.id}>
-                        <tr className="border-t border-gray-100 hover:bg-gray-50">
-                          <td className="px-5 py-3 font-semibold text-gray-900">@{j.username}</td>
-                          <td className="px-5 py-3">
-                            {j.is_admin ? (
-                              <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">ADMIN</span>
-                            ) : (
-                              <span className="text-xs text-gray-500">judge</span>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[480px]">
+                    <thead className="bg-gray-50 text-xs text-gray-500 font-semibold">
+                      <tr>
+                        <th className="text-left px-4 py-2.5">Username</th>
+                        <th className="text-left px-4 py-2.5">Role</th>
+                        <th className="text-left px-4 py-2.5">Categories</th>
+                        <th className="text-right px-4 py-2.5">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {judges.map(j => {
+                        const isSelf = j.username === currentUser
+                        return (
+                          <Fragment key={j.id}>
+                            {/* Main row */}
+                            <tr className="border-t border-gray-100 hover:bg-gray-50">
+                              <td className="px-4 py-3 font-semibold text-gray-900">
+                                @{j.username}
+                                {isSelf && <span className="ml-1.5 text-[10px] text-blue-500 font-bold">(you)</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                {j.is_admin
+                                  ? <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">ADMIN</span>
+                                  : <span className="text-xs text-gray-400">judge</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex gap-1 flex-wrap">
+                                  {j.categories.map(c => (
+                                    <span key={c} className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                      {c.toUpperCase()}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex justify-end gap-1">
+                                  <button onClick={() => openEdit(j)}
+                                    className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
+                                      editing === j.id
+                                        ? 'bg-amber-600 text-white'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                    }`}>
+                                    Edit
+                                  </button>
+                                  <button onClick={() => openReset(j.id)}
+                                    className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
+                                      resetting === j.id
+                                        ? 'bg-gray-700 text-white'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                    }`}>
+                                    PW
+                                  </button>
+                                  <button onClick={() => handleDelete(j.id, j.username)}
+                                    disabled={isSelf}
+                                    title={isSelf ? 'Cannot delete your own account' : `Delete ${j.username}`}
+                                    className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50 disabled:opacity-25 disabled:cursor-not-allowed">
+                                    Del
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Edit permissions row */}
+                            {editing === j.id && (
+                              <tr className="border-t border-amber-100 bg-amber-50/30">
+                                <td colSpan={4} className="px-4 py-4">
+                                  <div className="space-y-3">
+                                    <div>
+                                      <span className="text-xs font-semibold text-gray-700 block mb-2">Role</span>
+                                      <div className="flex gap-2 max-w-[200px]">
+                                        <button type="button" onClick={() => handleEditAdminToggle(false)}
+                                          className={`flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${
+                                            !editIsAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                                          }`}>
+                                          Judge
+                                        </button>
+                                        <button type="button" onClick={() => handleEditAdminToggle(true)}
+                                          className={`flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${
+                                            editIsAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-400'
+                                          }`}>
+                                          Admin
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className={`text-xs font-semibold block mb-2 ${editIsAdmin ? 'text-gray-400' : 'text-gray-700'}`}>
+                                        {editIsAdmin ? 'Categories (all — admin)' : 'Categories'}
+                                      </span>
+                                      <div className="flex gap-1.5 flex-wrap">
+                                        {CATEGORIES.map(c => (
+                                          <button key={c} type="button"
+                                            onClick={() => !editIsAdmin && toggleEditCat(c)}
+                                            disabled={editIsAdmin}
+                                            className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${
+                                              editCats.includes(c) || editIsAdmin
+                                                ? 'bg-amber-600 text-white border-amber-600'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
+                                            } ${editIsAdmin ? 'opacity-60 cursor-default' : ''}`}>
+                                            {c.toUpperCase()}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 pt-1">
+                                      <button onClick={() => handleSaveEdit(j)} disabled={saving}
+                                        className="bg-amber-600 text-white text-xs font-bold px-4 py-1.5 rounded hover:bg-amber-700 disabled:opacity-50">
+                                        {saving ? 'Saving…' : 'Save'}
+                                      </button>
+                                      <button onClick={() => setEditing(null)}
+                                        className="text-xs text-gray-500 hover:text-gray-900 px-3 py-1.5">
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="flex gap-1 flex-wrap">
-                              {j.categories.map(c => (
-                                <span key={c} className="text-[10px] font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
-                                  {c.toUpperCase()}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <div className="flex justify-end gap-1.5">
-                              <button onClick={() => { setResetting(resetting === j.id ? null : j.id); setNewPassword('') }}
-                                disabled={j.is_admin}
-                                className="text-xs text-gray-600 hover:text-gray-900 font-semibold px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent">
-                                Reset PW
-                              </button>
-                              <button onClick={() => handleDelete(j.id, j.username)}
-                                disabled={j.is_admin}
-                                className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent">
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {resetting === j.id && (
-                          <tr className="border-t border-gray-100 bg-amber-50/40">
-                            <td colSpan={4} className="px-5 py-3">
-                              <div className="flex gap-2 items-center">
-                                <span className="text-xs font-semibold text-gray-700">New password for @{j.username}:</span>
-                                <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                                  placeholder="Min 6 chars"
-                                  className="flex-1 px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-amber-500" />
-                                <button onClick={() => handleResetPassword(j.id, j.username)}
-                                  className="bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-amber-700">
-                                  Set
-                                </button>
-                                <button onClick={() => { setResetting(null); setNewPassword('') }}
-                                  className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1.5">
-                                  Cancel
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
+
+                            {/* Reset password row */}
+                            {resetting === j.id && (
+                              <tr className="border-t border-gray-100 bg-gray-50/60">
+                                <td colSpan={4} className="px-4 py-3">
+                                  <div className="flex gap-2 items-center flex-wrap">
+                                    <span className="text-xs font-semibold text-gray-700 shrink-0">New PW for @{j.username}:</span>
+                                    <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                      placeholder="Min 6 chars"
+                                      className="text-base flex-1 min-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-amber-500" />
+                                    <button onClick={() => handleResetPassword(j.id, j.username)}
+                                      className="bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-gray-800">
+                                      Set
+                                    </button>
+                                    <button onClick={() => { setResetting(null); setNewPassword('') }}
+                                      className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1.5">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

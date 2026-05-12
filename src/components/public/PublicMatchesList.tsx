@@ -136,7 +136,7 @@ export default function PublicMatchesList({ category }: Props) {
   const finalMatches = rows.filter(r => r.match.phase === 'finals')
 
   return (
-    <div className="px-2">
+    <div className="px-1 sm:px-2">
       {finalMatches.length > 0 && (
         <MatchSection title="Playoffs" rows={finalMatches} highlight />
       )}
@@ -151,38 +151,39 @@ function MatchSection({ title, rows, highlight = false }: { title: string; rows:
       <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
         {title}
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[420px] text-sm">
         <thead>
           <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-            <th className="text-left px-4 py-2 w-24">Match</th>
-            <th className="text-left px-4 py-2 w-24">Status</th>
-            <th className="text-left px-4 py-2">Teams</th>
-            <th className="text-right px-4 py-2 w-32">Result</th>
+            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
+            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Status</th>
+            <th className="text-left px-3 sm:px-4 py-2">Teams</th>
+            <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">Result</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map(r => (
             <tr key={r.match.id} className={`${r.status === 'active' ? 'bg-blue-50' : ''}`}>
-              <td className="px-4 py-2.5 font-mono font-black text-gray-900">{r.match.match_id}</td>
-              <td className="px-4 py-2.5">
-                {r.status === 'completed' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">DONE</span>}
-                {r.status === 'active' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">▶ LIVE</span>}
-                {r.status === 'waiting' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">⏳ WAITING</span>}
-                {r.status === 'pending' && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>}
+              <td className="px-3 sm:px-4 py-2 sm:py-2.5 font-mono font-black text-gray-900 text-xs sm:text-sm">{r.match.match_id}</td>
+              <td className="px-3 sm:px-4 py-2 sm:py-2.5">
+                {r.status === 'completed' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-green-100 text-green-700">DONE</span>}
+                {r.status === 'active' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">▶ LIVE</span>}
+                {r.status === 'waiting' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">⏳ WAIT</span>}
+                {r.status === 'pending' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>}
               </td>
-              <td className="px-4 py-2.5">
-                <span className={`text-gray-800 ${r.winnerSide === 1 ? 'font-black' : 'font-medium'}`}>{r.team1}</span>
+              <td className="px-3 sm:px-4 py-2 sm:py-2.5">
+                <span className={`text-gray-800 text-xs sm:text-sm ${r.winnerSide === 1 ? 'font-black' : 'font-medium'}`}>{r.team1}</span>
                 {r.team2 && (
                   <>
-                    <span className="text-gray-300 mx-2">vs</span>
-                    <span className={`text-gray-800 ${r.winnerSide === 2 ? 'font-black' : 'font-medium'}`}>{r.team2}</span>
+                    <span className="text-gray-300 mx-1 sm:mx-2">vs</span>
+                    <span className={`text-gray-800 text-xs sm:text-sm ${r.winnerSide === 2 ? 'font-black' : 'font-medium'}`}>{r.team2}</span>
                   </>
                 )}
-                {r.winnerSide === 0 && <span className="ml-2 text-[10px] font-bold text-gray-500 uppercase">draw</span>}
+                {r.winnerSide === 0 && <span className="ml-1 sm:ml-2 text-[10px] font-bold text-gray-500 uppercase">draw</span>}
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right">
                 {r.result ? (
-                  <span className="font-mono font-bold text-gray-900">{r.result}</span>
+                  <span className="font-mono font-bold text-gray-900 text-xs sm:text-sm">{r.result}</span>
                 ) : (
                   <span className="text-gray-300">—</span>
                 )}
@@ -191,6 +192,7 @@ function MatchSection({ title, rows, highlight = false }: { title: string; rows:
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

@@ -19,6 +19,14 @@ interface ActiveBundle {
   match: ScheduledMatch
   team1Name: string
   team2Name: string | null
+  status: 'active' | 'waiting'
+}
+
+interface NextBundle {
+  category: Cat
+  match: ScheduledMatch
+  team1Name: string
+  team2Name: string | null
 }
 
 function Clock() {
@@ -56,49 +64,58 @@ function rankLabel(s: AnyStanding) {
   return `${b.wins}W ${b.draws}D ${b.losses}L · ${b.points}pts`
 }
 
+const MEDAL = ['🥇', '🥈', '🥉']
+const PODIUM_BG = [
+  'bg-amber-50 border-l-4 border-amber-400',
+  'bg-gray-50 border-l-4 border-gray-300',
+  'bg-orange-50 border-l-4 border-orange-300',
+]
+
 function PanelBlock({ cat, data }: { cat: keyof typeof CATEGORY_META; data: AnyStanding[] }) {
   const meta = CATEGORY_META[cat]
-  const top = data.slice(0, 8)
+  const podium = data.slice(0, 3)
+  const rest = data.slice(3, 10)
   return (
     <div className="bg-white rounded-2xl overflow-hidden flex flex-col shadow-lg border border-gray-100">
-      {/* Header */}
       <div className={`${meta.color} px-5 py-3 flex items-center gap-3`}>
         <span className="text-2xl">{meta.icon}</span>
         <span className="text-white font-black text-lg tracking-tight">{meta.label}</span>
       </div>
 
-      {/* Rows */}
       <div className="flex-1 overflow-hidden">
-        {top.length === 0 ? (
+        {data.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-300 text-sm py-8">No results yet</div>
         ) : (
-          <div className="divide-y divide-gray-50">
-            {top.map((s, i) => (
-              <div key={s.team.id}
-                className={`flex items-center px-4 py-2.5 gap-3 ${i < 3 ? meta.light : ''}`}>
-                {/* Rank badge */}
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                  i === 0 ? 'bg-amber-400 text-white' :
-                  i === 1 ? 'bg-gray-300 text-white' :
-                  i === 2 ? 'bg-amber-700 text-white' :
-                  'bg-gray-100 text-gray-500'
-                }`}>{s.rank}</span>
-
-                {/* Team */}
-                <div className="flex-1 min-w-0">
-                  <div className={`font-bold truncate ${i < 3 ? 'text-gray-900 text-sm' : 'text-gray-700 text-xs'}`}>
-                    {s.team.name}
+          <>
+            {/* Podium — top 3 big */}
+            <div className="divide-y divide-gray-100">
+              {podium.map((s, i) => (
+                <div key={s.team.id} className={`flex items-center px-4 py-3 gap-3 ${PODIUM_BG[i]}`}>
+                  <span className="text-2xl shrink-0">{MEDAL[i]}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-gray-900 text-base leading-tight truncate">{s.team.name}</div>
+                    {s.team.school && <div className="text-xs text-gray-400 truncate mt-0.5">{s.team.school}</div>}
                   </div>
-                  <div className="text-[10px] text-gray-400 truncate">{s.team.school}</div>
+                  <span className="font-mono text-sm font-black text-gray-800 shrink-0">{rankLabel(s)}</span>
                 </div>
+              ))}
+            </div>
 
-                {/* Score */}
-                <span className={`font-mono text-xs font-bold shrink-0 ${i < 3 ? 'text-gray-900' : 'text-gray-500'}`}>
-                  {rankLabel(s)}
-                </span>
+            {/* Rest — compact */}
+            {rest.length > 0 && (
+              <div className="divide-y divide-gray-50">
+                {rest.map((s, i) => (
+                  <div key={s.team.id} className="flex items-center px-4 py-1.5 gap-2">
+                    <span className="w-5 text-center text-xs font-bold text-gray-400 shrink-0">{i + 4}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium text-gray-700 truncate">{s.team.name}</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-gray-500 shrink-0">{rankLabel(s)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -108,6 +125,7 @@ function PanelBlock({ cat, data }: { cat: keyof typeof CATEGORY_META; data: AnyS
 export default function DisplayPage() {
   const [standings, setStandings] = useState<Standings>({ a: [], b: [], c: [], d: [] })
   const [active, setActive] = useState<ActiveBundle[]>([])
+  const [nextUp, setNextUp] = useState<NextBundle[]>([])
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [fullscreen, setFullscreen] = useState(false)
 
@@ -119,29 +137,31 @@ export default function DisplayPage() {
       fetch('/api/standings/c').then(r => r.json()),
       fetch('/api/standings/d').then(r => r.json()),
       ...cats.flatMap(cat => [
-        fetch(`/api/judges/schedule?category=${cat}`).then(r => r.json()),
-        fetch(`/api/judges/${cat}/teams`).then(r => r.json()),
+        fetch(`/api/judges/schedule?category=${cat}`, { cache: 'no-store' }).then(r => r.json()),
+        fetch(`/api/judges/${cat}/teams`, { cache: 'no-store' }).then(r => r.json()),
       ]),
     ])
     setStandings({ a, b, c, d })
 
     const bundles: ActiveBundle[] = []
+    const nexts: NextBundle[] = []
     for (let i = 0; i < cats.length; i++) {
-      const sched: ScheduledMatch[] = Array.isArray(catData[i * 2]) ? catData[i * 2] : []
+      const sched: ScheduledMatch[] = (Array.isArray(catData[i * 2]) ? catData[i * 2] : [])
+        .sort((x: ScheduledMatch, y: ScheduledMatch) => x.match_id.localeCompare(y.match_id, undefined, { numeric: true }))
       const teams: Team[] = Array.isArray(catData[i * 2 + 1]) ? catData[i * 2 + 1] : []
       const name = (id: string | null) => id ? teams.find(t => t.id === id)?.name ?? '—' : null
       for (const m of sched) {
-        if (m.status === 'active') {
-          bundles.push({
-            category: cats[i],
-            match: m,
-            team1Name: name(m.team1_id) ?? '—',
-            team2Name: name(m.team2_id),
-          })
+        if (m.status === 'active' || m.status === 'waiting') {
+          bundles.push({ category: cats[i], match: m, team1Name: name(m.team1_id) ?? '—', team2Name: name(m.team2_id), status: m.status })
         }
+      }
+      const nextPending = sched.find(m => m.status === 'pending')
+      if (nextPending) {
+        nexts.push({ category: cats[i], match: nextPending, team1Name: name(nextPending.team1_id) ?? '—', team2Name: name(nextPending.team2_id) })
       }
     }
     setActive(bundles)
+    setNextUp(nexts)
     setLastUpdate(new Date().toLocaleTimeString())
   }, [])
 
@@ -206,32 +226,66 @@ export default function DisplayPage() {
         </div>
       </div>
 
-      {/* Active matches strip */}
+      {/* Active + Waiting strip */}
       {active.length > 0 && (
         <div className="px-4 py-3 bg-gray-900 border-b border-gray-800 shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-widest text-red-400">Live Now</span>
-            <span className="text-xs text-gray-500">· {active.length} match{active.length === 1 ? '' : 'es'} in progress</span>
+          <div className="flex items-center gap-4 mb-2">
+            {active.some(b => b.status === 'active') && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-widest text-red-400">Live Now</span>
+              </div>
+            )}
+            {active.some(b => b.status === 'waiting') && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-widest text-orange-400">Preparing</span>
+              </div>
+            )}
           </div>
           <div className={`grid gap-3 ${active.length >= 4 ? 'grid-cols-4' : active.length === 3 ? 'grid-cols-3' : active.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {active.map(b => {
               const meta = CATEGORY_META[b.category]
+              const isLive = b.status === 'active'
               return (
-                <div key={b.match.id} className={`${meta.color} rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg`}>
+                <div key={b.match.id} className={`${isLive ? meta.color : 'bg-gray-800 border border-orange-500/40'} rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg`}>
                   <span className="text-2xl">{meta.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-black text-white text-base">{b.match.match_id}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-white/70">{meta.label.split(' · ')[1]}</span>
+                      <span className={`text-[10px] uppercase tracking-wider ${isLive ? 'text-white/70' : 'text-gray-400'}`}>{meta.label.split(' · ')[1]}</span>
                     </div>
-                    <div className="text-white font-bold text-sm truncate mt-0.5">
+                    <div className={`font-bold text-sm truncate mt-0.5 ${isLive ? 'text-white' : 'text-gray-200'}`}>
                       {b.team1Name}
-                      {b.team2Name && <span className="text-white/60 mx-1.5 font-normal">vs</span>}
-                      {b.team2Name && <span>{b.team2Name}</span>}
+                      {b.team2Name && <span className={`mx-1.5 font-normal ${isLive ? 'text-white/60' : 'text-gray-500'}`}>vs</span>}
+                      {b.team2Name}
                     </div>
                   </div>
-                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">▶ LIVE</span>
+                  {isLive
+                    ? <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">▶ LIVE</span>
+                    : <span className="bg-orange-500/20 text-orange-300 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">⏳ WAIT</span>
+                  }
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Next Up strip */}
+      {nextUp.length > 0 && (
+        <div className="px-4 py-2.5 bg-gray-950 border-b border-gray-800 shrink-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 shrink-0">Next Up:</span>
+            {nextUp.map(b => {
+              const meta = CATEGORY_META[b.category]
+              return (
+                <div key={b.match.id} className="flex items-center gap-1.5 bg-gray-900 rounded-lg px-3 py-1.5">
+                  <span className="text-sm">{meta.icon}</span>
+                  <span className="font-mono text-xs font-black text-gray-300">{b.match.match_id}</span>
+                  <span className="text-gray-600 text-xs">·</span>
+                  <span className="text-xs text-gray-400 truncate max-w-32">{b.team1Name}</span>
+                  {b.team2Name && <><span className="text-gray-600 text-xs">vs</span><span className="text-xs text-gray-400 truncate max-w-32">{b.team2Name}</span></>}
                 </div>
               )
             })}

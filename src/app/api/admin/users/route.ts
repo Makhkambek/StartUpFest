@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-const MOCK_JUDGES = [
+const MOCK_USERS = [
   { id: 'mock-admin',    username: 'admin',    is_admin: true,  categories: ['a','b','c','d'] },
   { id: 'mock-judge-a1', username: 'judge_a1', is_admin: false, categories: ['a'] },
   { id: 'mock-judge-a2', username: 'judge_a2', is_admin: false, categories: ['a'] },
@@ -17,23 +17,21 @@ const MOCK_JUDGES = [
 ]
 
 async function requireAdmin() {
-  if (!hasSupabase) return { ok: true as const }
+  if (!hasSupabase) return { ok: true as const, uid: null as string | null }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, status: 401, error: 'Unauthorized' }
+  if (!user) return { ok: false as const, uid: null, status: 401, error: 'Unauthorized' }
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   const isAdmin = profile?.is_admin || user.user_metadata?.role === 'admin'
-  if (!isAdmin) return { ok: false as const, status: 403, error: 'Admin only' }
-  return { ok: true as const }
+  if (!isAdmin) return { ok: false as const, uid: null, status: 403, error: 'Admin only' }
+  return { ok: true as const, uid: user.id }
 }
 
 export async function GET() {
   const guard = await requireAdmin()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
 
-  if (!hasSupabase) {
-    return NextResponse.json(MOCK_JUDGES)
-  }
+  if (!hasSupabase) return NextResponse.json(MOCK_USERS)
 
   const admin = createAdminClient()
   const { data: profiles, error: pErr } = await admin
@@ -42,9 +40,7 @@ export async function GET() {
     .order('created_at')
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
 
-  const { data: cats, error: cErr } = await admin
-    .from('judge_categories')
-    .select('judge_id, category')
+  const { data: cats, error: cErr } = await admin.from('judge_categories').select('judge_id, category')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
   const catsByJudge = new Map<string, string[]>()
@@ -58,7 +54,7 @@ export async function GET() {
     id: p.id,
     username: p.username,
     is_admin: p.is_admin,
-    categories: p.is_admin ? ['a', 'b', 'c', 'd'] : (catsByJudge.get(p.id) ?? []),
+    categories: p.is_admin ? ['a','b','c','d'] : (catsByJudge.get(p.id) ?? []),
   }))
   return NextResponse.json(result)
 }
@@ -67,34 +63,31 @@ export async function POST(req: NextRequest) {
   const guard = await requireAdmin()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
 
-  const { username, password, categories } = await req.json()
-  if (!username || !password || !categories?.length) {
-    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-  }
+  const { username, password, categories, is_admin = false } = await req.json()
+  if (!username || !password) return NextResponse.json({ error: 'Missing username or password' }, { status: 400 })
+  if (!is_admin && !categories?.length) return NextResponse.json({ error: 'Select at least one category' }, { status: 400 })
   if (!/^[a-z0-9_]{3,20}$/.test(username)) {
     return NextResponse.json({ error: 'Username: 3-20 chars, letters/digits/underscore' }, { status: 400 })
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
-  }
+  if (password.length < 6) return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
 
-  if (!hasSupabase) {
-    return NextResponse.json({ error: 'Cannot create users in mock mode — configure Supabase first' }, { status: 400 })
-  }
+  if (!hasSupabase) return NextResponse.json({ error: 'Configure Supabase to create users' }, { status: 400 })
 
   const admin = createAdminClient()
-  const email = `${username}@sfrc.local`
-
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email, password, email_confirm: true,
+    email: `${username}@sfrc.local`,
+    password,
+    email_confirm: true,
   })
   if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 })
 
   const uid = created.user.id
-  await admin.from('profiles').insert({ id: uid, username, is_admin: false })
-  await admin.from('judge_categories').insert(
-    categories.map((cat: string) => ({ judge_id: uid, category: cat }))
-  )
+  await admin.from('profiles').insert({ id: uid, username, is_admin: !!is_admin })
+  if (!is_admin && categories?.length) {
+    await admin.from('judge_categories').insert(
+      (categories as string[]).map(cat => ({ judge_id: uid, category: cat }))
+    )
+  }
 
   return NextResponse.json({ ok: true, username })
 }
@@ -103,17 +96,41 @@ export async function PATCH(req: NextRequest) {
   const guard = await requireAdmin()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
 
-  const { userId, password } = await req.json()
-  if (!userId || !password) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-  if (password.length < 6) return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
-
-  if (!hasSupabase) {
-    return NextResponse.json({ error: 'Cannot reset password in mock mode' }, { status: 400 })
+  const body = await req.json()
+  const { userId, password, is_admin, categories } = body as {
+    userId: string
+    password?: string
+    is_admin?: boolean
+    categories?: string[]
   }
+  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+
+  if (!hasSupabase) return NextResponse.json({ error: 'Configure Supabase to update users' }, { status: 400 })
 
   const admin = createAdminClient()
-  const { error } = await admin.auth.admin.updateUserById(userId, { password })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  if (typeof password === 'string') {
+    if (password.length < 6) return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
+    const { error } = await admin.auth.admin.updateUserById(userId, { password })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  if (typeof is_admin === 'boolean') {
+    const { error } = await admin.from('profiles').update({ is_admin }).eq('id', userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  if (Array.isArray(categories)) {
+    await admin.from('judge_categories').delete().eq('judge_id', userId)
+    const finalCats = (typeof is_admin === 'boolean' ? is_admin : false)
+      ? []
+      : categories
+    if (finalCats.length > 0) {
+      await admin.from('judge_categories').insert(
+        finalCats.map((cat: string) => ({ judge_id: userId, category: cat }))
+      )
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }
@@ -125,8 +142,10 @@ export async function DELETE(req: NextRequest) {
   const { userId } = await req.json()
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
 
-  if (!hasSupabase) {
-    return NextResponse.json({ error: 'Cannot delete in mock mode' }, { status: 400 })
+  if (!hasSupabase) return NextResponse.json({ error: 'Configure Supabase to delete users' }, { status: 400 })
+
+  if (guard.uid && guard.uid === userId) {
+    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
   }
 
   const admin = createAdminClient()

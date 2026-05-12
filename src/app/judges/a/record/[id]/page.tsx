@@ -142,14 +142,14 @@ export default function RecordAPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-4 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-3 sm:px-6 gap-4 sticky top-0 z-10">
         <button onClick={() => router.push('/judges/a')} className="text-sm text-gray-400 hover:text-gray-700">← Back</button>
         <span className="font-black text-sm text-gray-900">🏎️ Line Follower</span>
         <span className="font-black font-mono text-xl text-gray-900 ml-1">{match.match_id}</span>
         {isEdit && <span className="text-xs text-white bg-amber-600 px-2.5 py-0.5 rounded-full font-bold animate-pulse">✏️ EDITING — Result already saved</span>}
       </header>
 
-      <div className="p-6 max-w-lg mx-auto space-y-4">
+      <div className="p-3 sm:p-6 max-w-lg mx-auto space-y-4">
         {isEdit && (
           <div className="bg-amber-100 border-2 border-amber-300 rounded-xl px-4 py-3">
             <div className="text-sm font-bold text-amber-900">This match already has a saved result.</div>
@@ -217,13 +217,13 @@ export default function RecordAPage() {
           </div>
 
           {/* Runs */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Run 1 (s)</label>
               <input type="number" step="0.01" value={run1} onChange={e => { setRun1(e.target.value); setPen1(0) }}
                 placeholder="12.34"
-                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-xl font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
-              <div className="flex gap-1.5 mt-2">
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 <button type="button" onClick={() => addPenalty(1, 20)}
                   className="flex-1 py-2 rounded-md text-xs font-bold border border-gray-200 text-gray-700 hover:bg-amber-50 hover:border-amber-300 active:bg-amber-100">
                   +20s
@@ -245,8 +245,8 @@ export default function RecordAPage() {
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Run 2 (s)</label>
               <input type="number" step="0.01" value={run2} onChange={e => { setRun2(e.target.value); setPen2(0) }}
                 placeholder="11.80"
-                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-xl font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
-              <div className="flex gap-1.5 mt-2">
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 <button type="button" onClick={() => addPenalty(2, 20)}
                   className="flex-1 py-2 rounded-md text-xs font-bold border border-gray-200 text-gray-700 hover:bg-amber-50 hover:border-amber-300 active:bg-amber-100">
                   +20s
@@ -273,7 +273,7 @@ export default function RecordAPage() {
             </label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
               placeholder="Restart, sensor miss, course fault…"
-              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
           </div>
 
           {/* Save / Undo */}
@@ -297,7 +297,7 @@ export default function RecordAPage() {
           ) : (
             <div className="flex items-center gap-3 pt-1">
               <button onClick={save} disabled={saving}
-                className="flex-1 bg-gray-900 text-white py-3.5 rounded-xl text-base font-black disabled:opacity-40 hover:bg-gray-700 transition-colors">
+                className="flex-1 bg-gray-900 text-white py-3.5 min-h-[48px] rounded-xl text-base font-black disabled:opacity-40 hover:bg-gray-700 transition-colors">
                 {saving ? 'Saving…' : isEdit ? 'Update Result' : 'Save Result'}
               </button>
               {saveMsg && <span className={`text-sm font-bold ${saveMsg === 'Saved!' || saveMsg === 'Undone' ? 'text-green-600' : 'text-red-500'}`}>{saveMsg}</span>}

@@ -64,7 +64,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="px-8 py-8 max-w-4xl">
+      <div className="px-4 sm:px-8 py-4 sm:py-8 max-w-4xl">
         <div className="mb-6">
           <h1 className="text-xl font-black text-gray-900">
             {categories.length === 1
@@ -78,10 +78,10 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
           {categories.map(cat => (
             <a key={cat.id} href={`/judges/${cat.id}`}
-              className={`bg-white rounded-xl border-l-4 ${cat.color} border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all group flex flex-col gap-3`}>
+              className={`bg-white rounded-xl border-l-4 ${cat.color} border border-gray-100 shadow-sm p-5 min-h-[80px] hover:shadow-md transition-all group flex flex-col gap-3`}>
               <div className="flex items-start justify-between">
                 <span className="text-3xl">{cat.icon}</span>
                 <span className="text-[10px] font-bold text-gray-300 group-hover:text-gray-400 transition-colors">CAT {cat.id.toUpperCase()}</span>
