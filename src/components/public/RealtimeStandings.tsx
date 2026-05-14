@@ -41,22 +41,26 @@ export default function RealtimeStandings(props: Standings) {
   useEffect(() => {
     if (!hasSupabase) return
 
-    let channel: ReturnType<import('@supabase/supabase-js').SupabaseClient['channel']>
+    let cancelled = false
+    let channel: ReturnType<import('@supabase/supabase-js').SupabaseClient['channel']> | undefined
+    let supabaseRef: import('@supabase/supabase-js').SupabaseClient | undefined
 
     async function subscribe() {
       const { createBrowserClient } = await import('@supabase/ssr')
+      if (cancelled) return
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
+      supabaseRef = supabase
 
-      channel = supabase.channel(`standings-${props.category}`)
+      channel = supabase.channel(`standings-${props.category}-${Date.now()}`)
 
       for (const table of WATCHED[props.category]) {
         channel.on(
           'postgres_changes' as never,
           { event: '*', schema: 'public', table },
-          () => { refetch() },
+          () => { if (!cancelled) refetch() },
         )
       }
 
@@ -64,7 +68,10 @@ export default function RealtimeStandings(props: Standings) {
     }
 
     subscribe()
-    return () => { channel?.unsubscribe() }
+    return () => {
+      cancelled = true
+      if (channel && supabaseRef) supabaseRef.removeChannel(channel)
+    }
   }, [props.category, refetch])
 
   const table = () => {
