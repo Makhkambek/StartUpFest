@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ResultA } from '@/types/database'
+import { getSession } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -16,6 +17,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session.categories.includes('a')) return NextResponse.json({ error: 'Not assigned to category A' }, { status: 403 })
+
   const body = await req.json() as {
     scheduled_match_id: string
     team_id: string
@@ -28,6 +33,7 @@ export async function POST(req: NextRequest) {
 
   if (!body.scheduled_match_id) return NextResponse.json({ error: 'scheduled_match_id required' }, { status: 400 })
   if (!body.team_id) return NextResponse.json({ error: 'team_id required' }, { status: 400 })
+  if (body.notes && body.notes.length > 500) return NextResponse.json({ error: 'Notes max 500 chars' }, { status: 400 })
 
   const penaltySec = body.penalty === '20' ? 20 : body.penalty === '40' ? 40 : 0
   const runs = [body.run1, body.run2].filter((v): v is number => v !== null)

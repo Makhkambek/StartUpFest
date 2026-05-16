@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import type { Team, ResultA } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
@@ -128,12 +129,14 @@ export default function RecordAPage() {
     setSaving(false)
     if (res.ok) {
       setSaveMsg('Saved!')
+      toast.success('Result saved')
       setSavedJustNow(true)
       setUndoCountdown(30)
       void updateMatchStatus('completed')
     } else {
       const e = await res.json()
       setSaveMsg(e.error ?? 'Error')
+      toast.error(e.error ?? 'Failed to save')
     }
   }
 

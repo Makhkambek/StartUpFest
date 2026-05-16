@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { MatchD } from '@/types/database'
+import { getSession } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -16,6 +17,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session.categories.includes('d')) return NextResponse.json({ error: 'Not assigned to category D' }, { status: 403 })
+
   const body = await req.json() as {
     team1_id: string; team2_id: string
     goals1: number; goals2: number
@@ -25,6 +30,7 @@ export async function POST(req: NextRequest) {
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })
+  if (body.notes && body.notes.length > 500) return NextResponse.json({ error: 'Notes max 500 chars' }, { status: 400 })
 
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')

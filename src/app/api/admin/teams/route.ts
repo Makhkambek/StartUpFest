@@ -3,18 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 async function requireAdmin() {
-  if (!hasSupabase) return { ok: true as const }
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, status: 401, error: 'Unauthorized' }
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  const isAdmin = profile?.is_admin || user.user_metadata?.role === 'admin'
-  if (!isAdmin) return { ok: false as const, status: 403, error: 'Admin only' }
+  const { getSession } = await import('@/lib/session')
+  const session = await getSession()
+  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' }
+  if (session.role !== 'admin') return { ok: false as const, status: 403, error: 'Admin only' }
   return { ok: true as const }
 }
 
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin()
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+
   const category = req.nextUrl.searchParams.get('category')
 
   if (hasSupabase) {

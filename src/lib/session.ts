@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { createHmac, timingSafeEqual } from 'crypto'
 
 export interface SessionUser {
   username: string
@@ -7,6 +8,31 @@ export interface SessionUser {
 }
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+const SESSION_SECRET = process.env.SESSION_SECRET ?? 'sfrc-dev-secret-change-in-production'
+
+export function signSession(payload: object): string {
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const sig = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url')
+  return `${data}.${sig}`
+}
+
+export function verifySession(token: string): Record<string, unknown> | null {
+  const dot = token.lastIndexOf('.')
+  if (dot === -1) return null
+  const data = token.slice(0, dot)
+  const sig = token.slice(dot + 1)
+  const expected = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url')
+  try {
+    if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
+  } catch {
+    return null
+  }
+  try {
+    return JSON.parse(Buffer.from(data, 'base64url').toString())
+  } catch {
+    return null
+  }
+}
 
 export async function getSession(): Promise<SessionUser | null> {
   if (hasSupabase) {
@@ -33,21 +59,15 @@ export async function getSession(): Promise<SessionUser | null> {
       return { username: profile.username, role, categories }
     }
 
-    // profiles table not set up — fall back to user_metadata set by seed-auth-users.ts
-    const meta = user.user_metadata as { username?: string; role?: string; categories?: string[] } | null
-    const role = (meta?.role ?? 'judge') as 'admin' | 'judge'
-    const categories = role === 'admin' ? ['a', 'b', 'c', 'd'] : (meta?.categories ?? [])
-    return { username: meta?.username ?? user.email ?? '', role, categories }
+    return null
   }
 
   const cookieStore = await cookies()
   const raw = cookieStore.get('sfrc-mock-session')?.value
   if (!raw) return null
-  try {
-    const session = JSON.parse(raw) as { username: string; role: string; categories: string[]; exp: number }
-    if (Date.now() > session.exp) return null
-    return { username: session.username, role: session.role as SessionUser['role'], categories: session.categories }
-  } catch {
-    return null
-  }
+  const payload = verifySession(raw)
+  if (!payload) return null
+  const { username, role, categories, exp } = payload as { username: string; role: string; categories: string[]; exp: number }
+  if (!exp || Date.now() > exp) return null
+  return { username, role: role as SessionUser['role'], categories }
 }

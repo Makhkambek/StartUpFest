@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { Category, Team, ResultA, MatchB, FightC, MatchD } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
+import { SkeletonTableRow } from '@/components/ui/Skeleton'
 
 interface Props {
   category: Category
@@ -23,6 +24,7 @@ const hasSupabase = !!(
 export default function PublicMatchesList({ category }: Props) {
   const [rows, setRows] = useState<MatchRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   const refetch = useCallback(async () => {
     const [scheduleRaw, teamsRaw, resultsRaw] = await Promise.all([
@@ -126,26 +128,82 @@ export default function PublicMatchesList({ category }: Props) {
   }, [category, refetch])
 
   if (loading) {
-    return <div className="text-sm text-gray-400 py-10 text-center">Loading matches…</div>
+    return (
+      <div className="px-1 sm:px-2">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
+            <thead>
+              <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
+                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
+                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Status</th>
+                <th className="text-left px-3 sm:px-4 py-2">Teams</th>
+                <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
   }
   if (rows.length === 0) {
     return <div className="text-sm text-gray-400 py-10 text-center">No matches scheduled yet.</div>
   }
 
+  const q = query.trim().toLowerCase()
+  // Whole-word match: "bla" matches "bla bla" but not "blaaa".
+  // Boundary = string start/end OR any non-alphanumeric char (incl. spaces, punctuation, Cyrillic OK via \p{L}).
+  const wordRe = q ? new RegExp(`(^|[^\\p{L}\\p{N}])${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'iu') : null
+  const matches = (r: MatchRow) =>
+    !!wordRe && (
+      wordRe.test(r.team1) ||
+      wordRe.test(r.team2 ?? '') ||
+      wordRe.test(r.match.match_id)
+    )
+
   const qualMatches = rows.filter(r => r.match.phase !== 'finals')
   const finalMatches = rows.filter(r => r.match.phase === 'finals')
+  const totalHits = q.length > 0 ? rows.filter(matches).length : 0
 
   return (
     <div className="px-1 sm:px-2">
+      <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3">
+        <div className="text-xs text-gray-400">
+          {q.length > 0 && (
+            <span className="font-semibold text-gray-600">
+              {totalHits} match{totalHits === 1 ? '' : 'es'} found
+            </span>
+          )}
+        </div>
+        <div className="relative w-full max-w-[260px] sm:max-w-xs">
+          <input
+            type="search"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search team or match…"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+          <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z" />
+          </svg>
+          {query && (
+            <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-600 text-sm">
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
       {finalMatches.length > 0 && (
-        <MatchSection title="Playoffs" rows={finalMatches} highlight />
+        <MatchSection title="Playoffs" rows={finalMatches} highlight matchFn={matches} />
       )}
-      <MatchSection title="Qualification Matches" rows={qualMatches} />
+      <MatchSection title="Qualification Matches" rows={qualMatches} matchFn={matches} />
     </div>
   )
 }
 
-function MatchSection({ title, rows, highlight = false }: { title: string; rows: MatchRow[]; highlight?: boolean }) {
+function MatchSection({ title, rows, highlight = false, matchFn }: { title: string; rows: MatchRow[]; highlight?: boolean; matchFn?: (r: MatchRow) => boolean }) {
   return (
     <div className="mb-6">
       <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
@@ -162,8 +220,10 @@ function MatchSection({ title, rows, highlight = false }: { title: string; rows:
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {rows.map(r => (
-            <tr key={r.match.id} className={`${r.status === 'active' ? 'bg-blue-50' : ''}`}>
+          {rows.map(r => {
+            const isMatch = matchFn?.(r) ?? false
+            return (
+            <tr key={r.match.id} className={`${isMatch ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : r.status === 'active' ? 'bg-blue-50' : ''}`}>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5 font-mono font-black text-gray-900 text-xs sm:text-sm">{r.match.match_id}</td>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5">
                 {r.status === 'completed' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-green-100 text-green-700">DONE</span>}
@@ -189,7 +249,8 @@ function MatchSection({ title, rows, highlight = false }: { title: string; rows:
                 )}
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
       </div>

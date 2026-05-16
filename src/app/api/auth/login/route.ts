@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// In-memory rate limiter: max 10 attempts per 15 minutes per IP
+const WINDOW_MS = 15 * 60 * 1000
+const MAX_ATTEMPTS = 10
+const attempts = new Map<string, { count: number; windowStart: number }>()
+
+function getIp(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+}
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = attempts.get(ip)
+  if (!entry || now - entry.windowStart > WINDOW_MS) {
+    attempts.set(ip, { count: 1, windowStart: now })
+    return true
+  }
+  if (entry.count >= MAX_ATTEMPTS) return false
+  entry.count++
+  return true
+}
+
 // Mock credentials for dev (no Supabase)
 const MOCK_USERS: Record<string, { password: string; role: string; categories: string[] }> = {
   admin:     { password: 'admin1',          role: 'admin', categories: ['a','b','c','d'] },
@@ -16,6 +37,11 @@ const MOCK_USERS: Record<string, { password: string; role: string; categories: s
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 export async function POST(req: NextRequest) {
+  const ip = getIp(req)
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+  }
+
   const { username, password } = await req.json()
 
   // ── Supabase mode ──────────────────────────────────────
@@ -35,10 +61,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
   }
 
-  const session = { username: username.toLowerCase(), role: user.role, categories: user.categories, exp: Date.now() + 2 * 60 * 60 * 1000 }
+  const { signSession } = await import('@/lib/session')
+  const payload = { username: username.toLowerCase(), role: user.role, categories: user.categories, exp: Date.now() + 2 * 60 * 60 * 1000 }
+  const token = signSession(payload)
   const res = NextResponse.json({ ok: true, role: user.role })
-  res.cookies.set('sfrc-mock-session', JSON.stringify(session), {
-    httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 2,
+  res.cookies.set('sfrc-mock-session', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 2,
   })
   return res
 }

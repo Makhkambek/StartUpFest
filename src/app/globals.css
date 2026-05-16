@@ -1,12 +1,28 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode (only applied when <html class="dark"> is set by next-themes) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 *, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 
 body {
   background: #f3f4f6;
   color: #111827;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
+}
+
+.dark body {
+  background: #0a0a0b;
+  color: #e5e7eb;
 }
 
 /* Judge form utilities */

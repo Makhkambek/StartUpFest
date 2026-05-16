@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getSession } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -17,14 +18,15 @@ const MOCK_USERS = [
 ]
 
 async function requireAdmin() {
-  if (!hasSupabase) return { ok: true as const, uid: null as string | null }
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false as const, uid: null, status: 401, error: 'Unauthorized' }
-  const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-  const isAdmin = profile?.is_admin || user.user_metadata?.role === 'admin'
-  if (!isAdmin) return { ok: false as const, uid: null, status: 403, error: 'Admin only' }
-  return { ok: true as const, uid: user.id }
+  const session = await getSession()
+  if (!session) return { ok: false as const, uid: null as string | null, status: 401, error: 'Unauthorized' }
+  if (session.role !== 'admin') return { ok: false as const, uid: null, status: 403, error: 'Admin only' }
+  if (hasSupabase) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    return { ok: true as const, uid: user?.id ?? null }
+  }
+  return { ok: true as const, uid: null as string | null }
 }
 
 export async function GET() {

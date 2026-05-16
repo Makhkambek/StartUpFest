@@ -1,5 +1,6 @@
 'use client'
 import { Fragment, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface Judge {
   id: string
@@ -32,7 +33,6 @@ export default function UsersPage() {
   const [editIsAdmin, setEditIsAdmin] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   async function load() {
     setLoadingList(true)
@@ -80,9 +80,9 @@ export default function UsersPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!username || !password) { setMsg({ ok: false, text: 'Fill username and password' }); return }
-    if (!isAdmin && !cats.length) { setMsg({ ok: false, text: 'Select at least one category' }); return }
-    setCreating(true); setMsg(null)
+    if (!username || !password) { toast.error('Fill username and password'); return }
+    if (!isAdmin && !cats.length) { toast.error('Select at least one category'); return }
+    setCreating(true)
     const res = await fetch('/api/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,11 +91,11 @@ export default function UsersPage() {
     const data = await res.json()
     setCreating(false)
     if (res.ok) {
-      setMsg({ ok: true, text: `${isAdmin ? 'Admin' : 'Judge'} "${username}" created` })
+      toast.success(`${isAdmin ? 'Admin' : 'Judge'} "${username}" created`)
       setUsername(''); setPassword(''); setCats([]); setIsAdmin(false)
       await load()
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed' })
+      toast.error(data.error ?? 'Failed to create user')
     }
   }
 
@@ -108,16 +108,16 @@ export default function UsersPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      setMsg({ ok: true, text: `Deleted "${name}"` })
+      toast.success(`Deleted "${name}"`)
       setEditing(null); setResetting(null)
       await load()
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed to delete' })
+      toast.error(data.error ?? 'Failed to delete')
     }
   }
 
   async function handleResetPassword(id: string, name: string) {
-    if (!newPassword || newPassword.length < 6) { setMsg({ ok: false, text: 'Password min 6 chars' }); return }
+    if (!newPassword || newPassword.length < 6) { toast.error('Password min 6 chars'); return }
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -125,15 +125,15 @@ export default function UsersPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      setMsg({ ok: true, text: `Password reset for "${name}"` })
+      toast.success(`Password reset for "${name}"`)
       setResetting(null); setNewPassword('')
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed' })
+      toast.error(data.error ?? 'Failed to reset password')
     }
   }
 
   async function handleSaveEdit(j: Judge) {
-    setSaving(true); setMsg(null)
+    setSaving(true)
     const finalCats = editIsAdmin ? [] : editCats
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
@@ -143,11 +143,11 @@ export default function UsersPage() {
     const data = await res.json()
     setSaving(false)
     if (res.ok) {
-      setMsg({ ok: true, text: `Updated "${j.username}"` })
+      toast.success(`Updated "${j.username}"`)
       setEditing(null)
       await load()
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed to update' })
+      toast.error(data.error ?? 'Failed to update')
     }
   }
 
@@ -165,12 +165,6 @@ export default function UsersPage() {
       <div className="px-4 sm:px-10 py-6 sm:py-10 max-w-5xl">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Users & Permissions</h1>
         <p className="text-sm text-gray-500 mb-6 sm:mb-8">Create judge and admin accounts, assign categories and roles.</p>
-
-        {msg && (
-          <div className={`mb-4 text-xs px-4 py-2.5 rounded-lg ${msg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-            {msg.text}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -250,7 +244,16 @@ export default function UsersPage() {
               </div>
 
               {loadingList ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">Loading…</div>
+                <div className="divide-y divide-gray-50">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
+                      <div className="h-3 w-24 bg-gray-200 rounded" />
+                      <div className="h-3 w-16 bg-gray-200 rounded" />
+                      <div className="flex-1" />
+                      <div className="h-7 w-20 bg-gray-200 rounded" />
+                    </div>
+                  ))}
+                </div>
               ) : judges.length === 0 ? (
                 <div className="px-5 py-12 text-center text-sm text-gray-400">No users yet.</div>
               ) : (
@@ -379,7 +382,7 @@ export default function UsersPage() {
                                 <td colSpan={4} className="px-4 py-3">
                                   <div className="flex gap-2 items-center flex-wrap">
                                     <span className="text-xs font-semibold text-gray-700 shrink-0">New PW for @{j.username}:</span>
-                                    <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
                                       placeholder="Min 6 chars"
                                       className="text-base flex-1 min-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-amber-500" />
                                     <button onClick={() => handleResetPassword(j.id, j.username)}

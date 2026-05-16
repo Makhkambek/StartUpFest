@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import type { Team } from '@/types/database'
 
 type Cat = 'a' | 'b' | 'c' | 'd'
@@ -17,7 +18,6 @@ export default function TeamsAdminPage() {
   const [name, setName] = useState('')
   const [school, setSchool] = useState('')
   const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkText, setBulkText] = useState('')
 
@@ -30,8 +30,8 @@ export default function TeamsAdminPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setMsg({ ok: false, text: 'Team name required' }); return }
-    setLoading(true); setMsg(null)
+    if (!name.trim()) { toast.error('Team name required'); return }
+    setLoading(true)
     const res = await fetch('/api/admin/teams', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,11 +40,11 @@ export default function TeamsAdminPage() {
     const data = await res.json()
     setLoading(false)
     if (res.ok) {
-      setMsg({ ok: true, text: `"${name}" added to ${CAT_LABELS[activeCat]}` })
+      toast.success(`"${name}" added to ${CAT_LABELS[activeCat]}`)
       setName(''); setSchool('')
       await load()
     } else {
-      setMsg({ ok: false, text: data.error ?? 'Failed' })
+      toast.error(data.error ?? 'Failed to add team')
     }
   }
 
@@ -55,17 +55,19 @@ export default function TeamsAdminPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
-    if (res.ok) await load()
-    else {
+    if (res.ok) {
+      toast.success(`Deleted "${teamName}"`)
+      await load()
+    } else {
       const d = await res.json()
-      setMsg({ ok: false, text: d.error ?? 'Failed to delete' })
+      toast.error(d.error ?? 'Failed to delete')
     }
   }
 
   async function handleBulkImport() {
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean)
     if (!lines.length) return
-    setLoading(true); setMsg(null)
+    setLoading(true)
     let added = 0, failed = 0
     for (const line of lines) {
       const [teamName, schoolName] = line.split(',').map(s => s?.trim() ?? '')
@@ -78,7 +80,8 @@ export default function TeamsAdminPage() {
       if (res.ok) added++; else failed++
     }
     setLoading(false)
-    setMsg({ ok: failed === 0, text: `Imported ${added} teams${failed ? `, ${failed} failed` : ''}` })
+    if (failed === 0) toast.success(`Imported ${added} teams`)
+    else toast.warning(`Imported ${added} teams, ${failed} failed`)
     setBulkText(''); setBulkOpen(false)
     await load()
   }
@@ -136,11 +139,6 @@ export default function TeamsAdminPage() {
                     placeholder="Optional"
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
                 </div>
-                {msg && (
-                  <div className={`text-xs px-3 py-2 rounded ${msg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                    {msg.text}
-                  </div>
-                )}
                 <button type="submit" disabled={loading}
                   className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-md hover:bg-gray-800 disabled:opacity-50">
                   {loading ? 'Adding...' : 'Add Team'}
