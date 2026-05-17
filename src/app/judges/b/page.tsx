@@ -70,6 +70,15 @@ export default function JudgeBPage() {
     await load(); setGenFinals(false)
   }
 
+  const [advancing, setAdvancing] = useState(false)
+  const handleAdvance = async () => {
+    if (!confirm('Generate the NEXT finals round from winners of completed matches? You can edit/delete the generated matches afterwards.')) return
+    setAdvancing(true); setGenFinalsErr('')
+    const res = await fetch('/api/judges/schedule/advance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
+    if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setAdvancing(false); return }
+    await load(); setAdvancing(false)
+  }
+
   const resultFor = (m: ScheduledMatch) =>
     matches.find(r =>
       (r.team1_id === m.team1_id && r.team2_id === m.team2_id) ||
@@ -196,10 +205,15 @@ export default function JudgeBPage() {
                 </div>
                 <p className="text-[11px] text-amber-700 mt-1">Auto-picks Top 2 per group → Round 1 single-elimination bracket.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals}
+                  <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing}
                     title={!isAdmin ? 'Admin only' : ''}
                     className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                     {genFinals ? 'Generating…' : 'Generate Finals'}
+                  </button>
+                  <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
+                    title={!isAdmin ? 'Admin only' : 'Generate next round from completed matches. You can edit/delete the generated matches.'}
+                    className="bg-white border border-amber-600 text-amber-700 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 transition-colors">
+                    {advancing ? 'Advancing…' : '→ Next Round'}
                   </button>
                 </div>
                 {genFinalsErr && <p className="text-xs text-red-500 mt-2">{genFinalsErr}</p>}
