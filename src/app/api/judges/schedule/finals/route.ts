@@ -106,12 +106,37 @@ export async function POST(req: NextRequest) {
   const guard = await requireAdmin()
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
 
-  const { category } = await req.json() as { category: Category }
+  const body = await req.json() as { category: Category; confirm?: boolean }
+  const { category } = body
   if (!category || !['a', 'b', 'c', 'd'].includes(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
   if (category === 'c') {
     return NextResponse.json({ error: 'Cat C has no finals bracket — uses cumulative standings only' }, { status: 400 })
+  }
+
+  // Bug #20 fix: finals generation deletes any existing finals bracket. Force
+  // the caller to confirm if rows already exist, so an accidental click can't
+  // wipe hours of bracket setup.
+  let existingFinalsCount = 0
+  if (hasSupabase) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { count } = await supabase
+      .from('scheduled_matches')
+      .select('id', { count: 'exact', head: true })
+      .eq('category', category)
+      .eq('phase', 'finals')
+    existingFinalsCount = count ?? 0
+  } else {
+    const { getSchedule } = await import('@/lib/schedule-store')
+    existingFinalsCount = getSchedule(category).filter(m => m.phase === 'finals').length
+  }
+  if (existingFinalsCount > 0 && !body.confirm) {
+    return NextResponse.json({
+      error: `Finals bracket for ${category.toUpperCase()} already exists (${existingFinalsCount} matches). Pass { confirm: true } to replace.`,
+      existingFinalsCount,
+    }, { status: 409 })
   }
 
   // Compute plan

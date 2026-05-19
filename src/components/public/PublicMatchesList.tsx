@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import type { Category, Team, ResultA, MatchB, FightC, MatchD } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import { SkeletonTableRow } from '@/components/ui/Skeleton'
@@ -22,6 +23,7 @@ const hasSupabase = !!(
 )
 
 export default function PublicMatchesList({ category }: Props) {
+  const t = useTranslations('matchesList')
   const [rows, setRows] = useState<MatchRow[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -43,6 +45,19 @@ export default function PublicMatchesList({ category }: Props) {
       let result: string | null = null
       let winnerSide: 1 | 2 | 0 | null = null
 
+      // Prefer scheduled_match_id match (correct, post-migration 014).
+      // Only fall back to team-pair match if scheduled match status === 'completed' AND
+      // no row has scheduled_match_id set — avoids old test fixtures sticking to new schedules.
+      const matchByScheduled = <T extends { scheduled_match_id?: string | null }>(arr: T[]): T | undefined =>
+        arr.find((x) => x.scheduled_match_id === m.id)
+      const matchByPair = <T extends { team1_id: string; team2_id: string }>(arr: T[]): T | undefined => {
+        if (m.status !== 'completed') return undefined
+        return arr.find((x) =>
+          (x.team1_id === m.team1_id && x.team2_id === m.team2_id) ||
+          (x.team1_id === m.team2_id && x.team2_id === m.team1_id),
+        )
+      }
+
       if (category === 'a') {
         const r = (results as ResultA[]).find(x => x.scheduled_match_id === m.id)
         if (r) {
@@ -51,28 +66,22 @@ export default function PublicMatchesList({ category }: Props) {
           else result = r.total !== null ? `${r.total.toFixed(2)}s` : '—'
         }
       } else if (category === 'b') {
-        const r = (results as MatchB[]).find(x =>
-          (x.team1_id === m.team1_id && x.team2_id === m.team2_id) ||
-          (x.team1_id === m.team2_id && x.team2_id === m.team1_id)
-        )
+        const all = results as MatchB[]
+        const r = matchByScheduled(all) ?? matchByPair(all)
         if (r) {
           result = `${r.rounds1} : ${r.rounds2}`
           winnerSide = r.winner
         }
       } else if (category === 'c') {
-        const r = (results as FightC[]).find(x =>
-          (x.team1_id === m.team1_id && x.team2_id === m.team2_id) ||
-          (x.team1_id === m.team2_id && x.team2_id === m.team1_id)
-        )
+        const all = results as FightC[]
+        const r = matchByScheduled(all) ?? matchByPair(all)
         if (r) {
           result = r.method
           winnerSide = r.winner
         }
       } else {
-        const r = (results as MatchD[]).find(x =>
-          (x.team1_id === m.team1_id && x.team2_id === m.team2_id) ||
-          (x.team1_id === m.team2_id && x.team2_id === m.team1_id)
-        )
+        const all = results as MatchD[]
+        const r = matchByScheduled(all) ?? matchByPair(all)
         if (r) {
           result = `${r.goals1} : ${r.goals2}`
           winnerSide = r.goals1 > r.goals2 ? 1 : r.goals2 > r.goals1 ? 2 : 0
@@ -134,10 +143,10 @@ export default function PublicMatchesList({ category }: Props) {
           <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
-                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Status</th>
-                <th className="text-left px-3 sm:px-4 py-2">Teams</th>
-                <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">Result</th>
+                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">{t('colMatch')}</th>
+                <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">{t('colStatus')}</th>
+                <th className="text-left px-3 sm:px-4 py-2">{t('colTeams')}</th>
+                <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">{t('colResult')}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,7 +158,7 @@ export default function PublicMatchesList({ category }: Props) {
     )
   }
   if (rows.length === 0) {
-    return <div className="text-sm text-gray-400 py-10 text-center">No matches scheduled yet.</div>
+    return <div className="text-sm text-gray-400 py-10 text-center">{t('empty')}</div>
   }
 
   const q = query.trim().toLowerCase()
@@ -173,7 +182,7 @@ export default function PublicMatchesList({ category }: Props) {
         <div className="text-xs text-gray-400">
           {q.length > 0 && (
             <span className="font-semibold text-gray-600">
-              {totalHits} match{totalHits === 1 ? '' : 'es'} found
+              {t('found', { n: totalHits })}
             </span>
           )}
         </div>
@@ -182,7 +191,7 @@ export default function PublicMatchesList({ category }: Props) {
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search team or match…"
+            placeholder={t('search')}
             className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,14 +205,15 @@ export default function PublicMatchesList({ category }: Props) {
         </div>
       </div>
       {finalMatches.length > 0 && (
-        <MatchSection title="Playoffs" rows={finalMatches} highlight matchFn={matches} />
+        <MatchSection title={t('sectionPlayoffs')} rows={finalMatches} highlight matchFn={matches} />
       )}
-      <MatchSection title="Qualification Matches" rows={qualMatches} matchFn={matches} />
+      <MatchSection title={t('sectionQualification')} rows={qualMatches} matchFn={matches} />
     </div>
   )
 }
 
 function MatchSection({ title, rows, highlight = false, matchFn }: { title: string; rows: MatchRow[]; highlight?: boolean; matchFn?: (r: MatchRow) => boolean }) {
+  const t = useTranslations('matchesList')
   return (
     <div className="mb-6">
       <div className={`px-4 py-2 text-xs font-black uppercase tracking-widest ${highlight ? 'text-amber-700 bg-amber-50 border-y border-amber-200' : 'text-gray-500 bg-gray-50 border-y border-gray-200'}`}>
@@ -213,10 +223,10 @@ function MatchSection({ title, rows, highlight = false, matchFn }: { title: stri
       <table className="w-full min-w-[420px] text-sm">
         <thead>
           <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Match</th>
-            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">Status</th>
-            <th className="text-left px-3 sm:px-4 py-2">Teams</th>
-            <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">Result</th>
+            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">{t('colMatch')}</th>
+            <th className="text-left px-3 sm:px-4 py-2 w-20 sm:w-24">{t('colStatus')}</th>
+            <th className="text-left px-3 sm:px-4 py-2">{t('colTeams')}</th>
+            <th className="text-right px-3 sm:px-4 py-2 w-24 sm:w-32">{t('colResult')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -226,20 +236,20 @@ function MatchSection({ title, rows, highlight = false, matchFn }: { title: stri
             <tr key={r.match.id} className={`${isMatch ? 'bg-yellow-100 ring-2 ring-yellow-300 ring-inset' : r.status === 'active' ? 'bg-blue-50' : ''}`}>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5 font-mono font-black text-gray-900 text-xs sm:text-sm">{r.match.match_id}</td>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5">
-                {r.status === 'completed' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-green-100 text-green-700">DONE</span>}
-                {r.status === 'active' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">▶ LIVE</span>}
-                {r.status === 'waiting' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">⏳ WAIT</span>}
-                {r.status === 'pending' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>}
+                {r.status === 'completed' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-green-100 text-green-700">{t('statusDone')}</span>}
+                {r.status === 'active' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">{t('statusLive')}</span>}
+                {r.status === 'waiting' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 animate-pulse">{t('statusWait')}</span>}
+                {r.status === 'pending' && <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{t('statusPending')}</span>}
               </td>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5">
                 <span className={`text-gray-800 text-xs sm:text-sm ${r.winnerSide === 1 ? 'font-black' : 'font-medium'}`}>{r.team1}</span>
                 {r.team2 && (
                   <>
-                    <span className="text-gray-300 mx-1 sm:mx-2">vs</span>
+                    <span className="text-gray-300 mx-1 sm:mx-2">{t('vs')}</span>
                     <span className={`text-gray-800 text-xs sm:text-sm ${r.winnerSide === 2 ? 'font-black' : 'font-medium'}`}>{r.team2}</span>
                   </>
                 )}
-                {r.winnerSide === 0 && <span className="ml-1 sm:ml-2 text-[10px] font-bold text-gray-500 uppercase">draw</span>}
+                {r.winnerSide === 0 && <span className="ml-1 sm:ml-2 text-[10px] font-bold text-gray-500 uppercase">{t('draw')}</span>}
               </td>
               <td className="px-3 sm:px-4 py-2 sm:py-2.5 text-right">
                 {r.result ? (

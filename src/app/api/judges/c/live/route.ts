@@ -19,8 +19,12 @@ type Action =
   | { type: 'end_match' }
   | { type: 'reset' }
 
+// Default state returned when the DB hasn't been seeded yet. `category` must
+// match the route ('c' for this file) so UI consumers don't misroute. We seed
+// `updated_at` with the current time, not the epoch, so the public scoreboard
+// doesn't render "Updated: 1970-01-01" on the first fetch.
 const DEFAULT_STATE = {
-  category: 'b' as const,
+  category: 'c' as const,
   active_match_id: null,
   phase: 'idle' as const,
   round_number: 1,
@@ -33,7 +37,7 @@ const DEFAULT_STATE = {
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
-  updated_at: new Date(0).toISOString(),
+  updated_at: new Date().toISOString(),
 }
 
 export async function GET() {

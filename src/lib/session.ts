@@ -8,7 +8,16 @@ export interface SessionUser {
 }
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-const SESSION_SECRET = process.env.SESSION_SECRET ?? 'sfrc-dev-secret-change-in-production'
+
+function resolveSessionSecret(): string {
+  const fromEnv = process.env.SESSION_SECRET
+  if (fromEnv && fromEnv.length >= 16) return fromEnv
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET env var is required in production (min 16 chars)')
+  }
+  return 'sfrc-dev-secret-change-in-production'
+}
+const SESSION_SECRET = resolveSessionSecret()
 
 export function signSession(payload: object): string {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
@@ -17,13 +26,18 @@ export function signSession(payload: object): string {
 }
 
 export function verifySession(token: string): Record<string, unknown> | null {
+  if (typeof token !== 'string' || token.length < 8) return null
   const dot = token.lastIndexOf('.')
   if (dot === -1) return null
   const data = token.slice(0, dot)
   const sig = token.slice(dot + 1)
+  if (!data || !sig) return null
   const expected = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url')
+  const sigBuf = Buffer.from(sig)
+  const expectedBuf = Buffer.from(expected)
+  if (sigBuf.length !== expectedBuf.length) return null
   try {
-    if (!timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
+    if (!timingSafeEqual(sigBuf, expectedBuf)) return null
   } catch {
     return null
   }
@@ -32,6 +46,39 @@ export function verifySession(token: string): Record<string, unknown> | null {
   } catch {
     return null
   }
+}
+
+export type AuthzResult =
+  | { ok: true; session: SessionUser }
+  | { ok: false; status: 401 | 403; error: string }
+
+/**
+ * Returns the session or an authz failure descriptor — never throws. Callers
+ * convert failures to NextResponse.json(error, { status }). Used by API
+ * routes to enforce role/category access at the route level (middleware only
+ * authenticates; it does not authorize).
+ */
+export async function requireSession(): Promise<AuthzResult> {
+  const session = await getSession()
+  if (!session) return { ok: false, status: 401, error: 'Unauthorized' }
+  return { ok: true, session }
+}
+
+export async function requireAdmin(): Promise<AuthzResult> {
+  const r = await requireSession()
+  if (!r.ok) return r
+  if (r.session.role !== 'admin') return { ok: false, status: 403, error: 'Admin only' }
+  return r
+}
+
+export async function requireCategory(category: string): Promise<AuthzResult> {
+  const r = await requireSession()
+  if (!r.ok) return r
+  if (r.session.role === 'admin') return r
+  if (!r.session.categories.includes(category)) {
+    return { ok: false, status: 403, error: `Not assigned to category ${category.toUpperCase()}` }
+  }
+  return r
 }
 
 export async function getSession(): Promise<SessionUser | null> {

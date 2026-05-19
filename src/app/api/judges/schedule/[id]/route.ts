@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin, requireSession } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-async function requireAdmin() {
-  const { getSession } = await import('@/lib/session')
-  const session = await getSession()
-  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' }
-  if (session.role !== 'admin') return { ok: false as const, status: 403, error: 'Admin only' }
-  return { ok: true as const }
-}
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const authz = await requireSession()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
@@ -28,6 +24,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+
+  // Any PATCH on the schedule requires at least authentication.
+  const authz = await requireSession()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   const body = await req.json() as {
     status?: string
     team1_id?: string
@@ -39,6 +40,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.status !== undefined) {
     if (!['pending', 'waiting', 'active', 'completed'].includes(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+    // Status changes must belong to the requesting judge's category. Admin
+    // bypasses the check.
+    if (authz.session.role !== 'admin') {
+      let matchCategory: string | null = null
+      if (hasSupabase) {
+        const { createClient } = await import('@/lib/supabase/server')
+        const supabase = await createClient()
+        const { data } = await supabase.from('scheduled_matches').select('category').eq('id', id).maybeSingle()
+        matchCategory = data?.category ?? null
+      } else {
+        const { getMatchById } = await import('@/lib/schedule-store')
+        matchCategory = getMatchById(id)?.category ?? null
+      }
+      if (!matchCategory) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      if (!authz.session.categories.includes(matchCategory)) {
+        return NextResponse.json({ error: `Not assigned to category ${matchCategory.toUpperCase()}` }, { status: 403 })
+      }
     }
     updates.status = body.status
   }

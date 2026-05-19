@@ -283,9 +283,11 @@ function mergeRecordedIntoState(live: LiveStateB, sched: ScheduledMatch, rec: Ma
     : (swap ? 1 : 2)
 
   // If live state is still mid-match (e.g. judge wrote via Record form without using LIVE control),
-  // promote to match_result so field shows the final outcome.
+  // promote to match_result so field shows the final outcome. If the live UI is
+  // already showing match_result/idle, leave it alone — overwriting would
+  // restart the result animation. Otherwise force the result phase.
   const phase: LiveStateB['phase'] =
-    live.phase === 'match_result' || live.phase === 'idle' ? 'match_result' : 'match_result'
+    live.phase === 'match_result' || live.phase === 'idle' ? live.phase : 'match_result'
 
   return {
     ...live,

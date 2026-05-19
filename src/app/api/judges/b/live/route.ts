@@ -31,7 +31,7 @@ const DEFAULT_STATE_B = {
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
-  updated_at: new Date(0).toISOString(),
+  updated_at: new Date().toISOString(),
 }
 
 export async function GET() {
