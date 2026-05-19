@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       goals1: body.goals1,
       goals2: body.goals2,
       match_number: body.match_number ?? null,
-      match_phase: body.match_phase ?? null,
+      // Schema: `match_phase TEXT NOT NULL DEFAULT 'group'` — must not be null.
+      match_phase: body.match_phase ?? 'group',
       notes: body.notes ?? null,
     }
     const { data, error } = await supabase.from('matches_d').insert(row).select().single()
