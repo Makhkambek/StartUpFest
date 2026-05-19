@@ -1,0 +1,55 @@
+stages:
+  - build
+  - deploy
+
+# ---------------- Web (Next.js) ----------------
+
+web:build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - >
+      /kaniko/executor
+      --context $CI_PROJECT_DIR
+      --dockerfile $CI_PROJECT_DIR/Dockerfile
+      --destination $CI_REGISTRY_IMAGE/web:$CI_COMMIT_SHORT_SHA
+      --destination $CI_REGISTRY_IMAGE/web:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+
+web:deploy:
+  stage: deploy
+  image: python
+  before_script:
+    - 'command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - chmod 400 "$GIT_KEY"
+    - ssh-add "$GIT_KEY"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - sed -i 's|IMAGE|'"$CI_REGISTRY_IMAGE/web:$CI_COMMIT_SHORT_SHA"'|g' docker-compose.prod.yml
+    # Deploy to a dedicated directory so we don't collide with startupfest's
+    # /root/docker-compose.yml on the same host.
+    - ssh $USER@$HOST "mkdir -p /root/sfrc-next"
+    - scp $WEB_ENV $USER@$HOST:/root/sfrc-next/.env
+    - scp docker-compose.prod.yml $USER@$HOST:/root/sfrc-next/docker-compose.yml
+  script:
+    - |
+      ssh $USER@$HOST "
+        docker login $CI_REGISTRY \
+          --username $CI_REGISTRY_USER \
+          --password-stdin <<< $CI_REGISTRY_PASSWORD &&
+        cd /root/sfrc-next &&
+        docker compose -f docker-compose.yml pull &&
+        docker compose -f docker-compose.yml up -d &&
+        docker system prune -a -f
+      "
+  needs:
+    - web:build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

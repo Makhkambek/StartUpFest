@@ -1,0 +1,23 @@
+services:
+  web:
+    image: IMAGE
+    container_name: ${PROJECT_NAME:-sfrc-next}-web
+    restart: always
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    # Bind to loopback only — nginx on the host reverse-proxies this upstream.
+    # Port 3001 on the host is chosen to avoid clashing with startupfest
+    # (backend on 127.0.0.1:8001) and any other service already on 3000.
+    ports:
+      - "127.0.0.1:3001:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

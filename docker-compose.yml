@@ -1,20 +1,23 @@
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: sfrc-next:latest
-    container_name: sfrc-web
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
+    container_name: ${PROJECT_NAME:-sfrc-next}-web-dev
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- -H 0.0.0.0"
+    volumes:
+      - .:/app
+      - sfrc_node_modules:/app/node_modules
+      - sfrc_next_cache:/app/.next
     env_file:
       - .env.local
     environment:
-      NODE_ENV: production
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/a"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  sfrc_node_modules:
+  sfrc_next_cache:
