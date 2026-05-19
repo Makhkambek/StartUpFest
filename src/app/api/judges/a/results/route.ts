@@ -65,7 +65,8 @@ export async function POST(req: NextRequest) {
       run1: body.run1,
       run2: body.run2,
       penalty: body.penalty,
-      run_phase: body.run_phase ?? null,
+      // Schema: `run_phase TEXT NOT NULL DEFAULT 'qualification'` — must not be null.
+      run_phase: body.run_phase ?? 'qualification',
       notes: body.notes ?? null,
       total,
       updated_at: new Date().toISOString(),
