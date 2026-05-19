@@ -266,12 +266,15 @@ body {
 
 /* ── Robo Football (D) — FIFA-style broadcast animations ─────────────── */
 
-/* Full-screen GOAL flash — big "GOAL!" text slams in, slight rotate, glow burst */
+/* Full-screen GOAL flash — big "GOAL!" text slams in.
+   Only `transform` + `opacity` so the compositor can run this on the GPU
+   without rasterizing every frame. Earlier versions used `filter: blur` +
+   `hue-rotate` which forced CPU rasterization and visibly stuttered. */
 @keyframes sfrcGoalSlam {
-  0%   { opacity: 0; transform: scale(0.3) rotate(-6deg); filter: hue-rotate(0deg) blur(8px); }
-  35%  { opacity: 1; transform: scale(1.15) rotate(3deg); filter: hue-rotate(15deg) blur(0); }
-  70%  { transform: scale(1) rotate(-1deg); }
-  100% { opacity: 1; transform: scale(1) rotate(0); filter: hue-rotate(0deg) blur(0); }
+  0%   { opacity: 0; transform: translateZ(0) scale(0.4) rotate(-6deg); }
+  40%  { opacity: 1; transform: translateZ(0) scale(1.15) rotate(3deg); }
+  70%  {              transform: translateZ(0) scale(1) rotate(-1deg); }
+  100% { opacity: 1; transform: translateZ(0) scale(1) rotate(0); }
 }
 
 /* GOAL backdrop flash — bright color sweep behind GOAL text */
