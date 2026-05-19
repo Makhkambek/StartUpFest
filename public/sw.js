@@ -1,6 +1,9 @@
-// SFRC judges service worker — basic offline support
-const CACHE_NAME = 'sfrc-v1'
-const ASSETS = ['/judges/dashboard', '/judges/login', '/manifest.webmanifest']
+// SFRC judges service worker — basic offline support.
+// Authenticated pages (/judges/dashboard, /judges/[a-d]/...) are intentionally
+// NOT cached. After logout, an offline user must end up on /judges/login,
+// not a stale dashboard from a previous session.
+const CACHE_NAME = 'sfrc-v2'
+const ASSETS = ['/judges/login', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -18,14 +21,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+function isAuthenticatedJudgePath(pathname) {
+  // Only /judges/login is safe to cache; everything else under /judges/* is
+  // session-gated and must hit the network for fresh auth checks.
+  return pathname.startsWith('/judges/') && pathname !== '/judges/login'
+}
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
-  // Never intercept API or POST/PATCH/DELETE — those must be live
+  // Never intercept API or non-GET — those must always be live.
   if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') return
 
-  // Network-first for HTML pages, cache fallback
+  // HTML page navigation
   if (event.request.mode === 'navigate') {
+    // Authenticated pages: pure network, no caching, fallback to /judges/login.
+    if (isAuthenticatedJudgePath(url.pathname)) {
+      event.respondWith(
+        fetch(event.request).catch(() => caches.match('/judges/login'))
+      )
+      return
+    }
+    // Public pages: network-first, cache fallback.
     event.respondWith(
       fetch(event.request)
         .then((res) => {
@@ -33,12 +50,12 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((c) => c.put(event.request, copy))
           return res
         })
-        .catch(() => caches.match(event.request).then((r) => r || caches.match('/judges/dashboard')))
+        .catch(() => caches.match(event.request).then((r) => r || caches.match('/judges/login')))
     )
     return
   }
 
-  // Cache-first for assets
+  // Cache-first for static assets.
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   )
