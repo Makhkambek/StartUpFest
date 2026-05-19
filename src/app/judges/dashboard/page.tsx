@@ -61,7 +61,9 @@ export default async function DashboardPage() {
           )}
           <a href="/display" target="_blank" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Display ↗</a>
           <a href="/a" target="_blank" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Public ↗</a>
-          <a href="/api/auth/logout" className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-2.5 py-1.5 rounded border border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950">Log Out</a>
+          <form action="/api/auth/logout" method="post" className="inline">
+            <button type="submit" className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-2.5 py-1.5 rounded border border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950">Log Out</button>
+          </form>
           <ThemeToggle />
         </div>
       </header>
