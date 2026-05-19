@@ -1,0 +1,117 @@
+import { createServerClient } from '@supabase/ssr'
+import createIntlMiddleware from 'next-intl/middleware'
+import { NextResponse, type NextRequest } from 'next/server'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { routing } from '@/i18n/routing'
+
+const intl = createIntlMiddleware(routing)
+
+async function handleProtected(request: NextRequest, isProtectedApi: boolean) {
+  let response = NextResponse.next({ request })
+
+  const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  if (!hasSupabase) {
+    const sessionCookie = request.cookies.get('sfrc-mock-session')
+    if (!sessionCookie) {
+      if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.redirect(new URL('/judges/login', request.url))
+    }
+    try {
+      const { verifySession } = await import('@/lib/session')
+      const payload = verifySession(sessionCookie.value) as { exp?: number } | null
+      if (!payload?.exp || payload.exp < Date.now()) {
+        if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.redirect(new URL('/judges/login', request.url))
+      }
+    } catch {
+      if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.redirect(new URL('/judges/login', request.url))
+    }
+    return response
+  }
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (toSet) => {
+          toSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          toSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+        },
+      },
+    },
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.redirect(new URL('/judges/login', request.url))
+  }
+
+  return response
+}
+
+export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname
+  // Use strict-prefix matching so `/judges-fake` doesn't accidentally route
+  // through judges auth, and `/api/judges-helper` (hypothetical) isn't gated
+  // by the protected-API logic.
+  const isApi = path.startsWith('/api/')
+  const isJudges = path === '/judges' || path.startsWith('/judges/')
+  const isDisplay = path === '/display' || path.startsWith('/display/')
+  const isProtectedPage = isJudges && !path.startsWith('/judges/login')
+  const isProtectedApi = path.startsWith('/api/judges/') || path.startsWith('/api/admin/')
+
+  // ── /api/* : rate limit, then optional auth ───────────────
+  if (isApi) {
+    const ip = getClientIp(request)
+    const rl = rateLimit(ip, request.method)
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(rl.resetAt / 1000)),
+            'Retry-After': String(Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000))),
+          },
+        },
+      )
+    }
+    if (isProtectedApi) {
+      const res = await handleProtected(request, true)
+      res.headers.set('X-RateLimit-Remaining', String(rl.remaining))
+      return res
+    }
+    const res = NextResponse.next({ request })
+    res.headers.set('X-RateLimit-Remaining', String(rl.remaining))
+    return res
+  }
+
+  // ── /judges/* (page): auth, no locale routing ─────────────
+  if (isJudges) {
+    if (isProtectedPage) return handleProtected(request, false)
+    return NextResponse.next({ request })
+  }
+
+  // ── /display: passthrough, no locale routing ──────────────
+  if (isDisplay) return NextResponse.next({ request })
+
+  // ── Everything else: next-intl locale routing ─────────────
+  return intl(request)
+}
+
+export const config = {
+  // Skip Next internals and explicit static asset extensions. The old
+  // `.*\\..*` pattern excluded any path with a dot, which let requests like
+  // `/api/judges/data.csv` bypass middleware authn entirely. The whitelist
+  // below carves out only the static extensions we actually serve.
+  matcher: [
+    '/((?!_next/static|_next/image|monitoring|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|otf)$).*)',
+  ],
+}
