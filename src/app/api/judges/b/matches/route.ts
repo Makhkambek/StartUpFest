@@ -50,7 +50,19 @@ export async function POST(req: NextRequest) {
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('matches_b').insert(body).select().single()
+    // Explicit field list — never forward the raw body to .insert(), which
+    // would let an attacker set protected columns (id, created_at, ...).
+    const row = {
+      team1_id: body.team1_id,
+      team2_id: body.team2_id,
+      winner: body.winner,
+      rounds1: body.rounds1,
+      rounds2: body.rounds2,
+      match_number: body.match_number ?? null,
+      starting_position: body.starting_position ?? 'face',
+      notes: body.notes ?? null,
+    }
+    const { data, error } = await supabase.from('matches_b').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await syncLiveStateFromMatchB(body)
     return NextResponse.json(data)

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { MatchD } from '@/types/database'
-import { getSession } from '@/lib/session'
+import { getSession, requireCategory } from '@/lib/session'
+import { isUuid } from '@/lib/uuid'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 export async function GET() {
+  const authz = await requireCategory('d')
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
@@ -29,13 +33,30 @@ export async function POST(req: NextRequest) {
     notes?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
+  if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) {
+    return NextResponse.json({ error: 'team1_id/team2_id must be valid UUIDs' }, { status: 400 })
+  }
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })
   if (body.notes && body.notes.length > 500) return NextResponse.json({ error: 'Notes max 500 chars' }, { status: 400 })
+  const validGoals = (v: unknown): v is number =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 99
+  if (!validGoals(body.goals1) || !validGoals(body.goals2)) {
+    return NextResponse.json({ error: 'goals1/goals2 must be non-negative integers ≤ 99' }, { status: 400 })
+  }
 
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('matches_d').insert(body).select().single()
+    const row = {
+      team1_id: body.team1_id,
+      team2_id: body.team2_id,
+      goals1: body.goals1,
+      goals2: body.goals2,
+      match_number: body.match_number ?? null,
+      match_phase: body.match_phase ?? null,
+      notes: body.notes ?? null,
+    }
+    const { data, error } = await supabase.from('matches_d').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -45,6 +66,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const authz = await requireCategory('d')
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
