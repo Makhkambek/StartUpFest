@@ -31,11 +31,25 @@ export function rateLimit(ip: string, method: string): RateLimitResult {
 
   bucket.count += 1
 
-  // Evict stale entries when map grows too large
+  // Evict stale entries when map grows too large. Collect keys first so we
+  // don't mutate the Map mid-iteration (single-threaded JS makes this fine,
+  // but it's still clearer + correct under unexpected re-entry).
   if (buckets.size > MAX_BUCKETS) {
+    const stale: string[] = []
     for (const [k, b] of buckets) {
-      if (b.resetAt < now) buckets.delete(k)
+      if (b.resetAt < now) stale.push(k)
+    }
+    for (const k of stale) {
+      buckets.delete(k)
       if (buckets.size <= MAX_BUCKETS * 0.8) break
+    }
+    // If everything is still hot (no stale entries), evict the oldest 20% by
+    // resetAt so we don't grow unbounded under a determined floood.
+    if (buckets.size > MAX_BUCKETS) {
+      const oldest = [...buckets.entries()]
+        .sort((a, b) => a[1].resetAt - b[1].resetAt)
+        .slice(0, Math.floor(MAX_BUCKETS * 0.2))
+      for (const [k] of oldest) buckets.delete(k)
     }
   }
 

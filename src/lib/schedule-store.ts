@@ -12,6 +12,10 @@ export interface ScheduledMatch {
   match_id: string      // e.g. "Q-39", "F-1"
   team1_id: string
   team2_id: string | null   // null for solo-run categories (e.g. Line Follower)
+  // Category D (Robo Football) uses 4-team alliances. team1b = red partner, team2b = blue partner.
+  // NULL for categories A/B/C which use 1-vs-1 or solo formats.
+  team1b_id?: string | null
+  team2b_id?: string | null
   status: 'pending' | 'waiting' | 'active' | 'completed'
   phase: MatchPhase
   round: MatchRound | null
@@ -34,6 +38,8 @@ export function addScheduledMatch(data: {
   match_id: string
   team1_id: string
   team2_id: string | null
+  team1b_id?: string | null
+  team2b_id?: string | null
   phase?: MatchPhase
   round?: MatchRound | null
 }): ScheduledMatch {
@@ -43,6 +49,8 @@ export function addScheduledMatch(data: {
     match_id: data.match_id,
     team1_id: data.team1_id,
     team2_id: data.team2_id,
+    team1b_id: data.team1b_id ?? null,
+    team2b_id: data.team2b_id ?? null,
     phase: data.phase ?? 'qualification',
     round: data.round ?? null,
     status: 'pending',
@@ -71,9 +79,13 @@ export function deleteScheduledMatch(id: string) {
 }
 
 export function clearSchedule(category: string) {
+  // Collect keys first to avoid mutating Map during iteration (concurrent
+  // reader could miss/double-process entries otherwise).
+  const ids: string[] = []
   for (const [id, m] of store) {
-    if (m.category === category) store.delete(id)
+    if (m.category === category) ids.push(id)
   }
+  for (const id of ids) store.delete(id)
 }
 
 export function getMatchById(id: string): ScheduledMatch | null {

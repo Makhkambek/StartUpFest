@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Category } from '@/types/database'
+import { requireSession, requireAdmin } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const VALID: Category[] = ['a', 'b', 'c', 'd']
@@ -7,6 +8,9 @@ const VALID: Category[] = ['a', 'b', 'c', 'd']
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ category: string }> }) {
   const { category } = await params
   if (!VALID.includes(category as Category)) return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
+
+  const authz = await requireSession()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
@@ -23,6 +27,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
 export async function POST(req: NextRequest, { params }: { params: Promise<{ category: string }> }) {
   const { category } = await params
   if (!VALID.includes(category as Category)) return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
+
+  const authz = await requireAdmin()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   const { name, school } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Team name required' }, { status: 400 })
@@ -44,6 +51,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cat
 }
 
 export async function DELETE(req: NextRequest) {
+  const authz = await requireAdmin()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 

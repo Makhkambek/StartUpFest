@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import type { Category, StandingA, StandingB, StandingC, StandingD } from '@/types/database'
 import StandingsTableA from './StandingsTableA'
 import StandingsTableB from './StandingsTableB'
@@ -26,6 +27,7 @@ const hasSupabase = !!(
 )
 
 export default function RealtimeStandings(props: Standings) {
+  const t = useTranslations('realtime')
   const [standings, setStandings] = useState(props.data as never[])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [view, setView] = useState<'standings' | 'matches'>('standings')
@@ -89,17 +91,17 @@ export default function RealtimeStandings(props: Standings) {
             className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
               view === 'standings' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}>
-            Standings
+            {t('tabStandings')}
           </button>
           <button onClick={() => setView('matches')}
             className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
               view === 'matches' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700'
             }`}>
-            Matches
+            {t('tabMatches')}
           </button>
         </div>
         {lastUpdate && (
-          <span className="text-[10px] text-green-600 font-semibold animate-pulse">● LIVE</span>
+          <span className="text-[10px] text-green-600 font-semibold animate-pulse">{t('live')}</span>
         )}
       </div>
       {view === 'standings' ? table() : <PublicMatchesList category={props.category} />}

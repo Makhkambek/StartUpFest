@@ -6,6 +6,7 @@ import type { Team, MatchD } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import { StatsBar } from '@/components/judges/StatsBar'
 import { RecentActivity, type RecentEntry } from '@/components/judges/RecentActivity'
+import LiveControlsD from '@/components/judges/LiveControlsD'
 
 type View = 'schedule' | 'teams'
 
@@ -138,6 +139,12 @@ export default function JudgeDPage() {
       <div className="p-3 sm:p-6 max-w-5xl mx-auto">
         {loading && <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>}
 
+        {!loading && view === 'schedule' && (
+          <div className="mb-4">
+            <LiveControlsD schedule={schedule} teamName={(id) => id ? teamName(id) : '—'} onChange={load} />
+          </div>
+        )}
+
         {!loading && view === 'schedule' && schedule.length > 0 && (
           <StatsBar
             done={schedule.filter(m => resultFor(m)).length}
@@ -175,8 +182,8 @@ export default function JudgeDPage() {
                   <span className="text-xs text-gray-500 shrink-0">Matches per team:</span>
                   <input type="number" min="1" max="20" value={genN} onChange={e => setGenN(e.target.value)}
                     className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-16 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
-                  <button onClick={handleGenerate} disabled={!isAdmin || generating || teams.length < 2}
-                    title={!isAdmin ? 'Admin only' : teams.length < 2 ? 'Add teams first' : ''}
+                  <button onClick={handleGenerate} disabled={!isAdmin || generating || teams.length < 4}
+                    title={!isAdmin ? 'Admin only' : teams.length < 4 ? 'Need at least 4 teams for alliance matches' : ''}
                     className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-gray-700 transition-colors">
                     {generating ? 'Generating…' : 'Generate'}
                   </button>
@@ -188,8 +195,11 @@ export default function JudgeDPage() {
                     </button>
                   )}
                   {!isAdmin && <span className="text-xs text-gray-400">Admin only</span>}
-                  {teams.length < 2 && isAdmin && <span className="text-xs text-amber-500">Add teams first</span>}
+                  {teams.length < 4 && isAdmin && <span className="text-xs text-amber-500">Need 4+ teams · {teams.length} added</span>}
                 </div>
+                <p className="text-[11px] text-gray-400 mt-2">
+                  Robo Football matches are <strong>4-team alliances</strong> (2 vs 2). Each generated match takes 4 random teams.
+                </p>
                 {genError && <p className="text-xs text-red-500 mt-2">{genError}</p>}
               </div>
 

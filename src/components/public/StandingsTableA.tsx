@@ -1,3 +1,5 @@
+'use client'
+import { useTranslations } from 'next-intl'
 import type { StandingA } from '@/types/database'
 
 function TimeCell({ v }: { v: number | null }) {
@@ -7,18 +9,22 @@ function TimeCell({ v }: { v: number | null }) {
 }
 
 function StatusCell({ s }: { s: StandingA['status'] }) {
+  const t = useTranslations('tablesCommon')
   const map = { finalist: 'text-amber-700 font-medium', qualified: 'text-green-700 font-medium', elim: 'text-gray-400', dnf: 'text-red-600', disq: 'text-red-600' }
-  const label = { finalist: 'Finalist', qualified: 'Qualified', elim: 'Eliminated', dnf: 'DNF', disq: 'DISQ' }
-  return <span className={map[s]}>{label[s]}</span>
+  const labelKey = { finalist: 'statusFinalist', qualified: 'statusQualified', elim: 'statusElim', dnf: 'statusDnf', disq: 'statusDisq' } as const
+  return <span className={map[s]}>{t(labelKey[s])}</span>
 }
 
 export default function StandingsTableA({ standings }: { standings: StandingA[] }) {
+  const tc = useTranslations('tablesCommon')
+  const ta = useTranslations('tableA')
+  const headers = [tc('rank'), tc('team'), ta('run1'), ta('run2'), ta('penalty'), ta('finalTime'), tc('status')]
   return (
     <div className="overflow-x-auto">
     <table className="w-full min-w-[560px] border-collapse">
       <thead>
         <tr>
-          {['Rank', 'Team', 'Run 1', 'Run 2', 'Penalty', 'Final Time', 'Status'].map((h) => (
+          {headers.map((h) => (
             <th key={h} className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">{h}</th>
           ))}
         </tr>

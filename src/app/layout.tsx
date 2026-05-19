@@ -1,4 +1,6 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import { getLocale, getMessages } from 'next-intl/server'
+import { NextIntlClientProvider } from 'next-intl'
 import { Toaster } from 'sonner'
 import './globals.css'
 
@@ -6,7 +8,6 @@ export const metadata: Metadata = {
   title: 'SFRC 2026 — Event Results',
   description: 'Startup Fest Robotics Challenge 2026 — Live Results',
   manifest: '/manifest.webmanifest',
-  themeColor: '#111827',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -14,11 +15,19 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  themeColor: '#111827',
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale()
+  const messages = await getMessages()
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className="bg-gray-100 text-gray-900 min-h-screen antialiased">
-        {children}
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
         <Toaster richColors position="top-right" closeButton />
       </body>
     </html>

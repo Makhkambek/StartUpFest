@@ -6,6 +6,7 @@ import type { Team, FightC } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import { StatsBar } from '@/components/judges/StatsBar'
 import { RecentActivity, type RecentEntry } from '@/components/judges/RecentActivity'
+import LiveControlsC from '@/components/judges/LiveControlsC'
 
 type View = 'schedule' | 'teams'
 
@@ -116,6 +117,12 @@ export default function JudgeCPage() {
 
       <div className="p-3 sm:p-6 max-w-5xl mx-auto">
         {loading && <p className="text-sm text-gray-400 py-8 text-center">Loading…</p>}
+
+        {!loading && view === 'schedule' && (
+          <div className="mb-4">
+            <LiveControlsC schedule={schedule} teamName={(id) => id ? teamName(id) : '—'} onChange={load} />
+          </div>
+        )}
 
         {!loading && view === 'schedule' && schedule.length > 0 && (
           <StatsBar
