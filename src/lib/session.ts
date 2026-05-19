@@ -9,19 +9,28 @@ export interface SessionUser {
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-function resolveSessionSecret(): string {
+// Resolved lazily on first use rather than at module load. Next.js page-data
+// collection during `npm run build` runs with NODE_ENV=production but no
+// runtime secrets — a module-level throw breaks the build for any route that
+// imports this file. Defer the check until sign/verify is actually called.
+let _sessionSecretCache: string | null = null
+function getSessionSecret(): string {
+  if (_sessionSecretCache !== null) return _sessionSecretCache
   const fromEnv = process.env.SESSION_SECRET
-  if (fromEnv && fromEnv.length >= 16) return fromEnv
+  if (fromEnv && fromEnv.length >= 16) {
+    _sessionSecretCache = fromEnv
+    return fromEnv
+  }
   if (process.env.NODE_ENV === 'production') {
     throw new Error('SESSION_SECRET env var is required in production (min 16 chars)')
   }
-  return 'sfrc-dev-secret-change-in-production'
+  _sessionSecretCache = 'sfrc-dev-secret-change-in-production'
+  return _sessionSecretCache
 }
-const SESSION_SECRET = resolveSessionSecret()
 
 export function signSession(payload: object): string {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url')
-  const sig = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url')
+  const sig = createHmac('sha256', getSessionSecret()).update(data).digest('base64url')
   return `${data}.${sig}`
 }
 
@@ -32,7 +41,7 @@ export function verifySession(token: string): Record<string, unknown> | null {
   const data = token.slice(0, dot)
   const sig = token.slice(dot + 1)
   if (!data || !sig) return null
-  const expected = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url')
+  const expected = createHmac('sha256', getSessionSecret()).update(data).digest('base64url')
   const sigBuf = Buffer.from(sig)
   const expectedBuf = Buffer.from(expected)
   if (sigBuf.length !== expectedBuf.length) return null
