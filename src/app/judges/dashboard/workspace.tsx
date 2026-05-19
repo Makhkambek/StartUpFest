@@ -564,11 +564,16 @@ export default function JudgeWorkspace({ username, role, categories }: Props) {
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-gray-400">@{username}</span>
           {role === 'admin' && (
-            <a href="/judges/admin/users" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Admin</a>
+            <>
+              <a href="/judges/admin/event-settings" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">⚙ Event</a>
+              <a href="/judges/admin/users" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Admin</a>
+            </>
           )}
           <a href="/display" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Display ↗</a>
           <a href="/a" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Public ↗</a>
-          <a href="/api/auth/logout" className="text-xs text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded border border-red-200 hover:bg-red-50">Log Out</a>
+          <form action="/api/auth/logout" method="post" className="inline">
+            <button type="submit" className="text-xs text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded border border-red-200 hover:bg-red-50">Log Out</button>
+          </form>
         </div>
       </header>
 

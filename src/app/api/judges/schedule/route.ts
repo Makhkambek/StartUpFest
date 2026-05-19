@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSession, requireAdmin } from '@/lib/session'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
 export async function GET(req: NextRequest) {
   const category = req.nextUrl.searchParams.get('category')
   if (!category) return NextResponse.json({ error: 'category required' }, { status: 400 })
+
+  const authz = await requireSession()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
@@ -23,6 +27,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const authz = await requireAdmin()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   const body = await req.json() as {
     category: string
     match_id: string
@@ -55,6 +62,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const authz = await requireAdmin()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   const body = await req.json() as { id?: string; category?: string; all?: boolean }
 
   if (body.all && body.category) {

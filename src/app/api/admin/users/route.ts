@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   if (!/^[a-z0-9_]{3,20}$/.test(username)) {
     return NextResponse.json({ error: 'Username: 3-20 chars, letters/digits/underscore' }, { status: 400 })
   }
-  if (password.length < 6) return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
+  if (password.length < 12) return NextResponse.json({ error: 'Password min 12 chars' }, { status: 400 })
 
   if (!hasSupabase) return NextResponse.json({ error: 'Configure Supabase to create users' }, { status: 400 })
 
@@ -84,11 +84,24 @@ export async function POST(req: NextRequest) {
   if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 })
 
   const uid = created.user.id
-  await admin.from('profiles').insert({ id: uid, username, is_admin: !!is_admin })
+  const { error: profileErr } = await admin
+    .from('profiles')
+    .insert({ id: uid, username, is_admin: !!is_admin })
+  if (profileErr) {
+    // Roll back the auth user so we don't leave an orphan account.
+    await admin.auth.admin.deleteUser(uid).catch(() => null)
+    return NextResponse.json({ error: profileErr.message }, { status: 500 })
+  }
   if (!is_admin && categories?.length) {
-    await admin.from('judge_categories').insert(
+    const { error: catErr } = await admin.from('judge_categories').insert(
       (categories as string[]).map(cat => ({ judge_id: uid, category: cat }))
     )
+    if (catErr) {
+      // Categories failed — clean up so user isn't left with no assignments.
+      await Promise.resolve(admin.from('profiles').delete().eq('id', uid)).catch(() => null)
+      await admin.auth.admin.deleteUser(uid).catch(() => null)
+      return NextResponse.json({ error: catErr.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true, username })
@@ -112,7 +125,7 @@ export async function PATCH(req: NextRequest) {
   const admin = createAdminClient()
 
   if (typeof password === 'string') {
-    if (password.length < 6) return NextResponse.json({ error: 'Password min 6 chars' }, { status: 400 })
+    if (password.length < 12) return NextResponse.json({ error: 'Password min 12 chars' }, { status: 400 })
     const { error } = await admin.auth.admin.updateUserById(userId, { password })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   }

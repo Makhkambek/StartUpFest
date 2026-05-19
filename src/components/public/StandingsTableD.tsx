@@ -1,12 +1,17 @@
+'use client'
+import { useTranslations } from 'next-intl'
 import type { StandingD } from '@/types/database'
 
 export default function StandingsTableD({ standings }: { standings: StandingD[] }) {
+  const tc = useTranslations('tablesCommon')
+  const t = useTranslations('tableD')
+  const headers = [tc('rank'), tc('team'), t('wdl'), t('goals'), t('gd'), tc('points')]
   return (
     <div className="overflow-x-auto">
     <table className="w-full min-w-[440px] border-collapse">
       <thead>
         <tr>
-          {['Rank', 'Team', 'W / D / L', 'Goals', 'GD', 'Points'].map((h) => (
+          {headers.map((h) => (
             <th key={h} className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-semibold text-gray-500 border-b border-gray-200 whitespace-nowrap">{h}</th>
           ))}
         </tr>

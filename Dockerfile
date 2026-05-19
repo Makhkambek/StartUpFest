@@ -4,7 +4,10 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# --ignore-scripts blocks postinstall hooks from running, closing the supply-chain
+# code-execution vector at image build time. We don't need any package's
+# postinstall step in this Next.js + Supabase build.
+RUN npm ci --ignore-scripts
 
 FROM node:20-alpine AS builder
 WORKDIR /app

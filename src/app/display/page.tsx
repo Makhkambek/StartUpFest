@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import type { StandingA, StandingB, StandingC, StandingD, Team } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
+import { useEventSettings } from '@/lib/use-event-settings'
 
 type AnyStanding = StandingA | StandingB | StandingC | StandingD
 type Cat = 'a' | 'b' | 'c' | 'd'
@@ -224,6 +225,8 @@ export default function DisplayPage() {
   const [nextUp, setNextUp] = useState<NextBundle[]>([])
   const [lastUpdate, setLastUpdate] = useState('')
   const [fullscreen, setFullscreen] = useState(false)
+  // /display is locale-agnostic (no [locale] segment) — use English city name for the venue display.
+  const { settings: eventSettings, city: eventCity } = useEventSettings('en')
 
   const refresh = useCallback(async () => {
     const cats: Cat[] = ['a', 'b', 'c', 'd']
@@ -269,16 +272,24 @@ export default function DisplayPage() {
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return
-    import('@/lib/supabase/client').then(({ createClient }) => {
-      const supabase = createClient()
-      const tables = ['results_a', 'matches_b', 'fights_c', 'matches_d', 'scheduled_matches']
-      const channels = tables.map(table =>
-        supabase.channel(`display-${table}`)
-          .on('postgres_changes', { event: '*', schema: 'public', table }, () => refresh())
-          .subscribe()
-      )
-      return () => channels.forEach(ch => supabase.removeChannel(ch))
-    })
+    let cleanup: (() => void) | null = null
+    import('@/lib/supabase/client')
+      .then(({ createClient }) => {
+        const supabase = createClient()
+        const tables = ['results_a', 'matches_b', 'fights_c', 'matches_d', 'scheduled_matches']
+        const channels = tables.map(table =>
+          supabase.channel(`display-${table}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table }, () => refresh())
+            .subscribe()
+        )
+        cleanup = () => channels.forEach(ch => supabase.removeChannel(ch))
+      })
+      .catch(err => {
+        // Dynamic import failed (e.g. offline). The display still polls via the
+        // refresh interval above — realtime is best-effort.
+        console.warn('[display] supabase realtime unavailable:', err)
+      })
+    return () => { cleanup?.() }
   }, [refresh])
 
   const toggleFullscreen = () => {
@@ -302,7 +313,7 @@ export default function DisplayPage() {
           </div>
           <div>
             <div className="font-black text-gray-900 text-sm tracking-tight leading-none">STARTUP FEST ROBOTICS CHALLENGE</div>
-            <div className="text-gray-400 text-[11px] mt-0.5">2026 · Toshkent, O'zbekiston</div>
+            <div className="text-gray-400 text-[11px] mt-0.5">{eventSettings.year} · {eventCity.uz}, O&apos;zbekiston</div>
           </div>
         </div>
         <div className="flex items-center gap-3">

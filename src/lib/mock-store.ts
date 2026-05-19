@@ -1,4 +1,4 @@
-import type { Team, ResultA, MatchB, FightC, MatchD } from '@/types/database'
+import type { Team, ResultA, MatchB, FightC, MatchD, LiveStateB, LivePhaseB, RoundOutcome, StartingPosition, EventSettings } from '@/types/database'
 
 // Module-level mutable store — persists for the lifetime of the dev server process.
 // Reset on server restart. Replaced by Supabase when env vars are present.
@@ -15,7 +15,11 @@ function newId() { return `mock-${_seq++}` }
 // ── Teams ──────────────────────────────────────────────────────────────────
 
 export function getTeams(category: string): Team[] {
-  return [...teams.values()].filter(t => t.category === category)
+  // Sort by created_at to match Supabase's `.order('created_at')` output —
+  // keeps UI ordering stable across mock ↔ Supabase modes.
+  return [...teams.values()]
+    .filter(t => t.category === category)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export function addTeam(data: { name: string; school: string; category: string }): Team {
@@ -31,9 +35,26 @@ export function addTeam(data: { name: string; school: string; category: string }
   return team
 }
 
+/**
+ * Removes a team and cascades to all of its results/matches/fights so the
+ * mock store doesn't keep orphaned references that break standings or
+ * field displays.
+ */
 export function deleteTeam(id: string) {
   teams.delete(id)
-  resultsA.delete(id)
+  // Result A is keyed by scheduled_match_id, not team_id — scan values.
+  for (const [k, r] of resultsA) {
+    if (r.team_id === id) resultsA.delete(k)
+  }
+  for (const [k, m] of matchesB) {
+    if (m.team1_id === id || m.team2_id === id) matchesB.delete(k)
+  }
+  for (const [k, f] of fightsC) {
+    if (f.team1_id === id || f.team2_id === id) fightsC.delete(k)
+  }
+  for (const [k, m] of matchesD) {
+    if (m.team1_id === id || m.team2_id === id) matchesD.delete(k)
+  }
 }
 
 // ── Results A ─────────────────────────────────────────────────────────────
@@ -82,7 +103,7 @@ export function deleteResultA(scheduled_match_id: string) {
 // ── Matches B ─────────────────────────────────────────────────────────────
 
 export function getMatchesB(): MatchB[] {
-  return [...matchesB.values()]
+  return [...matchesB.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export function addMatchB(data: {
@@ -116,7 +137,7 @@ export function deleteMatchB(id: string) { matchesB.delete(id) }
 // ── Fights C ──────────────────────────────────────────────────────────────
 
 export function getFightsC(): FightC[] {
-  return [...fightsC.values()]
+  return [...fightsC.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export function addFightC(data: {
@@ -150,7 +171,7 @@ export function deleteFightC(id: string) { fightsC.delete(id) }
 // ── Matches D ─────────────────────────────────────────────────────────────
 
 export function getMatchesD(): MatchD[] {
-  return [...matchesD.values()]
+  return [...matchesD.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 export function addMatchD(data: {
@@ -178,3 +199,168 @@ export function addMatchD(data: {
 }
 
 export function deleteMatchD(id: string) { matchesD.delete(id) }
+
+// ── Live state B (field display for Mini Sumo) ────────────────────────────
+
+const initialLiveB: LiveStateB = {
+  category: 'b',
+  active_match_id: null,
+  phase: 'idle',
+  round_number: 1,
+  wins_red: 0,
+  wins_white: 0,
+  starting_position: null,
+  last_round_winner: null,
+  match_winner: null,
+  countdown_started_at: null,
+  fouls_red: 0,
+  fouls_white: 0,
+  round_history: [],
+  updated_at: new Date().toISOString(),
+}
+
+let liveB: LiveStateB = { ...initialLiveB, category: 'b' }
+let liveA: LiveStateB = { ...initialLiveB, category: 'a' }
+let liveC: LiveStateB = { ...initialLiveB, category: 'c' }
+let liveD: LiveStateB = { ...initialLiveB, category: 'd' }
+
+export function getLiveB(): LiveStateB {
+  return liveB
+}
+
+export function getLiveA(): LiveStateB {
+  return liveA
+}
+
+export function setLiveA(patch: Partial<LiveStateB>): LiveStateB {
+  liveA = { ...liveA, ...patch, updated_at: new Date().toISOString() }
+  return liveA
+}
+
+export function getLiveC(): LiveStateB {
+  return liveC
+}
+
+export function setLiveC(patch: Partial<LiveStateB>): LiveStateB {
+  liveC = { ...liveC, ...patch, updated_at: new Date().toISOString() }
+  return liveC
+}
+
+export function getLiveD(): LiveStateB {
+  return liveD
+}
+
+export function setLiveD(patch: Partial<LiveStateB>): LiveStateB {
+  liveD = { ...liveD, ...patch, updated_at: new Date().toISOString() }
+  return liveD
+}
+
+export type LivePatchB = Partial<Pick<LiveStateB,
+  'active_match_id' | 'phase' | 'round_number' | 'wins_red' | 'wins_white' |
+  'starting_position' | 'last_round_winner' | 'match_winner' |
+  'countdown_started_at' | 'fouls_red' | 'fouls_white' | 'round_history'
+>>
+
+export function setLiveB(patch: LivePatchB): LiveStateB {
+  liveB = { ...liveB, ...patch, updated_at: new Date().toISOString() }
+  return liveB
+}
+
+export function resetLiveB(): LiveStateB {
+  liveB = { ...initialLiveB, updated_at: new Date().toISOString() }
+  return liveB
+}
+
+// High-level transitions used by judge UI
+export function liveB_startMatch(active_match_id: string): LiveStateB {
+  return setLiveB({
+    active_match_id,
+    phase: 'waiting',
+    round_number: 1,
+    wins_red: 0,
+    wins_white: 0,
+    starting_position: null,
+    last_round_winner: null,
+    match_winner: null,
+    countdown_started_at: null,
+    fouls_red: 0,
+    fouls_white: 0,
+    round_history: [],
+  })
+}
+
+export function liveB_setPosition(pos: StartingPosition): LiveStateB {
+  return setLiveB({ phase: 'positioning', starting_position: pos })
+}
+
+export function liveB_startCountdown(): LiveStateB {
+  return setLiveB({ phase: 'countdown', countdown_started_at: new Date().toISOString() })
+}
+
+export function liveB_cancelCountdown(): LiveStateB {
+  return setLiveB({ phase: 'positioning', countdown_started_at: null })
+}
+
+export function liveB_goFight(): LiveStateB {
+  // Anchor a fight-start timestamp so /field can render a count-up match timer.
+  // We re-use countdown_started_at: fight elapsed = (now - countdown_started_at) - 5s.
+  // If judge skipped the countdown entirely we still set it to (now − 5s) so elapsed starts at 0.
+  const fightAnchor = new Date(Date.now() - 5000).toISOString()
+  return setLiveB({ phase: 'fighting', countdown_started_at: fightAnchor })
+}
+
+export function liveB_roundResult(outcome: RoundOutcome): LiveStateB {
+  const hist = [...liveB.round_history, outcome]
+  const wr = liveB.wins_red + (outcome === 'red' ? 1 : 0)
+  const ww = liveB.wins_white + (outcome === 'white' ? 1 : 0)
+  return setLiveB({
+    phase: 'round_result',
+    last_round_winner: outcome,
+    wins_red: wr,
+    wins_white: ww,
+    round_history: hist,
+  })
+}
+
+export function liveB_nextRound(): LiveStateB {
+  return setLiveB({
+    phase: 'positioning',
+    round_number: liveB.round_number + 1,
+    last_round_winner: null,
+    starting_position: null,
+    countdown_started_at: null,
+  })
+}
+
+export function liveB_endMatch(winner: 1 | 2 | 0): LiveStateB {
+  return setLiveB({ phase: 'match_result', match_winner: winner })
+}
+
+export function liveB_addFoul(side: 'red' | 'white'): LiveStateB {
+  return side === 'red'
+    ? setLiveB({ fouls_red: liveB.fouls_red + 1 })
+    : setLiveB({ fouls_white: liveB.fouls_white + 1 })
+}
+
+export function liveB_setPhase(phase: LivePhaseB): LiveStateB {
+  return setLiveB({ phase })
+}
+
+// ── Event settings (single row, admin-controlled) ─────────────────────────
+
+let eventSettings: EventSettings = {
+  id: 1,
+  city_code: 'TSH',
+  year: new Date().getFullYear(),
+  event_name: null,
+  updated_at: new Date().toISOString(),
+}
+
+export function getEventSettings(): EventSettings {
+  return eventSettings
+}
+
+export function setEventSettings(patch: Partial<Omit<EventSettings, 'id' | 'updated_at'>>): EventSettings {
+  eventSettings = { ...eventSettings, ...patch, updated_at: new Date().toISOString() }
+  return eventSettings
+}

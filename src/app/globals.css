@@ -63,3 +63,255 @@ body {
     gap: 1.5rem;
   }
 }
+
+/* ── Field display overlays (Mini Sumo and future field/* screens) ──────── */
+@keyframes sfrcStart {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sfrcWinner {
+  0%   { opacity: 0; transform: scale(0.4) rotate(-3deg); }
+  60%  { opacity: 1; transform: scale(1.08) rotate(1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes sfrcGlow {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.06); }
+}
+
+/* Slow gradient sheen sweeping across the background */
+@keyframes sfrcSheen {
+  0%   { transform: translateX(-25%); }
+  100% { transform: translateX(125%); }
+}
+
+/* Red/white side glow during fighting */
+@keyframes sfrcSidePulseRed {
+  0%, 100% { box-shadow: inset 0 0 0   rgba(220, 38, 38, 0.0); }
+  50%      { box-shadow: inset 0 0 80px rgba(220, 38, 38, 0.55); }
+}
+@keyframes sfrcSidePulseWhite {
+  0%, 100% { box-shadow: inset 0 0 0   rgba(229, 231, 235, 0.0); }
+  50%      { box-shadow: inset 0 0 80px rgba(229, 231, 235, 0.55); }
+}
+
+/* Number flip when round wins change */
+@keyframes sfrcCountFlip {
+  0%   { opacity: 0; transform: translateY(-30%) scale(0.9); }
+  60%  { opacity: 1; transform: translateY(4%)   scale(1.05); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* Live indicator dot */
+@keyframes sfrcLive {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
+/* Confetti sparkles around WINNER */
+@keyframes sfrcSparkleA {
+  0%   { opacity: 0; transform: translate(0,0)         scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-180px,-260px) scale(1); }
+}
+@keyframes sfrcSparkleB {
+  0%   { opacity: 0; transform: translate(0,0)        scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(220px,-300px) scale(1); }
+}
+@keyframes sfrcSparkleC {
+  0%   { opacity: 0; transform: translate(0,0)        scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-260px,180px) scale(1); }
+}
+@keyframes sfrcSparkleD {
+  0%   { opacity: 0; transform: translate(0,0)        scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(200px,240px) scale(1); }
+}
+@keyframes sfrcSparkleE {
+  0%   { opacity: 0; transform: translate(0,0)         scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-80px,-330px) scale(1); }
+}
+@keyframes sfrcSparkleF {
+  0%   { opacity: 0; transform: translate(0,0)        scale(0.4); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(280px,-40px) scale(1); }
+}
+
+/* ── Line Follower field display ───────────────────────────────────────── */
+
+/* Speed tunnel: perspective grid lines moving inward */
+@keyframes sfrcTunnel {
+  0%   { transform: translateZ(0) scale(0.4); opacity: 0; }
+  20%  { opacity: 0.7; }
+  100% { transform: translateZ(900px) scale(2.4); opacity: 0; }
+}
+
+/* Heartbeat / ECG sweep — horizontal pulse moving left→right */
+@keyframes sfrcHeartbeat {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Subtle neon pulse for big timer (breathing glow + scanline) */
+@keyframes sfrcNeonPulse {
+  0%, 100% { text-shadow:
+      0 0 8px  rgba(34, 211, 238, 0.85),
+      0 0 24px rgba(34, 211, 238, 0.55),
+      0 0 60px rgba(34, 211, 238, 0.35);
+  }
+  50% { text-shadow:
+      0 0 12px rgba(34, 211, 238, 1),
+      0 0 36px rgba(34, 211, 238, 0.8),
+      0 0 90px rgba(34, 211, 238, 0.5);
+  }
+}
+
+/* Scanline overlay for retro CRT feel */
+@keyframes sfrcScanlines {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+
+/* Retro arcade: neon flicker for big timer */
+@keyframes sfrcArcadeFlicker {
+  0%, 100% { opacity: 1; }
+  92%      { opacity: 1; }
+  93%      { opacity: 0.4; }
+  94%      { opacity: 1; }
+  95%      { opacity: 0.6; }
+  96%      { opacity: 1; }
+}
+
+/* Retro arcade: occasional RGB chromatic-aberration glitch */
+@keyframes sfrcGlitch {
+  0%, 100% { transform: translate(0); filter: none; }
+  92%      { transform: translate(2px, 0); filter: hue-rotate(20deg); }
+  94%      { transform: translate(-2px, 0); filter: hue-rotate(-20deg); }
+  96%      { transform: translate(1px, -1px); filter: none; }
+}
+
+/* Marquee for bottom ticker */
+@keyframes sfrcMarquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Pulsing magenta accent for headers / dividers */
+@keyframes sfrcMagentaPulse {
+  0%, 100% { text-shadow: 0 0 4px rgba(236, 72, 153, 0.6), 0 0 16px rgba(236, 72, 153, 0.4); }
+  50%      { text-shadow: 0 0 8px rgba(236, 72, 153, 1),   0 0 32px rgba(236, 72, 153, 0.7); }
+}
+
+/* Subtle border-color cycle for ASCII frames */
+@keyframes sfrcBorderCycle {
+  0%, 100% { border-color: rgba(34, 211, 238, 0.45); }
+  50%      { border-color: rgba(236, 72, 153, 0.45); }
+}
+
+/* ── MiniRoboWar fighting-game animations ──────────────────────────── */
+/* Big slam-in entry for K.O. / IMMOBILIZED / WINNER text */
+@keyframes sfrcKOSlam {
+  0%   { opacity: 0; transform: scale(3) rotate(-8deg); letter-spacing: 1em; }
+  50%  { opacity: 1; transform: scale(0.9) rotate(2deg); letter-spacing: -0.02em; }
+  100% { opacity: 1; transform: scale(1) rotate(0); letter-spacing: 0; }
+}
+
+/* Health bar fill animation when score changes */
+@keyframes sfrcHpBarFlash {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.6) saturate(1.4); }
+}
+
+/* Screen shake — applied to <main> on KO */
+@keyframes sfrcScreenShake {
+  0%, 100% { transform: translate(0,0); }
+  10%      { transform: translate(-6px, -3px); }
+  20%      { transform: translate( 6px,  4px); }
+  30%      { transform: translate(-5px,  3px); }
+  40%      { transform: translate( 5px, -2px); }
+  50%      { transform: translate(-3px,  2px); }
+  60%      { transform: translate( 3px, -1px); }
+  70%      { transform: translate(-2px,  1px); }
+  80%      { transform: translate( 2px,  0); }
+  90%      { transform: translate(-1px,  0); }
+}
+
+/* Heavy red pulse around the arena on critical moments */
+@keyframes sfrcCombatPulse {
+  0%, 100% { box-shadow: inset 0 0 60px rgba(220, 38, 38, 0.2); }
+  50%      { box-shadow: inset 0 0 120px rgba(220, 38, 38, 0.5); }
+}
+
+/* Timer flash when remaining time <30s */
+@keyframes sfrcTimerCritical {
+  0%, 100% { color: rgb(248, 113, 113); text-shadow: 0 0 16px rgba(248,113,113,1); }
+  50%      { color: rgb(255, 255, 255); text-shadow: 0 0 32px rgba(248,113,113,1); }
+}
+
+/* Suspense loading bar (FTC-style "calculating result" pre-reveal) */
+@keyframes sfrcLoadingBar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+@keyframes sfrcSuspenseDots {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 1; }
+}
+
+/* ── Robo Football (D) — FIFA-style broadcast animations ─────────────── */
+
+/* Full-screen GOAL flash — big "GOAL!" text slams in.
+   Only `transform` + `opacity` so the compositor can run this on the GPU
+   without rasterizing every frame. Earlier versions used `filter: blur` +
+   `hue-rotate` which forced CPU rasterization and visibly stuttered. */
+@keyframes sfrcGoalSlam {
+  0%   { opacity: 0; transform: translateZ(0) scale(0.4) rotate(-6deg); }
+  40%  { opacity: 1; transform: translateZ(0) scale(1.15) rotate(3deg); }
+  70%  {              transform: translateZ(0) scale(1) rotate(-1deg); }
+  100% { opacity: 1; transform: translateZ(0) scale(1) rotate(0); }
+}
+
+/* GOAL backdrop flash — bright color sweep behind GOAL text */
+@keyframes sfrcGoalBackdrop {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Confetti drop for GOAL — sparkles falling */
+@keyframes sfrcConfettiDrop {
+  0%   { transform: translateY(-100vh) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* Score number tick — small bump when a goal is added */
+@keyframes sfrcScoreTick {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Crest pulse — subtle breathing on team crest */
+@keyframes sfrcCrestPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 16px rgba(255,255,255,0.3)); }
+  50%      { transform: scale(1.04); filter: drop-shadow(0 0 32px rgba(255,255,255,0.55)); }
+}
+
+/* Half wipe transition */
+@keyframes sfrcHalftimeWipe {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Score bug slide-in */
+@keyframes sfrcScoreBugSlide {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}

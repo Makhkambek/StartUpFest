@@ -29,6 +29,7 @@ export interface ResultA {
 
 export interface MatchB {
   id: string
+  scheduled_match_id?: string | null
   match_number: number | null
   team1_id: string
   team2_id: string
@@ -42,6 +43,7 @@ export interface MatchB {
 
 export interface FightC {
   id: string
+  scheduled_match_id?: string | null
   fight_number: number | null
   team1_id: string
   team2_id: string
@@ -55,6 +57,7 @@ export interface FightC {
 
 export interface MatchD {
   id: string
+  scheduled_match_id?: string | null
   match_number: number | null
   team1_id: string
   team2_id: string
@@ -75,6 +78,39 @@ export interface Profile {
 export interface JudgeCategory {
   judge_id: string
   category: Category
+}
+
+// ── Live match state (field display) ────────────────────
+
+export type LivePhaseB =
+  | 'idle'           // no active match
+  | 'waiting'        // teams announced, robots not yet on ring
+  | 'positioning'    // judge sets starting position
+  | 'countdown'      // 5s countdown running
+  | 'fighting'       // round in progress
+  | 'round_result'   // round ended, showing result before next
+  | 'match_result'   // match ended, showing winner
+
+export type RoundOutcome = 'red' | 'white' | 'draw'
+
+export interface LiveStateB {
+  // The shape is shared across all 4 categories — the `category` field
+  // identifies which one this row belongs to. (Name preserved for backwards
+  // compat with existing imports.)
+  category: Category
+  active_match_id: string | null
+  phase: LivePhaseB
+  round_number: number              // 1, 2, 3, or 4 (golden match)
+  wins_red: number
+  wins_white: number
+  starting_position: StartingPosition | null
+  last_round_winner: RoundOutcome | null
+  match_winner: 1 | 2 | 0 | null    // 1=red, 2=white, 0=draw, null=ongoing
+  countdown_started_at: string | null  // ISO timestamp; client computes remaining
+  fouls_red: number
+  fouls_white: number
+  round_history: RoundOutcome[]
+  updated_at: string
 }
 
 // ── Computed standings rows ─────────────────────────────
@@ -125,4 +161,14 @@ export interface StandingD {
   goals_for: number
   goals_against: number
   goal_diff: number
+}
+
+// Single-row settings table for the running event (city + year + optional name).
+// Edited by admin once per regional event; consumed by all field displays / PDFs.
+export interface EventSettings {
+  id: 1
+  city_code: string         // UZ_CITIES[].code — 3-letter slug (e.g. "TSH", "BUX")
+  year: number
+  event_name: string | null
+  updated_at: string
 }

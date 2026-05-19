@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// In-memory rate limiter: max 10 attempts per 15 minutes per IP
+// In-memory rate limiter: max 10 attempts per 15 minutes per IP.
+// Failed-only counter — successful logins clear the entry so a returning user
+// is never locked out by their own past success.
 const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 10
+const MAX_TRACKED_IPS = 10_000
 const attempts = new Map<string, { count: number; windowStart: number }>()
 
 function getIp(req: NextRequest): string {
@@ -11,6 +14,7 @@ function getIp(req: NextRequest): string {
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now()
+  pruneStale(now)
   const entry = attempts.get(ip)
   if (!entry || now - entry.windowStart > WINDOW_MS) {
     attempts.set(ip, { count: 1, windowStart: now })
@@ -19,6 +23,24 @@ function checkRateLimit(ip: string): boolean {
   if (entry.count >= MAX_ATTEMPTS) return false
   entry.count++
   return true
+}
+
+function recordFailedAttempt(_ip: string) {
+  // checkRateLimit already incremented the counter at attempt time. Kept for
+  // semantic clarity at call sites.
+}
+
+function clearAttempts(ip: string) {
+  attempts.delete(ip)
+}
+
+function pruneStale(now: number) {
+  if (attempts.size < MAX_TRACKED_IPS) return
+  const stale: string[] = []
+  for (const [k, v] of attempts) {
+    if (now - v.windowStart > WINDOW_MS) stale.push(k)
+  }
+  for (const k of stale) attempts.delete(k)
 }
 
 // Mock credentials for dev (no Supabase)
@@ -50,17 +72,33 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const email = `${username.trim().toLowerCase()}@sfrc.local`
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
+    if (error) {
+      recordFailedAttempt(ip)
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
+    }
+    clearAttempts(ip)
     return NextResponse.json({ ok: true })
+  }
+
+  // Defence-in-depth: never let mock auth activate in production, even if
+  // NEXT_PUBLIC_SUPABASE_URL is accidentally unset on deploy. hasSupabase
+  // already short-circuits to Supabase above; this guard catches misconfig.
+  if (process.env.NODE_ENV === 'production' && !hasSupabase) {
+    return NextResponse.json(
+      { error: 'Mock login disabled in production. Configure Supabase.' },
+      { status: 503 },
+    )
   }
 
   // ── Mock mode (no Supabase) ────────────────────────────
   const user = MOCK_USERS[username?.trim().toLowerCase()]
   if (!user || user.password !== password) {
     await new Promise(r => setTimeout(r, 600)) // prevent brute force timing
+    recordFailedAttempt(ip)
     return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
   }
 
+  clearAttempts(ip)
   const { signSession } = await import('@/lib/session')
   const payload = { username: username.toLowerCase(), role: user.role, categories: user.categories, exp: Date.now() + 2 * 60 * 60 * 1000 }
   const token = signSession(payload)

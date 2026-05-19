@@ -1,14 +1,19 @@
 // In-memory token bucket rate limiter.
-// Limits: 60 req/min for GET, 20 req/min for POST/PATCH/DELETE per IP.
-// Note: in-memory means each serverless instance has its own counters.
-// For real DDoS protection on Vercel, swap to Upstash Redis via @upstash/ratelimit.
+// Limits chosen for the live-scoring workload:
+//   • A judge dashboard polls 4 endpoints (live, teams, schedule, matches)
+//     at ~3–5s intervals, plus realtime fallback → ~80 GET/min steady-state.
+//   • Goal/foul buttons during a match can fire ~20–30 POSTs/min legitimately
+//     (judges add fouls + goals + phase transitions on a hot ring).
+// Higher numbers give breathing room without weakening DDoS protection too
+// much (one IP still capped). For real DDoS protection on Vercel, swap to
+// Upstash Redis via @upstash/ratelimit.
 
 type Bucket = { count: number; resetAt: number }
 
 const buckets = new Map<string, Bucket>()
 const WINDOW_MS = 60_000          // 1 minute
-const READ_LIMIT = 60
-const WRITE_LIMIT = 20
+const READ_LIMIT = 180            // was 60 — too tight under multi-panel judge UI polling
+const WRITE_LIMIT = 60            // was 20 — judges hitting Goal button repeatedly during a match
 const MAX_BUCKETS = 10_000        // cap memory; oldest evicted when exceeded
 
 export interface RateLimitResult {
@@ -31,11 +36,25 @@ export function rateLimit(ip: string, method: string): RateLimitResult {
 
   bucket.count += 1
 
-  // Evict stale entries when map grows too large
+  // Evict stale entries when map grows too large. Collect keys first so we
+  // don't mutate the Map mid-iteration (single-threaded JS makes this fine,
+  // but it's still clearer + correct under unexpected re-entry).
   if (buckets.size > MAX_BUCKETS) {
+    const stale: string[] = []
     for (const [k, b] of buckets) {
-      if (b.resetAt < now) buckets.delete(k)
+      if (b.resetAt < now) stale.push(k)
+    }
+    for (const k of stale) {
+      buckets.delete(k)
       if (buckets.size <= MAX_BUCKETS * 0.8) break
+    }
+    // If everything is still hot (no stale entries), evict the oldest 20% by
+    // resetAt so we don't grow unbounded under a determined floood.
+    if (buckets.size > MAX_BUCKETS) {
+      const oldest = [...buckets.entries()]
+        .sort((a, b) => a[1].resetAt - b[1].resetAt)
+        .slice(0, Math.floor(MAX_BUCKETS * 0.2))
+      for (const [k] of oldest) buckets.delete(k)
     }
   }
 

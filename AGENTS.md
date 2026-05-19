@@ -26,6 +26,5 @@ For any task that touches 2+ files or has 3+ steps — create a todo list first 
 - `src/middleware.ts` — route protection for `/judges/*`
 - `src/types/database.ts` — all DB types
 
-## Judges accounts (mock mode)
-admin / admin · judge_a1 / Line@Track#2026 · judge_b1 / Sumo@Ring#2026 · etc.
-Full list in Obsidian: sfrc-judges-credentials.md
+## Judges accounts
+Credentials live only in Obsidian (sfrc-judges-credentials.md) and in `.env.local` (gitignored, see `.env.local.example` for required `SFRC_*_PASSWORD` vars). Do not paste them here.

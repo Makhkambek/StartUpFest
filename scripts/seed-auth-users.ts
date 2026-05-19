@@ -1,14 +1,18 @@
 /**
  * Run once to create all judge auth accounts in Supabase.
- * Usage: npx tsx scripts/seed-auth-users.ts
+ * Usage: npx tsx --env-file=.env.local scripts/seed-auth-users.ts
+ *
+ * Required env vars: SFRC_ADMIN_PASSWORD, SFRC_JUDGE_{A,B,C,D}{1,2}_PASSWORD
+ * (each >=12 chars). See .env.local.example.
  */
 import { createClient } from '@supabase/supabase-js'
+import { loadJudgeUsers } from './_users-config'
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!url || !serviceKey) {
-  console.error('Missing env vars. Run with .env.local loaded.')
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. Run with --env-file=.env.local')
   process.exit(1)
 }
 
@@ -16,20 +20,9 @@ const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const USERS = [
-  { username: 'admin',    password: 'admin',           role: 'admin', categories: ['a','b','c','d'] },
-  { username: 'judge_a1', password: 'Line@Track#2026', role: 'judge', categories: ['a'] },
-  { username: 'judge_a2', password: 'Fast@Racer#2026', role: 'judge', categories: ['a'] },
-  { username: 'judge_b1', password: 'Sumo@Ring#2026',  role: 'judge', categories: ['b'] },
-  { username: 'judge_b2', password: 'Push@Bull#2026',  role: 'judge', categories: ['b'] },
-  { username: 'judge_c1', password: 'War@Bot#2026',    role: 'judge', categories: ['c'] },
-  { username: 'judge_c2', password: 'Fight@KO#2026',   role: 'judge', categories: ['c'] },
-  { username: 'judge_d1', password: 'Goal@Kick#2026',  role: 'judge', categories: ['d'] },
-  { username: 'judge_d2', password: 'Robo@FC#2026',    role: 'judge', categories: ['d'] },
-]
-
 async function main() {
-  for (const u of USERS) {
+  const users = loadJudgeUsers()
+  for (const u of users) {
     const email = `${u.username}@sfrc.local`
     const { data, error } = await supabase.auth.admin.createUser({
       email,
@@ -39,14 +32,17 @@ async function main() {
     })
     if (error) {
       if (error.message.includes('already been registered')) {
-        console.log(`⚠  ${u.username} already exists — skipped`)
+        console.log(`-  ${u.username} already exists - skipped`)
       } else {
-        console.error(`✗  ${u.username}: ${error.message}`)
+        console.error(`x  ${u.username}: ${error.message}`)
       }
     } else {
-      console.log(`✓  ${u.username} created (${data.user?.id})`)
+      console.log(`+  ${u.username} created (${data.user?.id})`)
     }
   }
 }
 
-main()
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err))
+  process.exit(1)
+})
