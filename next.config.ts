@@ -53,7 +53,11 @@ export default hasSentry
       project: process.env.SENTRY_PROJECT,
       tunnelRoute: '/monitoring',
       disableLogger: true,
-      hideSourceMaps: true,
-      widenClientFileUpload: false,
+      // Sentry's modern API removes source maps from .next/static after upload.
+      // Default is already true; making it explicit so a future config sweep
+      // doesn't accidentally flip it.
+      sourcemaps: {
+        deleteSourcemapsAfterUpload: true,
+      },
     })
   : withIntlConfig;

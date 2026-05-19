@@ -27,7 +27,8 @@ describe('next.config.ts: source map hardening', () => {
     expect(CONFIG).toMatch(/productionBrowserSourceMaps:\s*false/)
   })
 
-  it('passes hideSourceMaps: true to withSentryConfig', () => {
-    expect(CONFIG).toMatch(/hideSourceMaps:\s*true/)
+  it('asks Sentry to delete uploaded source maps after upload', () => {
+    // Equivalent of the old `hideSourceMaps: true` in newer @sentry/nextjs.
+    expect(CONFIG).toMatch(/deleteSourcemapsAfterUpload:\s*true/)
   })
 })
