@@ -43,32 +43,71 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const [authExpired, setAuthExpired] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [rateLimited, setRateLimited] = useState<number | null>(null) // seconds until retry
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false)
   const autoGoFightRef = useRef(false)
   const autoEndRef = useRef(false)
 
   const refetch = useCallback(async () => {
     try {
       const res = await fetch('/api/judges/d/live', { cache: 'no-store' })
+      setHasFetchedOnce(true)
       if (res.ok) {
         const json = await res.json()
         setMigrationMissing(!!json?._migration_missing)
         setAuthExpired(false)
+        setLoadError(null)
+        setRateLimited(null)
         setState(json)
       } else if (res.status === 401) {
         setAuthExpired(true)
+        setLoadError(null)
+      } else if (res.status === 429) {
+        // Rate-limit hit. Show countdown to next allowed request — judge friendly.
+        const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10)
+        setRateLimited(Math.max(1, retryAfter))
+        setLoadError(null)
+      } else {
+        const body = await res.text().catch(() => '')
+        setLoadError(`HTTP ${res.status}${body ? ` · ${body.slice(0, 120)}` : ''}`)
       }
-    } catch {}
+    } catch (e) {
+      setHasFetchedOnce(true)
+      setLoadError(`network: ${(e as Error).message ?? 'unknown'}`)
+    }
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
   useEffect(() => {
-    const id = setInterval(refetch, 1500)
+    // 4s polling — Supabase Realtime is the primary signal, this is just a
+    // safety net. 1.5s was too aggressive and tripped the rate limiter when
+    // combined with team/schedule/match parallel fetches on the same page.
+    const id = setInterval(refetch, 4000)
     return () => clearInterval(id)
   }, [refetch])
   useEffect(() => { if (state?.active_match_id) setPicked(state.active_match_id) }, [state?.active_match_id])
   useEffect(() => { if (state?.phase !== 'countdown') autoGoFightRef.current = false }, [state?.phase])
   // Reset auto-end guard whenever fighting phase ENTERS afresh (new half kickoff resets countdown_started_at).
   useEffect(() => { autoEndRef.current = false }, [state?.phase, state?.countdown_started_at])
+
+  // Rate-limit countdown — ticks down `rateLimited` seconds, auto-retries when it hits 0.
+  useEffect(() => {
+    if (rateLimited === null) return
+    const id = setInterval(() => {
+      setRateLimited((cur) => {
+        if (cur === null) return null
+        if (cur <= 1) {
+          // Trigger one refetch after a tick — clearing the state so the effect
+          // doesn't re-fire while the fetch is in flight.
+          refetch()
+          return null
+        }
+        return cur - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [rateLimited, refetch])
 
   const dispatch = useCallback(async (body: ActionBody) => {
     setBusy(true)
@@ -85,6 +124,10 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
         onChange?.()
       } else if (res.status === 401) {
         setAuthExpired(true)
+      } else if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10)
+        // Judge-friendly wording — no "HTTP 429" in the toast.
+        setError(`Слишком быстро — подожди ${Math.max(1, retryAfter)}с и попробуй снова. Изменения не потеряны.`)
       } else {
         setError(`${body.type}: ${json?.error ?? `HTTP ${res.status}`}`)
         console.error('[LiveControlsD]', body.type, res.status, json)
@@ -167,11 +210,28 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
     </div>
   )
 
-  if (!state) return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm text-gray-400">
-      Loading live controls…
-    </div>
-  )
+  if (!state) {
+    if (rateLimited !== null) {
+      return <RateLimitBanner seconds={rateLimited} onRetryNow={() => { setRateLimited(null); refetch() }} />
+    }
+    if (loadError) {
+      return (
+        <div className="bg-amber-50 rounded-lg p-4 border-2 border-amber-300 text-sm">
+          <div className="font-black text-amber-800 mb-1">⚠ Live controls unavailable</div>
+          <div className="text-amber-700 text-xs font-mono mb-2 break-all">{loadError}</div>
+          <button onClick={refetch} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3 py-1.5 rounded">
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return (
+      <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm text-gray-400 flex items-center gap-2">
+        <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+        Loading live controls{hasFetchedOnce ? ' (retrying)' : ''}…
+      </div>
+    )
+  }
 
   const eligible = schedule.filter((m) => m.status !== 'completed' && m.team2_id)
   const activeMatch = schedule.find((m) => m.id === state.active_match_id) ?? null
@@ -179,6 +239,23 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   const isHalftime = state.phase === 'round_result'
   const isLive = state.phase === 'fighting'
   const tieAtFullTime = isMatchOver && state.wins_red === state.wins_white
+
+  // Auto-pick next match: lowest match_id among eligible, excluding the one
+  // that just finished. Judges don't have to manually scan the schedule —
+  // when end_match fires we surface the next one as a one-click action.
+  const sortedEligible = [...eligible].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
+  )
+  const nextSuggested = sortedEligible.find((m) => m.id !== state.active_match_id) ?? null
+  function matchLabel(m: ScheduledMatch): string {
+    const red = m.team1b_id
+      ? `${teamName(m.team1_id)} + ${teamName(m.team1b_id)}`
+      : teamName(m.team1_id)
+    const blue = m.team2b_id
+      ? `${teamName(m.team2_id)} + ${teamName(m.team2b_id)}`
+      : teamName(m.team2_id)
+    return `${red} vs ${blue}`
+  }
 
   return (
     <div className="bg-white rounded-lg border-2 border-emerald-400 shadow-sm">
@@ -215,11 +292,12 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
               <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
                 className="text-xs font-bold text-gray-500 hover:text-gray-700 underline">Close / idle</button>
             </div>
-            <div className="text-sm font-mono font-black mb-2">
+            <div className="text-sm font-mono font-black mb-3">
               {state.wins_red} − {state.wins_white}
             </div>
+
             {tieAtFullTime && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-3">
                 <button disabled={busy} onClick={() => dispatch({ type: 'start_extra_time' })}
                   className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded">
                   ▶ Start Extra Time
@@ -228,6 +306,43 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                   className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3 py-1.5 rounded">
                   ▶ Penalties
                 </button>
+              </div>
+            )}
+
+            {/* Auto-suggest NEXT MATCH — one-click start without dropdown */}
+            {!tieAtFullTime && nextSuggested && (
+              <div className="rounded-md bg-white border border-emerald-300 p-3 mt-2">
+                <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">
+                  ⏭ Next up
+                </div>
+                <div className="font-mono text-sm text-gray-800 mb-2">
+                  <div className="font-bold">#{nextSuggested.match_id}</div>
+                  <div className="text-rose-700">
+                    🔴 {teamName(nextSuggested.team1_id)}{nextSuggested.team1b_id ? ` + ${teamName(nextSuggested.team1b_id)}` : ''}
+                  </div>
+                  <div className="text-blue-700">
+                    🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button disabled={busy}
+                    onClick={() => dispatch({ type: 'start_match', active_match_id: nextSuggested.id })}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
+                    ▶ Start #{nextSuggested.match_id}
+                  </button>
+                  <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs px-3 py-2 rounded">
+                    Choose another…
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* All matches done — suggest finals */}
+            {!tieAtFullTime && !nextSuggested && (
+              <div className="rounded-md bg-amber-50 border border-amber-300 p-3 mt-2 text-xs text-amber-800">
+                <div className="font-black mb-1">🏆 All scheduled matches are complete</div>
+                <div>Generate finals bracket below to continue, or close to idle.</div>
               </div>
             )}
           </div>
@@ -253,28 +368,61 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
             </div>
           </div>
         ) : !activeMatch ? (
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <select value={picked} onChange={(e) => setPicked(e.target.value)}
-              className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
-              <option value="">Pick a match…</option>
-              {eligible.map((m) => {
-                const redLabel = m.team1b_id
-                  ? `${teamName(m.team1_id)} + ${teamName(m.team1b_id)}`
-                  : teamName(m.team1_id)
-                const blueLabel = m.team2b_id
-                  ? `${teamName(m.team2_id)} + ${teamName(m.team2b_id)}`
-                  : teamName(m.team2_id)
-                return (
-                  <option key={m.id} value={m.id}>
-                    #{m.match_id} · {redLabel} vs {blueLabel}
-                  </option>
-                )
-              })}
-            </select>
-            <button disabled={busy || !picked} onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
-              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded">
-              Start match
-            </button>
+          <div className="space-y-2">
+            {/* Hero: auto-suggested next match — one-click start */}
+            {nextSuggested && (
+              <div className="rounded-md bg-emerald-50 border-2 border-emerald-300 p-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                  ⏭ Next up · auto-picked
+                </div>
+                <div className="font-mono text-sm text-gray-800 mb-2">
+                  <div className="font-bold">#{nextSuggested.match_id}</div>
+                  <div className="text-rose-700">
+                    🔴 {teamName(nextSuggested.team1_id)}{nextSuggested.team1b_id ? ` + ${teamName(nextSuggested.team1b_id)}` : ''}
+                  </div>
+                  <div className="text-blue-700">
+                    🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
+                  </div>
+                </div>
+                <button disabled={busy}
+                  onClick={() => dispatch({ type: 'start_match', active_match_id: nextSuggested.id })}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
+                  ▶ Start #{nextSuggested.match_id}
+                </button>
+              </div>
+            )}
+
+            {/* Fallback: manual picker — collapsed by default into a small "or pick another" row */}
+            {eligible.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                  {nextSuggested ? 'Or choose a different match…' : 'Pick a match…'}
+                </summary>
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2">
+                  <select value={picked} onChange={(e) => setPicked(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">Pick a match…</option>
+                    {sortedEligible.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        #{m.match_id} · {matchLabel(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <button disabled={busy || !picked}
+                    onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded">
+                    Start
+                  </button>
+                </div>
+              </details>
+            )}
+
+            {/* No eligible matches — guide judge to generate */}
+            {eligible.length === 0 && (
+              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+                No scheduled matches available. Generate a schedule below or add a match manually.
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -359,4 +507,26 @@ function btn(active: boolean) {
   return `text-sm font-bold py-1.5 px-3 rounded border-2 transition-colors ${
     active ? 'bg-emerald-100 border-emerald-500 text-emerald-800' : 'border-gray-200 hover:bg-gray-50 text-gray-700'
   }`
+}
+
+// Judge-friendly rate-limit message. Shows what happened, why, what to do.
+// Avoids leaking "HTTP 429" / "Too many requests" — those are meaningless on
+// the floor and look like a system bug.
+function RateLimitBanner({ seconds, onRetryNow }: { seconds: number; onRetryNow: () => void }) {
+  return (
+    <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-300 text-sm">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="inline-block w-3 h-3 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin" />
+        <div className="font-black text-blue-800">Слишком быстро · ждём {seconds}с</div>
+      </div>
+      <div className="text-blue-700 text-xs mb-2">
+        Сервер защищает себя от спама. Подожди — экран обновится автоматически.
+        Это <b>не ошибка</b>: твои предыдущие действия сохранены.
+      </div>
+      <button onClick={onRetryNow}
+        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded">
+        Попробовать сейчас
+      </button>
+    </div>
+  )
 }

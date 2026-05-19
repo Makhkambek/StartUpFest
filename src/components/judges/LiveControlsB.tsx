@@ -82,8 +82,12 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
   }, [dispatch])
 
   // Derived values used by both render and effects (state may be null on first render).
+  // Sort by match_id so "next up" is the next sequential bout (Q-1 → Q-2 → ...).
   const eligible = state ? schedule.filter((m) => m.status !== 'completed' && m.team2_id) : []
-  const nextPending = state ? eligible.find((m) => m.id !== state.active_match_id) ?? null : null
+  const sortedEligible = [...eligible].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
+  )
+  const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
   const isMatchOver = state?.phase === 'match_result'
 
   // Auto-dispatch go_fight once the 5-second countdown finishes — so judge doesn't have to.
@@ -197,26 +201,58 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             </button>
           </div>
         ) : !activeMatch ? (
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <select
-              value={picked}
-              onChange={(e) => setPicked(e.target.value)}
-              className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
-            >
-              <option value="">Pick a match to start…</option>
-              {eligible.map((m) => (
-                <option key={m.id} value={m.id}>
-                  #{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={busy || !picked}
-              onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
-              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded"
-            >
-              Start match
-            </button>
+          <div className="space-y-2">
+            {/* Hero: auto-suggested next match — one-click start */}
+            {nextPending && (
+              <div className="rounded-md bg-amber-50 border-2 border-amber-300 p-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">
+                  ⏭ Next up · auto-picked
+                </div>
+                <div className="font-mono text-sm text-gray-800 mb-2">
+                  <span className="font-bold">#{nextPending.match_id}</span>
+                  <span className="text-gray-400 mx-2">·</span>
+                  🔴 {teamName(nextPending.team1_id)}
+                  <span className="text-gray-400 mx-2">vs</span>
+                  ⚪ {teamName(nextPending.team2_id)}
+                </div>
+                <button disabled={busy}
+                  onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
+                  ▶ Start #{nextPending.match_id}
+                </button>
+              </div>
+            )}
+
+            {/* Manual picker collapsed by default */}
+            {eligible.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                  {nextPending ? 'Or choose a different match…' : 'Pick a match to start…'}
+                </summary>
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2">
+                  <select value={picked} onChange={(e) => setPicked(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">Pick a match…</option>
+                    {sortedEligible.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        #{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}
+                      </option>
+                    ))}
+                  </select>
+                  <button disabled={busy || !picked}
+                    onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                    className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded">
+                    Start
+                  </button>
+                </div>
+              </details>
+            )}
+
+            {eligible.length === 0 && (
+              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+                No scheduled matches available. Generate a schedule below or add a match manually.
+              </div>
+            )}
           </div>
         ) : null}
 

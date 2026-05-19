@@ -107,7 +107,10 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
 
   // Derived
   const eligible = state ? schedule.filter((m) => m.status !== 'completed') : []
-  const nextPending = state ? eligible.find((m) => m.id !== state.active_match_id) ?? null : null
+  const sortedEligible = [...eligible].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
+  )
+  const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
   // Match is "over" when phase is match_result OR round_result with a final winner (attempt 2 done).
   const isMatchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
 
@@ -279,20 +282,54 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
             </button>
           </div>
         ) : !activeMatch ? (
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <select value={picked} onChange={(e) => setPicked(e.target.value)}
-              className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
-              <option value="">Pick a match to start…</option>
-              {eligible.map((m) => (
-                <option key={m.id} value={m.id}>
-                  #{m.match_id} · {teamName(m.team1_id)}
-                </option>
-              ))}
-            </select>
-            <button disabled={busy || !picked} onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
-              className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded">
-              Start match
-            </button>
+          <div className="space-y-2">
+            {nextPending && (
+              <div className="rounded-md bg-cyan-50 border-2 border-cyan-300 p-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-cyan-700 mb-1">
+                  ⏭ Next run · auto-picked
+                </div>
+                <div className="font-mono text-sm text-gray-800 mb-2">
+                  <span className="font-bold">#{nextPending.match_id}</span>
+                  <span className="text-gray-400 mx-2">·</span>
+                  🏎️ {teamName(nextPending.team1_id)}
+                </div>
+                <button disabled={busy}
+                  onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
+                  ▶ Start #{nextPending.match_id}
+                </button>
+              </div>
+            )}
+
+            {eligible.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                  {nextPending ? 'Or choose a different run…' : 'Pick a run to start…'}
+                </summary>
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2">
+                  <select value={picked} onChange={(e) => setPicked(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">Pick a run…</option>
+                    {sortedEligible.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        #{m.match_id} · {teamName(m.team1_id)}
+                      </option>
+                    ))}
+                  </select>
+                  <button disabled={busy || !picked}
+                    onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                    className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white font-bold text-sm px-4 py-1.5 rounded">
+                    Start
+                  </button>
+                </div>
+              </details>
+            )}
+
+            {eligible.length === 0 && (
+              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+                No scheduled runs available. Generate a schedule below or add a run manually.
+              </div>
+            )}
           </div>
         ) : null}
 

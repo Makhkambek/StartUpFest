@@ -56,22 +56,56 @@ function useCountdown(startedAt: string | null, phase: LiveStateB['phase']) {
   return remaining
 }
 
-// Reverse half timer (2:00 → 0:00). Active flips on the moment client sees fighting OR
-// countdown reaches 0. Resets when phase leaves fighting.
-function useHalfTimer(active: boolean, halfKey: number) {
+// Reverse half timer (2:00 → 0:00).
+//   active            — currently fighting (or local countdown finished, just before fighting)
+//   phase             — current LiveStateB phase (used to decide: tick / freeze / reset)
+//   matchKey          — change forces reset (new match started, or new half kicked off)
+//   serverHalfStartAt — countdown_started_at when phase==fighting (= the kickoff moment).
+//                       We rebase the timer on this so all clients/tabs stay in sync with
+//                       the server's authoritative kickoff time instead of each computing
+//                       their own local "when countdown hit 0" — cross-tab drift would
+//                       otherwise be 100–500ms which looks bad on a shared venue display.
+//
+// Rule:
+//   • fighting       → tick down from 2:00 rebased on serverHalfStartAt
+//   • round_result   → freeze last value (audience sees final time of the half)
+//   • match_result   → freeze last value
+//   • anything else (idle/waiting/positioning/countdown) → reset to full 2:00 immediately
+function useHalfTimer(
+  active: boolean,
+  phase: LiveStateB['phase'],
+  matchKey: string,
+  serverHalfStartAt: string | null,
+) {
   const [secondsLeft, setSecondsLeft] = useState(HALF_DURATION_SEC)
+  const shouldFreeze = phase === 'round_result' || phase === 'match_result'
+
   useEffect(() => {
-    if (!active) return  // freeze last value
-    const start = Date.now()
-    setSecondsLeft(HALF_DURATION_SEC)
+    // Pre-fight states: always show fresh 2:00. Critical that this happens
+    // synchronously so a new match doesn't briefly inherit the previous match's
+    // frozen "0:14" value during ROBOTS ON PITCH.
+    if (!active && !shouldFreeze) {
+      setSecondsLeft(HALF_DURATION_SEC)
+      return
+    }
+    if (!active) return  // freeze (round_result / match_result)
+
+    // During fighting, anchor the timer on the server's kickoff timestamp when
+    // available. Falls back to local Date.now() if the field display learned
+    // about `fighting` before receiving the new countdown_started_at (rare —
+    // realtime push usually carries both fields atomically).
+    const serverStartMs = phase === 'fighting' && serverHalfStartAt
+      ? Date.parse(serverHalfStartAt)
+      : Date.now()
+
     const tick = () => {
-      const r = HALF_DURATION_SEC - (Date.now() - start) / 1000
+      const r = HALF_DURATION_SEC - (Date.now() - serverStartMs) / 1000
       setSecondsLeft(r > 0 ? r : 0)
     }
-    tick()
+    tick()  // immediate — no flash of 02:00 if some time already elapsed
     const id = setInterval(tick, 100)
     return () => clearInterval(id)
-  }, [active, halfKey])
+  }, [active, shouldFreeze, matchKey, phase, serverHalfStartAt])
   return secondsLeft
 }
 
@@ -166,7 +200,10 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
   const cdRemaining = useCountdown(state.countdown_started_at, state.phase)
   const countdownFinished = isCountdown && cdRemaining !== null && cdRemaining <= 0
   const timerActive = isRunning || countdownFinished
-  const halfSeconds = useHalfTimer(timerActive, state.round_number)
+  // matchKey combines active_match_id + round_number so the timer resets when
+  // a new match starts OR a new half begins within the same match.
+  const halfMatchKey = `${state.active_match_id ?? 'idle'}-${state.round_number}`
+  const halfSeconds = useHalfTimer(timerActive, state.phase, halfMatchKey, state.countdown_started_at)
 
   // Detect a new goal and play GOAL overlay for GOAL_OVERLAY_MS.
   const totalGoals = state.wins_red + state.wins_white
@@ -194,11 +231,26 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
     : state.match_winner === 0 ? 'draw'
     : null
 
-  const halfLabel =
-    state.round_number === 1 ? t('firstHalf')
-    : state.round_number === 2 ? t('secondHalf')
-    : state.round_number === 3 ? t('extraTime')
-    : t('penalties')
+  // During the half-time break (round_result after half 1), the top bar should
+  // signal what's next, not stay on "1ST HALF" which reads as still-in-progress.
+  // Pattern: "HALF-TIME → 2ND HALF" so audiences/judges know the next phase.
+  const halfLabel = (() => {
+    const current =
+      state.round_number === 1 ? t('firstHalf')
+      : state.round_number === 2 ? t('secondHalf')
+      : state.round_number === 3 ? t('extraTime')
+      : t('penalties')
+
+    if (isHalftime) {
+      const next =
+        state.round_number === 1 ? t('secondHalf')
+        : state.round_number === 2 ? t('extraTime')
+        : state.round_number === 3 ? t('penalties')
+        : null
+      return next ? `${t('halftime')} → ${next}` : t('halftime')
+    }
+    return current
+  })()
 
   const lastGoal = (() => {
     const raw = (state.round_history as unknown) ?? []
@@ -549,38 +601,113 @@ function HalftimeStage({ red, redPartner, white, whitePartner, state, t }: {
   state: LiveStateB
   t: ReturnType<typeof useTranslations>
 }) {
+  // Mini-trophy-card layout for halftime — same glass panel + accent stripes as
+  // full-time, but with HALFTIME caption instead of WINNERS and both sides
+  // shown neutrally (no winner yet). Photo-worthy intermission card.
+  const amberStripe =
+    'linear-gradient(90deg, rgba(251,191,36,0) 0%, rgba(251,191,36,0.85) 50%, rgba(251,191,36,0) 100%)'
+
   return (
-    <div className="text-center w-full max-w-5xl mx-auto">
-      <div className="text-amber-300 font-black tracking-[0.45em] uppercase mb-4"
-        style={{ fontSize: 'clamp(1.2rem, 2.8vw, 2.4rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
-        ▌ {t('halftime')} ▐
-      </div>
-      <div className="flex items-center justify-center gap-6 sm:gap-10 mb-6">
-        <div className="text-right">
-          <div className="text-rose-300/80 text-xs font-black tracking-[0.45em] uppercase mb-1">▌ RED ▐</div>
-          <div className="font-black uppercase" style={{ fontSize: 'clamp(1.2rem, 2.4vw, 2rem)' }}>{red.name}</div>
-          {redPartner && (
-            <div className="font-black uppercase" style={{ fontSize: 'clamp(1.2rem, 2.4vw, 2rem)' }}>
-              {redPartner.name}
-            </div>
-          )}
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-8 relative">
+      <div className="relative border border-white/10 bg-black/35 backdrop-blur-md py-8 sm:py-12 px-6 sm:px-12"
+        style={{ animation: 'sfrcScoreBugSlide 0.6s ease-out', willChange: 'transform, opacity' }}>
+
+        {/* Top + bottom amber accent stripes (halftime = amber, not winner color) */}
+        <div className="absolute top-0 left-0 right-0 h-px" style={{ background: amberStripe }} />
+        <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: amberStripe }} />
+
+        {/* HALFTIME caption */}
+        <div className="flex items-center justify-center gap-2 mb-3 sm:mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-amber-300/90 font-semibold tracking-[0.45em] uppercase"
+            style={{ fontSize: 'clamp(0.7rem, 1vw, 0.85rem)' }}>
+            {t('firstHalf')} → {t('secondHalf')}
+          </span>
         </div>
-        <div className="font-black tabular-nums text-white" style={{ fontSize: 'clamp(4rem, 10vw, 8rem)', lineHeight: 1 }}>
-          {state.wins_red}<span className="text-white/40 mx-2">—</span>{state.wins_white}
+
+        {/* BIG HALFTIME label */}
+        <div className="text-center mb-6 sm:mb-8">
+          <span className="font-black tracking-[0.4em] uppercase text-amber-300"
+            style={{
+              fontSize: 'clamp(2.2rem, 5vw, 4rem)',
+              letterSpacing: '0.3em',
+              textShadow: '0 0 24px rgba(251,191,36,0.35)',
+            }}>
+            {t('halftime')}
+          </span>
         </div>
-        <div className="text-left">
-          <div className="text-cyan-300/80 text-xs font-black tracking-[0.45em] uppercase mb-1">▌ BLUE ▐</div>
-          <div className="font-black uppercase" style={{ fontSize: 'clamp(1.2rem, 2.4vw, 2rem)' }}>{white.name}</div>
-          {whitePartner && (
-            <div className="font-black uppercase" style={{ fontSize: 'clamp(1.2rem, 2.4vw, 2rem)' }}>
-              {whitePartner.name}
-            </div>
-          )}
+
+        {/* SCORE row — alliance crests + big single-line score in the middle */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-8 mb-8">
+          {/* Red side crests */}
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <MiniCrest side="red" code={teamCode(red.name)} />
+            {redPartner && <MiniCrest side="red" code={teamCode(redPartner.name)} />}
+          </div>
+
+          {/* Score — both sides neutral white, em-dash subtle */}
+          <div className="font-black tabular-nums leading-none flex items-baseline gap-3 sm:gap-5 whitespace-nowrap text-white"
+            style={{ fontSize: 'clamp(3.5rem, 9vw, 7rem)', letterSpacing: '-0.05em' }}>
+            <span>{state.wins_red}</span>
+            <span className="text-white/30 font-light">–</span>
+            <span>{state.wins_white}</span>
+          </div>
+
+          {/* Blue side crests */}
+          <div className="flex items-center justify-start gap-2 sm:gap-3">
+            <MiniCrest side="white" code={teamCode(white.name)} />
+            {whitePartner && <MiniCrest side="white" code={teamCode(whitePartner.name)} />}
+          </div>
+        </div>
+
+        {/* Team names — two columns, compact */}
+        <div className="grid grid-cols-2 gap-6 sm:gap-12">
+          <HalftimeAllianceCol side="red"  team={red}   partner={redPartner}   />
+          <HalftimeAllianceCol side="blue" team={white} partner={whitePartner} />
+        </div>
+
+        {/* Bottom hint */}
+        <div className="mt-8 pt-4 border-t border-white/10 text-center text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.3em] uppercase">
+          ⏸ {t('fairPlay')} · {t('halftimeHint')}
         </div>
       </div>
-      <div className="text-emerald-200/70 text-sm sm:text-base tracking-widest uppercase">
-        ☕ break · {t('fairPlay')}
+    </div>
+  )
+}
+
+// Helper for HalftimeStage: alliance column with side label + 1 or 2 team names.
+function HalftimeAllianceCol({ side, team, partner }: {
+  side: 'red' | 'blue'
+  team: TeamLite
+  partner: TeamLite | null
+}) {
+  const isRed = side === 'red'
+  const labelColor = isRed ? 'text-rose-300' : 'text-cyan-300'
+  const labelGlow = isRed
+    ? '0 0 16px rgba(244,63,94,0.4)'
+    : '0 0 16px rgba(59,130,246,0.4)'
+  const sideLabel = isRed ? 'RED' : 'BLUE'
+  const align = isRed ? 'text-right items-end' : 'text-left items-start'
+
+  return (
+    <div className={`flex flex-col ${align} min-w-0`}>
+      <div className={`${labelColor} font-black tracking-[0.5em] uppercase mb-2`}
+        style={{
+          fontSize: 'clamp(0.7rem, 1vw, 0.9rem)',
+          textShadow: labelGlow,
+        }}>
+        {sideLabel}
       </div>
+      <div className="text-white font-black uppercase leading-tight break-words"
+        style={{ fontSize: 'clamp(1rem, 1.8vw, 1.6rem)' }}>
+        {team.name}
+      </div>
+      {partner && (
+        <div className="text-white/80 font-black uppercase leading-tight break-words mt-1"
+          style={{ fontSize: 'clamp(1rem, 1.8vw, 1.6rem)' }}>
+          {partner.name}
+        </div>
+      )}
     </div>
   )
 }
@@ -764,13 +891,16 @@ function GoalOverlay({ side, scoredBy, t }: { side: 'red' | 'white'; scoredBy: s
       <div className="absolute inset-0" style={{ background: grad, animation: 'sfrcGoalBackdrop 1.2s ease-out' }} />
       {/* confetti */}
       <ConfettiBurst side={side} />
-      {/* GOAL! text slam */}
+      {/* GOAL! text slam — `willChange` hints the compositor to promote this to
+          its own GPU layer so the scale+rotate animation stays buttery-smooth. */}
       <div className={`relative font-black tracking-tight uppercase ${color}`}
         style={{
           fontSize: 'clamp(8rem, 22vw, 22rem)',
           letterSpacing: '-0.04em',
           textShadow: glow,
           animation: 'sfrcGoalSlam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          willChange: 'transform, opacity',
+          transform: 'translateZ(0)',
         }}>
         {t('goal')}
       </div>
@@ -790,7 +920,7 @@ function ConfettiBurst({ side }: { side: 'red' | 'white' }) {
     : ['#3b82f6', '#06b6d4', '#a78bfa', '#ffffff']
   return (
     <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 24 }).map((_, i) => {
+      {Array.from({ length: 16 }).map((_, i) => {
         const left = (i * 37 + 13) % 100
         const delay = (i * 0.08) % 2
         const dur = 2.4 + (i % 5) * 0.3
@@ -800,6 +930,7 @@ function ConfettiBurst({ side }: { side: 'red' | 'white' }) {
             key={i}
             className="absolute top-0 w-2 h-3 rounded-sm"
             style={{
+              willChange: 'transform, opacity',
               left: `${left}%`,
               background: color,
               animation: `sfrcConfettiDrop ${dur}s linear ${delay}s 1`,
