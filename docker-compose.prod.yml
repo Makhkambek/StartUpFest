@@ -1,3 +1,5 @@
+# Production stack for robotics.startupfest.uz
+# nginx on the host terminates TLS and reverse-proxies to 127.0.0.1:3001.
 services:
   web:
     image: IMAGE
@@ -10,9 +12,8 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
-    # Bind to loopback only — nginx on the host reverse-proxies this upstream.
-    # Port 3001 on the host is chosen to avoid clashing with startupfest
-    # (backend on 127.0.0.1:8001) and any other service already on 3000.
+    # Bind to loopback only — nginx reverse-proxies robotics.startupfest.uz here.
+    # Port 3001 avoids clashing with startupfest (127.0.0.1:8001) on the shared host.
     ports:
       - "127.0.0.1:3001:3000"
     healthcheck:
