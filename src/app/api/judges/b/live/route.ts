@@ -64,13 +64,19 @@ export async function POST(req: NextRequest) {
 
   if (hasSupabase) {
     const next = await applySupabase(action)
-    if (!next) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    if (!next) {
+      console.error('[live/b] action returned null:', action.type)
+      return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
+    }
     if (action.type === 'end_match') await persistMatchSupabase(next)
     return NextResponse.json(next)
   }
 
   const next = await applyMock(action)
-  if (!next) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!next) {
+    console.error('[live/b] action returned null (mock):', action.type)
+    return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
+  }
   if (action.type === 'end_match') await persistMatchMock(next)
   return NextResponse.json(next)
 }
@@ -142,8 +148,23 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 async function applySupabase(action: Action): Promise<LiveStateB | null> {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
-  const { data: current } = await supabase.from('live_match_state').select('*').eq('category', 'b').maybeSingle()
+  const { data: current, error: readErr } = await supabase
+    .from('live_match_state').select('*').eq('category', 'b').maybeSingle()
+  if (readErr) {
+    console.error('[live/b] select error:', readErr.message)
+    return null
+  }
   const cur = (current as LiveStateB | null) ?? null
+  // Self-heal: seed missing row so UPDATE below has something to write. Without
+  // this, every action returns "Invalid action" because UPDATE matches 0 rows.
+  if (!cur) {
+    const { error: insErr } = await supabase
+      .from('live_match_state').insert({ category: 'b' })
+    if (insErr) {
+      console.error('[live/b] seed insert error:', insErr.message)
+      return null
+    }
+  }
 
   const patch: Partial<LiveStateB> = {}
   switch (action.type) {

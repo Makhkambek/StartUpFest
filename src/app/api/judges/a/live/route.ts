@@ -71,7 +71,15 @@ export async function POST(req: NextRequest) {
   }
 
   const next = hasSupabase ? await applySupabase(action) : await applyMock(action)
-  if (!next) return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  if (!next) {
+    // Generic "Invalid action" used to confuse judges — log the action so we can
+    // diagnose from server logs without leaking internals to the browser.
+    console.error('[live/a] action returned null:', action.type)
+    return NextResponse.json(
+      { error: 'Invalid action', action: action.type },
+      { status: 400 },
+    )
+  }
 
   // Persist to results_a once the match is actually decided (both attempts done OR judge
   // explicitly ended it). Triggered when match_winner is set — phase may be round_result
@@ -204,8 +212,24 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 async function applySupabase(action: Action): Promise<LiveStateB | null> {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
-  const { data: cur } = await supabase
+  const { data: cur, error: readErr } = await supabase
     .from('live_match_state').select('*').eq('category', 'a').maybeSingle()
+  if (readErr) {
+    console.error('[live/a] select error:', readErr.message)
+    return null
+  }
+  // Self-heal: if no row exists for category 'a' (partial migration or row
+  // accidentally deleted), seed one so UPDATE below has something to write to.
+  // Without this, every action returns "Invalid action" because UPDATE matches
+  // zero rows.
+  if (!cur) {
+    const { error: insErr } = await supabase
+      .from('live_match_state').insert({ category: 'a' })
+    if (insErr) {
+      console.error('[live/a] seed insert error:', insErr.message)
+      return null
+    }
+  }
   const patch = buildPatch(action, (cur as LiveStateB | null) ?? null)
 
   const { data, error } = await supabase
@@ -214,7 +238,10 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
     .eq('category', 'a')
     .select()
     .maybeSingle()
-  if (error) return null
+  if (error) {
+    console.error('[live/a] update error:', error.message)
+    return null
+  }
   return (data as LiveStateB | null) ?? null
 }
 
