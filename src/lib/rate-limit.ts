@@ -1,20 +1,45 @@
 // In-memory token bucket rate limiter.
-// Limits chosen for the live-scoring workload:
-//   • A judge dashboard polls 4 endpoints (live, teams, schedule, matches)
-//     at ~3–5s intervals, plus realtime fallback → ~80 GET/min steady-state.
-//   • Goal/foul buttons during a match can fire ~20–30 POSTs/min legitimately
-//     (judges add fouls + goals + phase transitions on a hot ring).
-// Higher numbers give breathing room without weakening DDoS protection too
-// much (one IP still capped). For real DDoS protection on Vercel, swap to
-// Upstash Redis via @upstash/ratelimit.
+// Per-endpoint limits chosen for the live-scoring workload:
+//   • Public scoreboard (/api/standings, /api/field) is hammered by spectators
+//     and field displays — tight read limit so a flood can't pin the Node loop
+//     even with unstable_cache absorbing the DB hit.
+//   • Judge UI polls 4 endpoints at ~3–5s intervals plus realtime fallback,
+//     and the Goal/foul button can fire ~20–30 POSTs/min on a hot ring.
+//   • /api/auth/login is brute-force-prone; the route itself adds a 10/15min
+//     wall, this is an additional per-minute trip-wire.
+// For real DDoS protection at the edge, put Cloudflare in front and swap this
+// for Upstash Redis via @upstash/ratelimit.
 
 type Bucket = { count: number; resetAt: number }
 
 const buckets = new Map<string, Bucket>()
 const WINDOW_MS = 60_000          // 1 minute
-const READ_LIMIT = 180            // was 60 — too tight under multi-panel judge UI polling
-const WRITE_LIMIT = 60            // was 20 — judges hitting Goal button repeatedly during a match
 const MAX_BUCKETS = 10_000        // cap memory; oldest evicted when exceeded
+
+interface EndpointLimit {
+  prefix: string
+  read: number
+  write: number
+}
+
+// Order matters: first matching prefix wins. Put longer/more-specific paths first.
+const ENDPOINT_LIMITS: EndpointLimit[] = [
+  { prefix: '/api/auth/login', read: 30,  write: 5   },
+  { prefix: '/api/standings',  read: 30,  write: 0   },
+  { prefix: '/api/field',      read: 60,  write: 0   },
+  { prefix: '/api/event',      read: 60,  write: 10  },
+  { prefix: '/api/admin',      read: 60,  write: 30  },
+  { prefix: '/api/judges',     read: 180, write: 60  },
+  { prefix: '/api/auth',       read: 60,  write: 20  },
+]
+const DEFAULT_LIMIT: Omit<EndpointLimit, 'prefix'> = { read: 60, write: 20 }
+
+function pickLimit(path: string): Omit<EndpointLimit, 'prefix'> {
+  for (const l of ENDPOINT_LIMITS) {
+    if (path.startsWith(l.prefix)) return { read: l.read, write: l.write }
+  }
+  return DEFAULT_LIMIT
+}
 
 export interface RateLimitResult {
   ok: boolean
@@ -22,10 +47,17 @@ export interface RateLimitResult {
   resetAt: number
 }
 
-export function rateLimit(ip: string, method: string): RateLimitResult {
+export function rateLimit(ip: string, method: string, path: string = ''): RateLimitResult {
   const isWrite = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
-  const limit = isWrite ? WRITE_LIMIT : READ_LIMIT
-  const key = `${ip}:${isWrite ? 'w' : 'r'}`
+  const cfg = pickLimit(path)
+  const limit = isWrite ? cfg.write : cfg.read
+  // A zero limit means "method not allowed for this path under rate limiting" —
+  // we still let it through (route handler will 405) but track the bucket so
+  // a flood of disallowed methods can't be used to probe the limiter for free.
+  if (limit === 0) {
+    return { ok: true, remaining: 0, resetAt: Date.now() + WINDOW_MS }
+  }
+  const key = `${ip}:${path.split('/').slice(0, 4).join('/')}:${isWrite ? 'w' : 'r'}`
   const now = Date.now()
 
   let bucket = buckets.get(key)

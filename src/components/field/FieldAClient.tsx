@@ -120,7 +120,7 @@ export default function FieldAClient() {
 
   // Always poll (safety net even in Supabase mode — if realtime publication isn't set up).
   useEffect(() => {
-    const id = setInterval(refetch, hasSupabase ? 1500 : 300)
+    const id = setInterval(refetch, hasSupabase ? 4000 : 300)
     return () => clearInterval(id)
   }, [refetch])
 

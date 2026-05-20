@@ -139,9 +139,10 @@ export default function FieldDClient() {
 
   // Always poll (cheap GET). In Supabase mode realtime is the primary signal, but if the
   // publication isn't configured for live_match_state the client would never see updates —
-  // polling is the safety net. 1.5s is invisible to viewers.
+  // polling is the safety net. 4s is invisible to viewers and keeps shared-IP venue
+  // traffic under the rate limit when many field/judge devices are behind one NAT.
   useEffect(() => {
-    const interval = hasSupabase ? 1500 : 300
+    const interval = hasSupabase ? 4000 : 300
     const id = setInterval(refetch, interval)
     return () => clearInterval(id)
   }, [refetch])

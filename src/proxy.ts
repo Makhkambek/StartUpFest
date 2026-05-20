@@ -66,10 +66,20 @@ export async function proxy(request: NextRequest) {
   const isProtectedPage = isJudges && !path.startsWith('/judges/login')
   const isProtectedApi = path.startsWith('/api/judges/') || path.startsWith('/api/admin/')
 
-  // ── /api/* : rate limit, then optional auth ───────────────
+  // ── /api/* : body size guard → rate limit → optional auth ─
   if (isApi) {
+    // Cheap pre-check before we even pay for the bucket lookup. The biggest
+    // legitimate POST in this app is a finals-bracket regenerate (~2 KB).
+    // 16 KB is generous; anything larger is either a bug or an attempt to
+    // OOM us via an inflated JSON body.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const len = parseInt(request.headers.get('content-length') ?? '0', 10)
+      if (len > 16_384) {
+        return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
+      }
+    }
     const ip = getClientIp(request)
-    const rl = rateLimit(ip, request.method)
+    const rl = rateLimit(ip, request.method, path)
     if (!rl.ok) {
       return NextResponse.json(
         { error: 'Too many requests' },
