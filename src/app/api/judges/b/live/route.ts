@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (hasSupabase) {
     const next = await applySupabase(action)
     if (!next) {
-      console.error('[live/b] action returned null:', action.type)
+      console.error(`[live/b] action returned null: ${action.type}`)
       return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
     }
     if (action.type === 'end_match') await persistMatchSupabase(next)
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
   const next = await applyMock(action)
   if (!next) {
-    console.error('[live/b] action returned null (mock):', action.type)
+    console.error(`[live/b] action returned null (mock): ${action.type}`)
     return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
   }
   if (action.type === 'end_match') await persistMatchMock(next)

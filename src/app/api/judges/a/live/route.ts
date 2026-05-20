@@ -14,6 +14,7 @@ type Action =
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
   | { type: 'end_match' }
+  | { type: 'retry_persist' }
   | { type: 'reset' }
 
 // Default state returned when the DB hasn't been seeded yet. `category` must
@@ -70,11 +71,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // retry_persist: re-attempt the results_a write for the current state without
+  // mutating the live phase. Backs the judge's "Retry save" banner after a silent
+  // persist failure. Idempotent — results_a upsert keys on scheduled_match_id.
+  if (action.type === 'retry_persist') {
+    const cur = await readCurrentState()
+    if (!cur || cur.match_winner === null || !cur.active_match_id) {
+      return NextResponse.json({ error: 'No completed run to save', action: action.type }, { status: 400 })
+    }
+    const persistError = await persistRunResult(cur).catch((e) => `persist: ${(e as Error).message}`)
+    return NextResponse.json({ ...cur, persistError })
+  }
+
   const next = hasSupabase ? await applySupabase(action) : await applyMock(action)
   if (!next) {
     // Generic "Invalid action" used to confuse judges — log the action so we can
     // diagnose from server logs without leaking internals to the browser.
-    console.error('[live/a] action returned null:', action.type)
+    console.error(`[live/a] action returned null: ${action.type}`)
     return NextResponse.json(
       { error: 'Invalid action', action: action.type },
       { status: 400 },
@@ -85,10 +98,23 @@ export async function POST(req: NextRequest) {
   // explicitly ended it). Triggered when match_winner is set — phase may be round_result
   // (showing the final-attempt time) or match_result.
   if (next.match_winner !== null && next.active_match_id) {
-    await persistRunResult(next).catch(() => null)
+    const persistError = await persistRunResult(next).catch((e) => `persist: ${(e as Error).message}`)
+    return NextResponse.json({ ...next, persistError })
   }
 
   return NextResponse.json(next)
+}
+
+async function readCurrentState(): Promise<LiveStateB | null> {
+  if (hasSupabase) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('live_match_state').select('*').eq('category', 'a').maybeSingle()
+    return (data as LiveStateB | null) ?? null
+  }
+  const { getLiveA } = await import('@/lib/mock-store')
+  return getLiveA()
 }
 
 // ── History is stored as JSONB: for category A, an array of `{ time | null }` per attempt.
@@ -184,6 +210,9 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     case 'end_match':
       return { phase: 'match_result', match_winner: 1 }
+    case 'retry_persist':
+      // Handled in POST before reaching here; no state mutation.
+      return {}
     case 'reset':
       return {
         active_match_id: null,
@@ -247,8 +276,11 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
 
 // ── Persist run result to results_a so it shows up in standings/leaderboard.
 // Judge can later refine the times via the Record/Edit form on /judges/a.
-async function persistRunResult(state: LiveStateB) {
-  if (!state.active_match_id) return
+// Returns null on success or an error string the judge UI shows as a Retry
+// banner — previously the error was swallowed, silently dropping the result.
+// Idempotent: results_a upsert keys on scheduled_match_id, so Retry overwrites.
+async function persistRunResult(state: LiveStateB): Promise<string | null> {
+  if (!state.active_match_id) return null
   const history = readHistory(state)
   const run1 = history[0]?.time ?? null
   const run2 = history[1]?.time ?? null
@@ -272,7 +304,7 @@ async function persistRunResult(state: LiveStateB) {
       ? null
       : isFinite(best) ? best + penaltySec : null
 
-    await supabase.from('results_a').upsert({
+    const { error: upsertErr } = await supabase.from('results_a').upsert({
       scheduled_match_id: state.active_match_id,
       // team_id is required — pull from the scheduled match
       team_id: await teamIdForScheduled(state.active_match_id),
@@ -283,13 +315,14 @@ async function persistRunResult(state: LiveStateB) {
       run_phase: 'qualification',
       notes: null,
     }, { onConflict: 'scheduled_match_id' })
-    return
+    if (upsertErr) return `save result: ${upsertErr.message}`
+    return null
   }
 
   const { upsertResultA } = await import('@/lib/mock-store')
   const { getMatchById } = await import('@/lib/schedule-store')
   const sched = getMatchById(state.active_match_id)
-  if (!sched) return
+  if (!sched) return null
   upsertResultA({
     scheduled_match_id: state.active_match_id,
     team_id: sched.team1_id,
@@ -303,6 +336,7 @@ async function persistRunResult(state: LiveStateB) {
   // Also flip the schedule entry to completed so it doesn't reappear in "next" lists.
   const { markComplete } = await import('@/lib/schedule-store')
   markComplete(sched.id, sched.id, null)
+  return null
 }
 
 async function teamIdForScheduled(scheduledMatchId: string): Promise<string | null> {

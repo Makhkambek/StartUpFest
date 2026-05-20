@@ -19,6 +19,7 @@ type ActionBody =
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
   | { type: 'end_match' }
+  | { type: 'retry_persist' }
   | { type: 'reset' }
 
 const PHASE_LABEL: Record<LivePhaseB, string> = {
@@ -36,6 +37,9 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const [picked, setPicked] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Sticky banner: run was written to live state but the DB write (results_a)
+  // failed. Stays until a retry succeeds — not tied to the polled state.
+  const [persistError, setPersistError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const autoGoFightRef = useRef(false)
   // Local fight-start timestamp (set when this judge UI first sees phase=fighting).
@@ -88,6 +92,11 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
       const json = await res.json().catch(() => null)
       if (res.ok) {
         if (json) setState(json)
+        // persistError is only present on responses that attempted a DB write
+        // (finish_run/mark_dnf on the final attempt, end_match, retry_persist).
+        if (json && typeof json === 'object' && 'persistError' in json) {
+          setPersistError(json.persistError ?? null)
+        }
         onChange?.()
       } else {
         const msg = json?.error ?? `HTTP ${res.status}`
@@ -214,6 +223,20 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
           <div className="rounded-md bg-red-50 border-2 border-red-400 text-red-800 px-3 py-2 text-xs flex items-center justify-between gap-2">
             <div><span className="font-black">⚠ Action failed:</span> <code className="font-mono">{error}</code></div>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 font-bold">✕</button>
+          </div>
+        )}
+
+        {persistError && (
+          <div className="rounded-md bg-amber-50 border-2 border-amber-400 text-amber-900 px-3 py-2.5 text-xs">
+            <div className="font-black mb-1">⚠ Результат показан на табло, но НЕ записан в базу</div>
+            <div className="text-amber-800 mb-2">
+              Заезд завершён в live, но запись в таблицу результатов не прошла. Без неё команда не попадёт в leaderboard.
+              {' '}<code className="font-mono text-[10px] break-all">{persistError}</code>
+            </div>
+            <button disabled={busy} onClick={() => dispatch({ type: 'retry_persist' })}
+              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold text-xs px-3 py-1.5 rounded">
+              ⟳ Повторить запись
+            </button>
           </div>
         )}
 

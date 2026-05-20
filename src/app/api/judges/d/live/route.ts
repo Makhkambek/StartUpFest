@@ -18,6 +18,7 @@ type Action =
   | { type: 'start_extra_time' }
   | { type: 'start_penalties' }
   | { type: 'end_match' }
+  | { type: 'retry_persist' }
   | { type: 'reset' }
 
 // Default state returned when the DB hasn't been seeded yet. `category` must
@@ -67,6 +68,18 @@ export async function POST(req: NextRequest) {
   const action = (await req.json()) as Action
   if (!action?.type) return NextResponse.json({ error: 'type required' }, { status: 400 })
 
+  // retry_persist: re-attempt the matches_d write for the current state without
+  // mutating the live phase. Used by the judge's "Retry save" banner after a
+  // silent persist failure. Idempotent — persistMatchResult skips an existing row.
+  if (action.type === 'retry_persist') {
+    const cur = await readCurrentState()
+    if (!cur || cur.match_winner === null || !cur.active_match_id) {
+      return NextResponse.json({ error: 'No completed match to save', action: action.type }, { status: 400 })
+    }
+    const persistError = await persistMatchResult(cur).catch((e) => `persist: ${(e as Error).message}`)
+    return NextResponse.json({ ...cur, persistError })
+  }
+
   let next: LiveStateB | null = null
   let upstreamError: string | null = null
   if (hasSupabase) {
@@ -81,9 +94,22 @@ export async function POST(req: NextRequest) {
   }
 
   if (next.match_winner !== null && next.active_match_id) {
-    await persistMatchResult(next).catch(() => null)
+    const persistError = await persistMatchResult(next).catch((e) => `persist: ${(e as Error).message}`)
+    return NextResponse.json({ ...next, persistError })
   }
   return NextResponse.json(next)
+}
+
+async function readCurrentState(): Promise<LiveStateB | null> {
+  if (hasSupabase) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('live_match_state').select('*').eq('category', 'd').maybeSingle()
+    return (data as LiveStateB | null) ?? null
+  }
+  const { getLiveD } = await import('@/lib/mock-store')
+  return getLiveD()
 }
 
 // Goal history is JSONB: array of {time:string, side:'red'|'white', half:1|2|3|4}
@@ -157,6 +183,9 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       const winner = c.wins_red > c.wins_white ? 1 : c.wins_white > c.wins_red ? 2 : 0
       return { phase: 'match_result', match_winner: winner }
     }
+    case 'retry_persist':
+      // Handled in POST before reaching here; no state mutation.
+      return {}
     case 'reset':
       return {
         active_match_id: null,
@@ -199,8 +228,13 @@ async function applySupabase(action: Action): Promise<{ state: LiveStateB | null
   return { state: (data as LiveStateB | null) ?? null, error: null }
 }
 
-async function persistMatchResult(state: LiveStateB) {
-  if (!state.active_match_id) return
+// Persist the final score to matches_d. Returns null on success, or an error
+// string the judge UI surfaces as a "saved to live but not DB · Retry" banner —
+// previously errors were swallowed (.catch(() => null)), so a failed write meant
+// the result silently never reached the leaderboard. Idempotent: a second call
+// (Retry) reuses the existing matches_d row instead of inserting a duplicate.
+async function persistMatchResult(state: LiveStateB): Promise<string | null> {
+  if (!state.active_match_id) return null
   // Determine match_phase based on which half ended the match.
   const match_phase =
     state.round_number === 3 ? 'extra'
@@ -210,29 +244,40 @@ async function persistMatchResult(state: LiveStateB) {
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data: sched } = await supabase
+    const { data: sched, error: schedErr } = await supabase
       .from('scheduled_matches').select('*').eq('id', state.active_match_id).maybeSingle()
-    if (!sched || !sched.team2_id) return
+    if (schedErr) return `schedule lookup: ${schedErr.message}`
+    if (!sched || !sched.team2_id) return null // no opponent → nothing to record (not an error)
 
-    const { data: created } = await supabase.from('matches_d').insert({
-      scheduled_match_id: sched.id,
-      team1_id: sched.team1_id,
-      team2_id: sched.team2_id,
-      goals1: state.wins_red,
-      goals2: state.wins_white,
-      match_phase,
-      notes: null,
-    }).select().single()
+    const { data: existing } = await supabase
+      .from('matches_d').select('id').eq('scheduled_match_id', sched.id).limit(1).maybeSingle()
+    let resultId = (existing as { id: string } | null)?.id ?? null
 
-    if (created?.id) {
-      await supabase.from('scheduled_matches').update({ status: 'completed', result_id: created.id }).eq('id', sched.id)
+    if (!resultId) {
+      const { data: created, error: insErr } = await supabase.from('matches_d').insert({
+        scheduled_match_id: sched.id,
+        team1_id: sched.team1_id,
+        team2_id: sched.team2_id,
+        goals1: state.wins_red,
+        goals2: state.wins_white,
+        match_phase,
+        notes: null,
+      }).select('id').single()
+      if (insErr) return `save result: ${insErr.message}`
+      resultId = (created as { id: string } | null)?.id ?? null
     }
-    return
+
+    if (resultId) {
+      const { error: updErr } = await supabase.from('scheduled_matches')
+        .update({ status: 'completed', result_id: resultId }).eq('id', sched.id)
+      if (updErr) return `mark complete: ${updErr.message}`
+    }
+    return null
   }
 
   const { getMatchById, markComplete } = await import('@/lib/schedule-store')
   const sched = getMatchById(state.active_match_id)
-  if (!sched || !sched.team2_id) return
+  if (!sched || !sched.team2_id) return null
   const { addMatchD } = await import('@/lib/mock-store')
   const created = addMatchD({
     team1_id: sched.team1_id,
@@ -243,4 +288,5 @@ async function persistMatchResult(state: LiveStateB) {
     notes: null,
   })
   markComplete(sched.id, created.id, null)
+  return null
 }

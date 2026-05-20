@@ -22,6 +22,7 @@ type ActionBody =
   | { type: 'start_extra_time' }
   | { type: 'start_penalties' }
   | { type: 'end_match' }
+  | { type: 'retry_persist' }
   | { type: 'reset' }
 
 const PHASE_LABEL: Record<LivePhaseB, string> = {
@@ -41,6 +42,10 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   const [picked, setPicked] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Sticky banner: result was written to live state but the DB write (matches_d)
+  // failed. Stays until a retry succeeds — not tied to the polled state, so a 4s
+  // refetch doesn't clear it while the result is still unsaved.
+  const [persistError, setPersistError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const [authExpired, setAuthExpired] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -121,6 +126,11 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
       const json = await res.json().catch(() => null)
       if (res.ok) {
         if (json) setState(json)
+        // persistError is only present on responses that attempted a DB write
+        // (end_match, retry_persist). Update the sticky banner accordingly.
+        if (json && typeof json === 'object' && 'persistError' in json) {
+          setPersistError(json.persistError ?? null)
+        }
         onChange?.()
       } else if (res.status === 401) {
         setAuthExpired(true)
@@ -140,6 +150,9 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   }, [onChange])
 
   // Optimistic goal: bump local state immediately, fire-and-forget to server.
+  // If the POST fails (expired session, network, server error) the optimistic +1
+  // must be rolled back — otherwise the judge sees a phantom goal that never
+  // reached the DB and assumes it counted.
   const goal = useCallback((side: Side) => {
     setState((prev) => {
       if (!prev) return prev
@@ -147,12 +160,21 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
         ? { ...prev, wins_red: prev.wins_red + 1, last_round_winner: 'red' }
         : { ...prev, wins_white: prev.wins_white + 1, last_round_winner: 'white' }
     })
+    let reverted = false
+    const revert = () => setState((prev) => {
+      if (!prev || reverted) return prev
+      reverted = true
+      return side === 'red'
+        ? { ...prev, wins_red: Math.max(0, prev.wins_red - 1) }
+        : { ...prev, wins_white: Math.max(0, prev.wins_white - 1) }
+    })
     fetch('/api/judges/d/live', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'goal', side }),
     }).then(async (res) => {
       if (res.status === 401) {
+        revert()
         setAuthExpired(true)
         return
       }
@@ -160,10 +182,14 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
         try { setState(await res.json()) } catch {}
         onChange?.()
       } else {
+        revert()
         const json = await res.json().catch(() => null)
         setError(`goal: ${json?.error ?? `HTTP ${res.status}`}`)
       }
-    }).catch(() => null)
+    }).catch(() => {
+      revert()
+      setError('goal: network error — гол не засчитан, попробуй снова')
+    })
   }, [onChange])
 
   // Auto kickoff after 5s countdown
@@ -281,6 +307,20 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
           <div className="rounded-md bg-red-50 border-2 border-red-400 text-red-800 px-3 py-2 text-xs flex items-center justify-between gap-2">
             <div><span className="font-black">⚠ Action failed:</span> <code className="font-mono">{error}</code></div>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 font-bold">✕</button>
+          </div>
+        )}
+
+        {persistError && (
+          <div className="rounded-md bg-amber-50 border-2 border-amber-400 text-amber-900 px-3 py-2.5 text-xs">
+            <div className="font-black mb-1">⚠ Результат показан на табло, но НЕ записан в базу</div>
+            <div className="text-amber-800 mb-2">
+              Матч завершён в live, но запись в таблицу результатов не прошла. Без неё команда не попадёт в leaderboard.
+              {' '}<code className="font-mono text-[10px] break-all">{persistError}</code>
+            </div>
+            <button disabled={busy} onClick={() => dispatch({ type: 'retry_persist' })}
+              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold text-xs px-3 py-1.5 rounded">
+              ⟳ Повторить запись
+            </button>
           </div>
         )}
 
