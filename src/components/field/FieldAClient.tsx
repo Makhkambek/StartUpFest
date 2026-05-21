@@ -2,6 +2,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
+import TrophyCard from './TrophyCard'
+import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
@@ -118,11 +120,13 @@ export default function FieldAClient() {
 
   useEffect(() => { refetch() }, [refetch])
 
-  // Always poll (safety net even in Supabase mode — if realtime publication isn't set up).
+  // Poll as a safety net. Cadence adapts to the live phase: fast during a run
+  // (so the timer stops promptly when the judge ends it), slow when idle.
+  const pollMs = fieldPollMs(data?.state?.phase, hasSupabase)
   useEffect(() => {
-    const id = setInterval(refetch, hasSupabase ? 4000 : 300)
+    const id = setInterval(refetch, pollMs)
     return () => clearInterval(id)
-  }, [refetch])
+  }, [refetch, pollMs])
 
   useEffect(() => {
     if (!hasSupabase) return
@@ -139,7 +143,15 @@ export default function FieldAClient() {
       supabaseRef = supabase
       channel = supabase.channel(`field-a-${Date.now()}`)
       for (const table of ['live_match_state', 'scheduled_matches', 'teams', 'results_a']) {
-        channel.on('postgres_changes' as never, { event: '*', schema: 'public', table }, () => refetch())
+        channel.on('postgres_changes' as never, { event: '*', schema: 'public', table }, (payload: { new?: Record<string, unknown> }) => {
+          // Apply the live_match_state change immediately so the run timer freezes
+          // the instant the judge ends the run — no GET round-trip needed. refetch
+          // then enriches the rest (match/team/leaderboard).
+          if (table === 'live_match_state' && payload?.new?.category === 'a') {
+            setData((d) => (d ? { ...d, state: { ...d.state, ...(payload.new as Partial<LiveStateB>) } as LiveStateB } : d))
+          }
+          refetch()
+        })
       }
       channel.subscribe()
     }
@@ -275,6 +287,38 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
 
       {/* ── BOTTOM TICKER ── */}
       <BottomTicker channel={channel} state={state} t={t} matchId={match?.match_id ?? null} eventWatermark={eventWatermark} />
+
+      {/* Branded trophy card — celebrates the finished run (solo, no opponent):
+          team name + their time + leaderboard rank. Shown during the ~5s result
+          window, then the screen falls through to the next runner. */}
+      {isMatchOver && team && phaseElapsed <= MATCH_RESULT_DISPLAY_MS && (() => {
+        const finalTime = bestTime ?? lastRunTime
+        const myRank = leaderboard.find((r) => r.name === team.name)?.rank ?? null
+        const isTop = myRank === 1
+        return (
+          <div className="absolute inset-0 z-40 bg-black/65 backdrop-blur-sm flex items-center justify-center">
+            <TrophyCard
+              accent={isTop ? 'amber' : 'cyan'}
+              serial={match?.match_id ?? '—'}
+              watermark={eventWatermark}
+              caption={`${t('title')} · SFRC`}
+              label={isTop ? t('fastestToday') : t('runComplete')}
+              winnerName={team.name ?? '—'}
+            >
+              <div className="flex flex-col items-center gap-3">
+                <div className="font-black tabular-nums text-white leading-none" style={{ fontSize: 'clamp(3rem, 10vw, 7rem)', letterSpacing: '-0.04em', textShadow: '0 0 30px rgba(34,211,238,0.4)' }}>
+                  {finalTime !== null ? formatSec(finalTime) : t('dnf')}
+                </div>
+                {myRank !== null && (
+                  <div className="font-black tracking-[0.3em] uppercase text-cyan-200/90" style={{ fontSize: 'clamp(0.8rem, 1.6vw, 1.1rem)' }}>
+                    {isTop ? '🥇' : '#'}{myRank} · {t('leaderboard')}
+                  </div>
+                )}
+              </div>
+            </TrophyCard>
+          </div>
+        )
+      })()}
     </div>
   )
 }

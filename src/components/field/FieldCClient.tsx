@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
+import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
@@ -152,7 +153,7 @@ function Boot({ label }: { label: string }) {
 function FightingView({ data }: { data: FieldStateC }) {
   const t = useTranslations('field.c')
   const locale = useLocale() as 'en' | 'ru' | 'uz'
-  const { settings: eventSettings } = useEventSettings(locale)
+  const { settings: eventSettings, watermark: eventWatermark } = useEventSettings(locale)
   const { state, match, red, white, nextMatch } = data
 
   const isRunning = state.phase === 'fighting'
@@ -309,6 +310,27 @@ function FightingView({ data }: { data: FieldStateC }) {
           </div>
         </div>
       </footer>
+
+      {/* Branded trophy card — settles in ~3s after the KO/IMM/JD slam reveal.
+          Shows the actual winner team name + judge scores + serial + watermark. */}
+      {isMatchOver && winnerSide && winnerSide !== 'draw' && phaseElapsed >= RESULT_SUSPENSE_MS + 3000 && (
+        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+          <TrophyCard
+            accent={winnerSide === 'red' ? 'red' : 'cyan'}
+            serial={match!.match_id}
+            watermark={eventWatermark}
+            caption={`${t('title')} · SFRC`}
+            label={`${t('winner')}${method ? ` · ${method === 'KO' ? t('ko') : method === 'IMM' ? t('imm') : t('jd')}` : ''}`}
+            winnerName={(winnerSide === 'red' ? red! : white!).name ?? '—'}
+          >
+            <TrophyCrest accent="red" code={teamCode(red!.name)} />
+            <div className="font-black tabular-nums text-white leading-none" style={{ fontSize: 'clamp(2.5rem, 7vw, 5rem)', letterSpacing: '-0.04em' }}>
+              {state.wins_red} <span className="text-white/40">—</span> {state.wins_white}
+            </div>
+            <TrophyCrest accent="cyan" code={teamCode(white!.name)} />
+          </TrophyCard>
+        </div>
+      )}
     </div>
   )
 }

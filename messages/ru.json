@@ -459,6 +459,8 @@
       "trackLive": "LIVE",
       "trackClear": "СВОБОДНА",
       "newPersonalBest": "НОВЫЙ ЛУЧШИЙ!",
+      "fastestToday": "ЛУЧШЕЕ ВРЕМЯ ДНЯ",
+      "runComplete": "ЗАЕЗД ЗАВЕРШЁН",
       "noResultsYet": "Результатов пока нет"
     }
   }

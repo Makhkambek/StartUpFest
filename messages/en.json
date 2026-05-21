@@ -459,6 +459,8 @@
       "trackLive": "LIVE",
       "trackClear": "CLEAR",
       "newPersonalBest": "NEW BEST!",
+      "fastestToday": "FASTEST TODAY",
+      "runComplete": "RUN COMPLETE",
       "noResultsYet": "No results yet"
     }
   }
