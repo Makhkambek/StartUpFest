@@ -69,3 +69,6 @@ next-env.d.ts
 
 # sentry
 .sentryclirc
+
+# Brainstorming visual companion
+.superpowers/
