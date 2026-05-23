@@ -202,14 +202,24 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
       })
       break
     case 'round_result': {
+      // Atomically increment the winner's counter via RPC (same pattern as foul)
+      // to avoid read-compute-write race if two requests arrive concurrently.
+      const winCol = action.outcome === 'red' ? 'wins_red' : 'wins_white'
+      const { data: winRow, error: winErr } = await supabase.rpc('inc_live_counter', {
+        p_category: 'b',
+        p_column: winCol,
+        p_delta: 1,
+      })
+      if (winErr) throw winErr
+      const wr = winRow as LiveStateB | null
       const hist = [...(cur?.round_history ?? []), action.outcome]
       Object.assign(patch, {
         phase: 'round_result',
         last_round_winner: action.outcome,
-        wins_red: (cur?.wins_red ?? 0) + (action.outcome === 'red' ? 1 : 0),
-        wins_white: (cur?.wins_white ?? 0) + (action.outcome === 'white' ? 1 : 0),
         round_history: hist,
       })
+      if (action.outcome === 'red') patch.wins_red = wr?.wins_red ?? (cur?.wins_red ?? 0) + 1
+      else patch.wins_white = wr?.wins_white ?? (cur?.wins_white ?? 0) + 1
       break
     }
     case 'next_round':

@@ -32,6 +32,7 @@ const DEFAULT_STATE = {
   last_round_winner: null,
   match_winner: null,
   countdown_started_at: null,
+  fight_started_at: null,
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
@@ -146,6 +147,7 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         last_round_winner: null,
         match_winner: null,
         countdown_started_at: null,
+        fight_started_at: null,
         fouls_red: 0,
         fouls_white: 0,
         round_history: [],
@@ -154,28 +156,35 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       return { phase: 'positioning', countdown_started_at: null }
     case 'start_countdown':
       return { phase: 'countdown', countdown_started_at: new Date().toISOString() }
-    case 'go_fight':
-      return { phase: 'fighting', countdown_started_at: new Date(Date.now() - 5000).toISOString() }
-    case 'finish_run': {
-      const history = readHistory(c)
-      history.push({ time: action.time_sec ?? null })
-      const newWins = c.wins_red + 1
-      // Always show "round_result" first so the audience can see this run's time.
-      // For attempt 2 we also flag the match as won (final). For attempt 1 we keep
-      // round_number as-is — judge UI auto-advances to next attempt after ~3.5s.
-      if (c.round_number >= 2) {
-        return {
-          phase: 'round_result',
-          wins_red: newWins,
-          last_round_winner: 'red',
-          match_winner: 1,
-          round_history: history as unknown as LiveStateB['round_history'],
-        }
+    case 'go_fight': {
+      // Anchor fight_started_at to countdown_started_at + 5s (= the GO signal).
+      // The field display timer is provisionally anchored to the same timestamp
+      // (countdownStartedAt + 5000), so liveMs == lastRunTime — no backward jump
+      // and no mismatch between the big timer and the BEST cell.
+      const fightStart = c.countdown_started_at
+        ? new Date(Date.parse(c.countdown_started_at) + 5000)
+        : new Date()
+      return {
+        phase: 'fighting',
+        fight_started_at: fightStart.toISOString(),
+        // countdown_started_at intentionally omitted — preserve the original value
+        // so useCountdown on the field display doesn't restart from 5.
       }
+    }
+    case 'finish_run': {
+      // Elapsed computed server-side from fight_started_at — no browser clock skew.
+      const serverElapsed = c.fight_started_at
+        ? Math.max(0, (Date.now() - Date.parse(c.fight_started_at)) / 1000)
+        : null
+      const history = readHistory(c)
+      history.push({ time: serverElapsed })
+      // Each scheduled match = exactly one run. match_winner is always set here
+      // so the match completes immediately — no second attempt within the same match.
       return {
         phase: 'round_result',
-        wins_red: newWins,
+        wins_red: c.wins_red + 1,
         last_round_winner: 'red',
+        match_winner: 1,
         round_history: history as unknown as LiveStateB['round_history'],
       }
     }
@@ -184,20 +193,11 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
     case 'mark_dnf': {
       const history = readHistory(c)
       history.push({ time: null })
-      const newWins = c.wins_red + 1
-      if (c.round_number >= 2) {
-        return {
-          phase: 'round_result',
-          wins_red: newWins,
-          last_round_winner: 'draw',
-          match_winner: 1,
-          round_history: history as unknown as LiveStateB['round_history'],
-        }
-      }
       return {
         phase: 'round_result',
-        wins_red: newWins,
+        wins_red: c.wins_red + 1,
         last_round_winner: 'draw',
+        match_winner: 1,
         round_history: history as unknown as LiveStateB['round_history'],
       }
     }
@@ -207,6 +207,7 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         round_number: c.round_number + 1,
         last_round_winner: null,
         countdown_started_at: null,
+        fight_started_at: null,
       }
     case 'end_match':
       return { phase: 'match_result', match_winner: 1 }
@@ -224,6 +225,7 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         last_round_winner: null,
         match_winner: null,
         countdown_started_at: null,
+        fight_started_at: null,
         fouls_red: 0,
         fouls_white: 0,
         round_history: [],

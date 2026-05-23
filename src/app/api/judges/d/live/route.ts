@@ -36,6 +36,7 @@ const DEFAULT_STATE = {
   last_round_winner: null,
   match_winner: null,
   countdown_started_at: null,
+  fight_started_at: null,
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],

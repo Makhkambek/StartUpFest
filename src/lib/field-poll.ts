@@ -10,6 +10,14 @@
 const ACTIVE_PHASES = new Set(['countdown', 'fighting'])
 
 export function fieldPollMs(phase: string | null | undefined, hasSupabase: boolean): number {
-  if (!hasSupabase) return 300 // mock/dev: snappy, no rate limit
+  if (!hasSupabase) {
+    // countdown: 100ms so the display picks up phase=fighting (and fight_started_at)
+    //   within ~100ms of the judge pressing Go — timer starts with imperceptible delay.
+    // fighting: 60ms so the display freezes within ~60ms of the judge pressing Finish
+    //   — minimises the backward jump (liveMs overshoot vs server-recorded lastRunTime).
+    if (phase === 'fighting') return 60
+    if (phase === 'countdown') return 100
+    return 300
+  }
   return phase && ACTIVE_PHASES.has(phase) ? 1500 : 4000
 }

@@ -107,6 +107,7 @@ export interface LiveStateB {
   last_round_winner: RoundOutcome | null
   match_winner: 1 | 2 | 0 | null    // 1=red, 2=white, 0=draw, null=ongoing
   countdown_started_at: string | null  // ISO timestamp; client computes remaining
+  fight_started_at: string | null      // ISO timestamp set by server when fighting begins; elapsed computed server-side
   fouls_red: number
   fouls_white: number
   round_history: RoundOutcome[]

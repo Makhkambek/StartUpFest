@@ -29,9 +29,12 @@ describe('fieldPollMs', () => {
     expect(60_000 / fieldPollMs('fighting', true)).toBeLessThanOrEqual(60)
   })
 
-  it('is snappy in mock/dev mode regardless of phase', () => {
+  it('is snappy in mock/dev mode, extra-fast during active phases', () => {
     expect(fieldPollMs('idle', false)).toBe(300)
-    expect(fieldPollMs('fighting', false)).toBe(300)
+    // countdown: 100ms so fight_started_at arrives within ~100ms of judge pressing Go
+    expect(fieldPollMs('countdown', false)).toBe(100)
+    // fighting: 60ms so liveMs freezes within ~60ms of judge pressing Finish
+    expect(fieldPollMs('fighting', false)).toBe(60)
   })
 
   it('treats unknown/undefined phase as idle (safe default)', () => {

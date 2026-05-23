@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard from './TrophyCard'
@@ -43,18 +43,26 @@ const hasSupabase = !!(
 
 const COUNTDOWN_SECONDS = 5
 
-// Local-clock count-up. Starts from 00:00 when `active` flips true (no clock-drift dependency),
-// FREEZES on the last value when `active` flips false (so round_result keeps showing the final
-// time on /field/a), and resets to 0 when `active` flips true again.
-function useLiveTimer(active: boolean) {
+// Count-up timer that starts immediately when the local countdown hits 0.
+// Provisional anchor = countdownStartedAt + 5s. The server guarantees
+// fight_started_at == countdown_started_at + 5s (the GO signal, not the
+// judge's button-press time), so provisional == confirmed — no snap or
+// backward jump when fight_started_at arrives from the server.
+// When active flips false the interval stops; ms stays frozen at the last tick.
+function useLiveTimer(fightStartedAt: string | null, countdownStartedAt: string | null, active: boolean) {
   const [ms, setMs] = useState(0)
+
   useEffect(() => {
-    if (!active) return // keep last value — visual freeze
-    const start = Date.now()
-    setMs(0)
-    const id = setInterval(() => setMs(Date.now() - start), 30)
+    if (!active) return
+    const anchor = fightStartedAt
+      ? Date.parse(fightStartedAt)
+      : countdownStartedAt ? Date.parse(countdownStartedAt) + 5000 : Date.now()
+    const tick = () => setMs(Math.max(0, Date.now() - anchor))
+    tick()
+    const id = setInterval(tick, 30)
     return () => clearInterval(id)
-  }, [active])
+  }, [fightStartedAt, countdownStartedAt, active])
+
   return ms
 }
 
@@ -114,7 +122,17 @@ export default function FieldAClient() {
   const refetch = useCallback(async () => {
     try {
       const res = await fetch('/api/field/a/state', { cache: 'no-store' })
-      if (res.ok) setData(await res.json())
+      if (!res.ok) return
+      const json = await res.json()
+      setData((current) => {
+        // Discard stale responses — a realtime event may have already advanced
+        // the state further than what this fetch returned. Compare updated_at so
+        // a slow in-flight GET from a previous phase can't overwrite newer state.
+        if (current?.state?.updated_at && json?.state?.updated_at) {
+          if (json.state.updated_at < current.state.updated_at) return current
+        }
+        return json
+      })
     } catch {}
   }, [])
 
@@ -191,12 +209,13 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
   const isMatchOver = state.phase === 'match_result'
 
   const cdRemaining = useCountdown(state.countdown_started_at, isCountdown)
-  // Timer becomes "active" the instant the visible countdown reaches 0, OR when phase
-  // is already 'fighting' (judge pressed GO without countdown). Decouples timer-start
-  // from the server phase flip so no latency-related "stuck on 0".
+  // Timer starts locally the moment the countdown hits 0 — no perceived delay.
+  // Because the server sets fight_started_at = countdown_started_at + 5s,
+  // the provisional anchor (countdownStartedAt + 5000) equals fight_started_at,
+  // so liveMs tracks lastRunTime with at most ~60ms of poll-delay overshoot.
   const countdownFinished = isCountdown && cdRemaining !== null && cdRemaining <= 0
   const timerActive = isRunning || countdownFinished
-  const liveMs = useLiveTimer(timerActive)
+  const liveMs = useLiveTimer(state.fight_started_at ?? null, state.countdown_started_at, timerActive)
   const phaseElapsed = usePhaseElapsed(state.phase)
 
   // Last attempt's time from round_history (jsonb of {time: number|null}).
@@ -241,7 +260,7 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
         </div>
         <div className="flex items-center gap-4">
           <span className="text-pink-400/80 text-xs font-black tracking-[0.35em] uppercase">
-            HEAT · {state.round_number || 1}
+            QUALIFICATION
           </span>
         </div>
       </header>
@@ -264,7 +283,6 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
               bestTime={bestTime}
               lastRunTime={lastRunTime}
               fouls={state.fouls_red}
-              attempt={state.round_number}
               liveMs={liveMs}
               cdRemaining={cdRemaining}
               timerActive={timerActive}
@@ -325,7 +343,7 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
 
 // ── Pilot center card during active run ──
 function ArcadeRunner({
-  team, bestTime, lastRunTime, fouls, attempt, liveMs, cdRemaining, timerActive, phaseElapsed,
+  team, bestTime, lastRunTime, fouls, liveMs, cdRemaining, timerActive, phaseElapsed,
   isCountdown, isReady, isFinished, isMatchOver,
   channel, t,
 }: {
@@ -333,7 +351,6 @@ function ArcadeRunner({
   bestTime: number | null
   lastRunTime: number | null
   fouls: number
-  attempt: number
   liveMs: number
   cdRemaining: number | null
   timerActive: boolean
@@ -369,17 +386,17 @@ function ArcadeRunner({
     bigColor = showGoLabel ? 'text-pink-400' : 'text-cyan-300'
     subLabel = showGoLabel ? '>> GO! <<' : '>> LIVE <<'
   } else if (isFinished) {
-    // FREEZE on the local timer value — judge's view + audience see the same number stop.
-    // (Server may store a slightly different time_sec from judge's local measurement —
-    //  judge corrects via Edit later if needed.)
+    // Show the server-recorded time so the big display matches BEST exactly.
+    // liveMs accumulated network latency between judge pressing Finish and the
+    // field display receiving the state update — using it caused a ~0.5s discrepancy.
     if (lastRunTime === null) {
       bigText = 'DNF'
       bigColor = 'text-pink-400'
     } else {
-      bigText = formatTime(liveMs)
+      bigText = formatSec(lastRunTime)
       bigColor = 'text-emerald-300'
     }
-    subLabel = `>> RUN ${attempt} DONE <<`
+    subLabel = '>> RUN DONE <<'
   } else if (isMatchOver) {
     bigText = bestTime !== null ? formatSec(bestTime) : '--:--.--'
     bigColor = 'text-emerald-300'
@@ -450,7 +467,7 @@ function ArcadeRunner({
 
       {/* Stats row */}
       <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-4 text-center">
-        <StatCell label=">> ATTEMPT <<" value={`${attempt} / 2`} accent="cyan" />
+        <StatCell label=">> STATUS <<" value={isFinished ? t('runComplete') : isReady ? 'READY' : 'LIVE'} accent="cyan" />
         <StatCell label=">> BEST <<" value={bestTime !== null ? formatSec(bestTime) : '—'} accent="cyan" />
         <StatCell
           label=">> PENALTY <<"

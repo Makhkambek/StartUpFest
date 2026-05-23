@@ -42,9 +42,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const [persistError, setPersistError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const autoGoFightRef = useRef(false)
-  // Local fight-start timestamp (set when this judge UI first sees phase=fighting).
-  // Used to compute elapsed seconds when judge presses Finish.
-  const fightStartedAtRef = useRef<number | null>(null)
   // Auto-advance to next match countdown
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null)
   const [autoCancelled, setAutoCancelled] = useState(false)
@@ -70,15 +67,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
     if (state?.phase !== 'countdown') autoGoFightRef.current = false
   }, [state?.phase])
 
-  // Reset fight-start anchor whenever phase enters a non-fighting state.
-  // Set anchor the moment we enter fighting.
-  useEffect(() => {
-    if (state?.phase === 'fighting' && fightStartedAtRef.current === null) {
-      fightStartedAtRef.current = Date.now()
-    } else if (state?.phase !== 'fighting') {
-      fightStartedAtRef.current = null
-    }
-  }, [state?.phase])
 
   const dispatch = useCallback(async (body: ActionBody) => {
     setBusy(true)
@@ -166,19 +154,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
     return () => clearTimeout(id)
   }, [state?.phase, state?.countdown_started_at, dispatch])
 
-  // After judge presses Finish, the panel sits in round_result for ~3.5s so the
-  // audience can see the attempt time on /field/a, then auto-advances. Only for
-  // attempt 1 (attempt 2 already promotes to match_winner and stays as final).
-  useEffect(() => {
-    if (state?.phase !== 'round_result') return
-    if (state.match_winner !== null) return  // attempt 2: stay as final, don't bump
-    if ((state.round_number ?? 1) >= 2) return
-    const id = setTimeout(() => {
-      dispatch({ type: 'next_attempt' })
-    }, 3500)
-    return () => clearTimeout(id)
-  }, [state?.phase, state?.match_winner, state?.round_number, dispatch])
-
   // Reset auto-advance state whenever we leave match_result.
   useEffect(() => {
     const matchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
@@ -196,7 +171,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   )
 
   const activeMatch = schedule.find((m) => m.id === state.active_match_id) ?? null
-  const attempt = Math.max(1, state.round_number)
 
   return (
     <div className="bg-white rounded-lg border-2 border-cyan-300 shadow-sm">
@@ -294,9 +268,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               </div>
               <div className="text-[11px] text-gray-500 mt-0.5">
                 Phase: <span className="font-semibold text-gray-700">{PHASE_LABEL[state.phase]}</span>
-                {' · '}Attempt {attempt}/2
                 {state.fouls_red > 0 && <> · <span className="text-amber-700">+{state.fouls_red === 1 ? 20 : 40}s penalty</span></>}
-                {state.wins_red > 0 && <> · {state.wins_red} run{state.wins_red === 1 ? '' : 's'} done</>}
               </div>
             </div>
             <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
@@ -382,11 +354,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Run result</div>
               <div className="grid grid-cols-2 gap-2">
                 <button disabled={busy || state.phase !== 'fighting'}
-                  onClick={() => {
-                    const start = fightStartedAtRef.current
-                    const elapsed = start ? (Date.now() - start) / 1000 : null
-                    dispatch({ type: 'finish_run', time_sec: elapsed })
-                  }}
+                  onClick={() => dispatch({ type: 'finish_run', time_sec: null })}
                   className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-30 text-white font-bold text-sm py-2 rounded">
                   🏁 Finish (record time)
                 </button>
@@ -411,8 +379,8 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
             </div>
 
             <div className="text-[10px] text-gray-400 italic mt-2">
-              After {`"Finish"`}, the panel auto-advances: attempt 1 → attempt 2 → match complete.
-              Use End match manually only if a team withdraws or DSQ.
+              After {`"Finish"`} the run is recorded and the match completes.
+              Use End match only if the team withdraws or is DSQ.
             </div>
           </>
         )}

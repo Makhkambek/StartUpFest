@@ -347,7 +347,7 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
       </footer>
 
       {/* ── GOAL OVERLAY ── */}
-      {goalOverlay && <GoalOverlay side={goalOverlay.side} scoredBy={goalOverlay.side === 'red' ? red!.name : white!.name} t={t} />}
+      {goalOverlay && <GoalOverlay key={goalOverlay.ts} side={goalOverlay.side} scoredBy={goalOverlay.side === 'red' ? red!.name : white!.name} t={t} />}
     </div>
   )
 }

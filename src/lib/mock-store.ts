@@ -3,6 +3,20 @@ import type { Team, ResultA, MatchB, FightC, MatchD, LiveStateB, LivePhaseB, Rou
 // Module-level mutable store — persists for the lifetime of the dev server process.
 // Reset on server restart. Replaced by Supabase when env vars are present.
 
+const MAX_STORE_SIZE = 500
+
+// Trim oldest 20% of entries when map exceeds MAX_STORE_SIZE.
+// Maps maintain insertion order in V8/Node, so the first keys are the oldest.
+function pruneIfNeeded<K, V>(map: Map<K, V>) {
+  if (map.size <= MAX_STORE_SIZE) return
+  const toDelete = Math.floor(MAX_STORE_SIZE * 0.2)
+  const iter = map.keys()
+  for (let i = 0; i < toDelete; i++) {
+    const next = iter.next()
+    if (!next.done) map.delete(next.value)
+  }
+}
+
 const teams = new Map<string, Team>()
 const resultsA = new Map<string, ResultA>() // keyed by scheduled_match_id
 const matchesB = new Map<string, MatchB>()
@@ -32,6 +46,7 @@ export function addTeam(data: { name: string; school: string; category: string }
     created_at: new Date().toISOString(),
   }
   teams.set(team.id, team)
+  pruneIfNeeded(teams)
   return team
 }
 
@@ -93,6 +108,7 @@ export function upsertResultA(data: {
     updated_at: new Date().toISOString(),
   }
   resultsA.set(data.scheduled_match_id, result)
+  pruneIfNeeded(resultsA)
   return result
 }
 
@@ -129,6 +145,7 @@ export function addMatchB(data: {
     created_at: new Date().toISOString(),
   }
   matchesB.set(match.id, match)
+  pruneIfNeeded(matchesB)
   return match
 }
 
@@ -163,6 +180,7 @@ export function addFightC(data: {
     created_at: new Date().toISOString(),
   }
   fightsC.set(fight.id, fight)
+  pruneIfNeeded(fightsC)
   return fight
 }
 
@@ -195,6 +213,7 @@ export function addMatchD(data: {
     created_at: new Date().toISOString(),
   }
   matchesD.set(match.id, match)
+  pruneIfNeeded(matchesD)
   return match
 }
 
@@ -213,6 +232,7 @@ const initialLiveB: LiveStateB = {
   last_round_winner: null,
   match_winner: null,
   countdown_started_at: null,
+  fight_started_at: null,
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
