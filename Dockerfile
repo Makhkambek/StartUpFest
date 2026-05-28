@@ -2,6 +2,11 @@
 
 FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
+# Node 22 ships with npm 10.x, which mis-handles optional peer deps in lockfiles
+# (https://github.com/npm/cli/issues/7411). Force npm 11, which respects
+# peerDependenciesMeta.optional and resolves the @swc/helpers conflict between
+# `next` (pins 0.5.15) and `next-intl`'s @swc/core (wants >=0.5.17, optional).
+RUN npm install -g npm@11
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # --ignore-scripts blocks postinstall hooks from running, closing the supply-chain
