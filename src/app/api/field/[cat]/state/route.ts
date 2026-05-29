@@ -3,7 +3,7 @@ import { getLiveStateA, getLiveStateB, getLiveStateC, getLiveStateD, getTeams, g
 import { computeStandingsA } from '@/lib/standings/a'
 import { isUuid } from '@/lib/uuid'
 import type { ScheduledMatch } from '@/lib/schedule-store'
-import type { LiveStateB, MatchB } from '@/types/database'
+import type { LiveStateB, MatchB, ResultA } from '@/types/database'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -69,6 +69,41 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
   const teamSchool = (id: string | null) =>
     id ? teams.find((t) => t.id === id)?.school ?? null : null
 
+  // ── Finals data (Cat B = SE bracket) ─────────────────────────────────
+  let finalsData = null
+  if (state.finals_visible) {
+    let finalsSchedule: ScheduledMatch[] = []
+    let matchesB: MatchB[] = []
+    if (hasSupabase) {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const { data: fs } = await supabase.from('scheduled_matches').select('*').eq('category', 'b').eq('phase', 'finals')
+      finalsSchedule = (fs as ScheduledMatch[] | null) ?? []
+      if (finalsSchedule.length > 0) {
+        const ids = finalsSchedule.map((m) => m.id)
+        const { data: mb } = await supabase.from('matches_b').select('*').in('scheduled_match_id', ids)
+        matchesB = (mb as MatchB[] | null) ?? []
+      }
+    } else {
+      const { getSchedule } = await import('@/lib/schedule-store')
+      finalsSchedule = getSchedule('b').filter((m) => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
+      const { getMatchesB } = await import('@/lib/mock-store')
+      matchesB = getMatchesB()
+    }
+    finalsData = finalsSchedule.map((fm) => {
+      const result = matchesB.find((r) => r.scheduled_match_id === fm.id) ?? null
+      return {
+        match_id: fm.match_id,
+        status: fm.status,
+        red: { id: fm.team1_id, name: teamName(fm.team1_id), school: teamSchool(fm.team1_id) },
+        white: fm.team2_id ? { id: fm.team2_id, name: teamName(fm.team2_id), school: teamSchool(fm.team2_id) } : null,
+        winner: result?.winner ?? null,
+        rounds1: result?.rounds1 ?? null,
+        rounds2: result?.rounds2 ?? null,
+      }
+    })
+  }
+
   return NextResponse.json({
     state,
     match,
@@ -78,6 +113,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
     white: match
       ? { id: match.team2_id, name: teamName(match.team2_id), school: teamSchool(match.team2_id) }
       : null,
+    finalsData,
   })
 }
 
@@ -144,6 +180,28 @@ async function getStateForA() {
       }
     : null
 
+  // ── Finals bracket data ──────────────────────────────────────────────
+  let finalsData = null
+  if (liveState.finals_visible) {
+    const finalsMatches = allSchedule.filter((m) => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
+    const finalsResults: Record<string, ResultA | null> = {}
+    for (const fm of finalsMatches) {
+      const r = results.find((res) => res.scheduled_match_id === fm.id) ?? null
+      finalsResults[fm.id] = r
+    }
+    finalsData = finalsMatches.map((fm) => {
+      const t = teams.find((t) => t.id === fm.team1_id)
+      const res = finalsResults[fm.id]
+      return {
+        match_id: fm.match_id,
+        status: fm.status,
+        team: t ? { id: t.id, name: t.name, school: t.school } : null,
+        time: res?.total ?? null,
+        penalty: res?.penalty ?? null,
+      }
+    })
+  }
+
   return NextResponse.json({
     state: liveState,
     match,
@@ -153,6 +211,7 @@ async function getStateForA() {
     bestTime,
     leaderboard,
     nextRun,
+    finalsData,
   })
 }
 
@@ -200,12 +259,38 @@ async function getStateForC() {
   const nextRed = nextSched ? { id: nextSched.team1_id, name: teamName(nextSched.team1_id), school: teamSchool(nextSched.team1_id) } : null
   const nextWhite = nextSched && nextSched.team2_id ? { id: nextSched.team2_id, name: teamName(nextSched.team2_id), school: teamSchool(nextSched.team2_id) } : null
 
+  // ── Finals data (Cat C = top-3 standings, no bracket) ───────────────
+  let finalsData = null
+  if (liveState.finals_visible) {
+    const { computeStandingsC } = await import('@/lib/standings/c')
+    const { getFightsC } = hasSupabase
+      ? await (async () => {
+          const { createClient } = await import('@/lib/supabase/server')
+          const supabase = await createClient()
+          const { data } = await supabase.from('fights_c').select('*').order('created_at')
+          return { getFightsC: () => (data ?? []) as Parameters<typeof computeStandingsC>[1] }
+        })()
+      : await import('@/lib/mock-store')
+    const standings = computeStandingsC(teams, getFightsC())
+    finalsData = standings.slice(0, 3).map((s) => ({
+      rank: s.rank,
+      name: s.team.name,
+      school: s.team.school,
+      wins: s.wins,
+      draws: s.draws,
+      losses: s.losses,
+      points: s.points,
+      judge_score: s.judge_score,
+    }))
+  }
+
   return NextResponse.json({
     state: liveState,
     match,
     red,
     white,
     nextMatch: nextSched ? { match_id: nextSched.match_id, status: nextSched.status, red: nextRed, white: nextWhite } : null,
+    finalsData,
   })
 }
 
@@ -253,6 +338,38 @@ async function getStateForD() {
   const nextWhite = nextSched && nextSched.team2_id ? teamLite(nextSched.team2_id) : null
   const nextWhitePartner = nextSched ? teamLite(nextSched.team2b_id) : null
 
+  // ── Finals data (Cat D = 3-alliance round-robin) ─────────────────────
+  let finalsData = null
+  if (liveState.finals_visible) {
+    const finalsMatches = allSchedule.filter((m) => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
+    let matchesD: import('@/types/database').MatchD[] = []
+    if (hasSupabase) {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const ids = finalsMatches.map((m) => m.id)
+      if (ids.length > 0) {
+        const { data } = await supabase.from('matches_d').select('*').in('scheduled_match_id', ids)
+        matchesD = (data ?? []) as import('@/types/database').MatchD[]
+      }
+    } else {
+      const { getMatchesD } = await import('@/lib/mock-store')
+      matchesD = getMatchesD()
+    }
+    finalsData = finalsMatches.map((fm) => {
+      const result = matchesD.find((r) => r.scheduled_match_id === fm.id) ?? null
+      return {
+        match_id: fm.match_id,
+        status: fm.status,
+        red: teamLite(fm.team1_id),
+        redPartner: teamLite(fm.team1b_id),
+        white: teamLite(fm.team2_id),
+        whitePartner: teamLite(fm.team2b_id),
+        goals1: result?.goals1 ?? null,
+        goals2: result?.goals2 ?? null,
+      }
+    })
+  }
+
   return NextResponse.json({
     state: liveState,
     match,
@@ -268,6 +385,7 @@ async function getStateForD() {
       white: nextWhite,
       whitePartner: nextWhitePartner,
     } : null,
+    finalsData,
   })
 }
 

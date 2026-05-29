@@ -194,9 +194,13 @@ export function getMatchesD(): MatchD[] {
 
 export function addMatchD(data: {
   team1_id: string
+  team1b_id?: string | null
   team2_id: string
+  team2b_id?: string | null
   goals1: number
   goals2: number
+  team1_forfeit?: boolean; team1b_forfeit?: boolean
+  team2_forfeit?: boolean; team2b_forfeit?: boolean
   match_number?: number | null
   match_phase?: MatchD['match_phase']
   notes?: string | null
@@ -205,9 +209,15 @@ export function addMatchD(data: {
     id: newId(),
     match_number: data.match_number ?? null,
     team1_id: data.team1_id,
+    team1b_id: data.team1b_id ?? null,
     team2_id: data.team2_id,
+    team2b_id: data.team2b_id ?? null,
     goals1: data.goals1,
     goals2: data.goals2,
+    team1_forfeit: data.team1_forfeit ?? false,
+    team1b_forfeit: data.team1b_forfeit ?? false,
+    team2_forfeit: data.team2_forfeit ?? false,
+    team2b_forfeit: data.team2b_forfeit ?? false,
     match_phase: data.match_phase ?? 'group',
     notes: data.notes ?? null,
     created_at: new Date().toISOString(),
@@ -236,6 +246,7 @@ const initialLiveB: LiveStateB = {
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
+  finals_visible: false,
   updated_at: new Date().toISOString(),
 }
 
@@ -278,7 +289,7 @@ export function setLiveD(patch: Partial<LiveStateB>): LiveStateB {
 export type LivePatchB = Partial<Pick<LiveStateB,
   'active_match_id' | 'phase' | 'round_number' | 'wins_red' | 'wins_white' |
   'starting_position' | 'last_round_winner' | 'match_winner' |
-  'countdown_started_at' | 'fouls_red' | 'fouls_white' | 'round_history'
+  'countdown_started_at' | 'fouls_red' | 'fouls_white' | 'round_history' | 'finals_visible'
 >>
 
 export function setLiveB(patch: LivePatchB): LiveStateB {

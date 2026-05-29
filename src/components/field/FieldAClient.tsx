@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard from './TrophyCard'
@@ -28,6 +28,14 @@ interface NextRun {
   bestTime: number | null
 }
 
+interface FinalsRunA {
+  match_id: string
+  status: string
+  team: TeamLite | null
+  time: number | null
+  penalty: number | null
+}
+
 interface FieldStateA {
   state: LiveStateB
   match: ScheduledMatch | null
@@ -35,6 +43,7 @@ interface FieldStateA {
   bestTime: number | null
   leaderboard: LeaderRow[]
   nextRun: NextRun | null
+  finalsData?: FinalsRunA[] | null
 }
 
 const hasSupabase = !!(
@@ -118,6 +127,8 @@ export default function FieldAClient() {
   const locale = useLocale() as 'en' | 'ru' | 'uz'
   const { watermark: eventWatermark } = useEventSettings(locale)
   const [data, setData] = useState<FieldStateA | null>(null)
+  const lastFetchAt = useRef(Date.now())
+  const [stale, setStale] = useState(false)
 
   const refetch = useCallback(async () => {
     try {
@@ -133,7 +144,14 @@ export default function FieldAClient() {
         }
         return json
       })
+      lastFetchAt.current = Date.now()
+      setStale(false)
     } catch {}
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
@@ -181,12 +199,29 @@ export default function FieldAClient() {
   }, [refetch])
 
   if (!data) return <BootScreen />
-  return <ArcadeView data={data} t={t} eventWatermark={eventWatermark} />
+  return (
+    <>
+      <ArcadeView data={data} t={t} eventWatermark={eventWatermark} />
+      {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
+        <FinalsOverlayA items={data.finalsData} />
+      )}
+      {stale && <ReconnectingBanner />}
+    </>
+  )
 }
 
 // ───────────────────────────────────────────────────────────────────────
 //   ARCADE VIEW — RotorHazard / underground FPV race aesthetic
 // ───────────────────────────────────────────────────────────────────────
+
+function ReconnectingBanner() {
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-amber-500/50 text-amber-400 text-xs font-mono tracking-wider">
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+      RECONNECTING…
+    </div>
+  )
+}
 
 function BootScreen() {
   return (
@@ -708,6 +743,71 @@ function GridFloor() {
       {/* Magenta glow accent */}
       <div className="absolute -top-32 right-1/4 w-[30vmax] h-[30vmax] rounded-full bg-fuchsia-500/10 blur-3xl" />
       <div className="absolute -bottom-32 left-1/4 w-[25vmax] h-[25vmax] rounded-full bg-cyan-400/10 blur-3xl" />
+    </div>
+  )
+}
+
+// ── Finals overlay (shown when judge enables Show Finals) ──
+function FinalsOverlayA({ items }: { items: FinalsRunA[] }) {
+  const sorted = [...items].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 30%, #061025 0%, #020308 60%, #000204 100%)',
+        fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
+      }}
+    >
+      <CrtScanlines />
+      <div className="relative z-10 w-full max-w-3xl">
+        <div className="text-pink-400 text-xs font-black tracking-[0.5em] uppercase mb-2 text-center"
+          style={{ animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
+          ◆ LINE FOLLOWER · FINALS ◆
+        </div>
+        <div className="text-cyan-300/40 text-[10px] font-mono tracking-widest text-center mb-8">
+          DOUBLE ELIMINATION · BEST TIME ADVANCES
+        </div>
+        <div className="space-y-2">
+          {sorted.map((item, idx) => {
+            const isDone = item.status === 'completed'
+            const medal = idx === 0 && isDone ? '🥇' : idx === 1 && isDone ? '🥈' : idx === 2 && isDone ? '🥉' : null
+            return (
+              <div
+                key={item.match_id}
+                className="border border-cyan-400/20 bg-black/50 px-5 py-3 flex items-center gap-4"
+                style={{ animation: 'sfrcArcadeFlicker 12s linear infinite' }}
+              >
+                <span className="text-cyan-300/50 font-mono text-[10px] w-12 shrink-0">{item.match_id}</span>
+                <span className="flex-1 font-black text-cyan-100 uppercase tracking-wide truncate">
+                  {item.team?.name ?? '—'}
+                </span>
+                {item.team?.school && (
+                  <span className="text-cyan-300/40 text-xs hidden sm:block truncate max-w-[14ch]">
+                    {item.team.school}
+                  </span>
+                )}
+                {(item.penalty ?? 0) > 0 && (
+                  <span className="text-amber-300 text-xs font-black shrink-0">+{item.penalty}s</span>
+                )}
+                <span className={`font-black tabular-nums text-lg shrink-0 ${isDone ? 'text-emerald-300' : 'text-cyan-300/30'}`}>
+                  {item.time !== null ? formatSec(item.time) : '—'}
+                </span>
+                {medal && <span className="text-xl shrink-0">{medal}</span>}
+              </div>
+            )
+          })}
+          {sorted.length === 0 && (
+            <div className="text-center text-cyan-300/30 text-sm tracking-widest py-12">
+              » NO FINALS MATCHES SCHEDULED YET «
+            </div>
+          )}
+        </div>
+        <div className="mt-8 text-center text-cyan-300/20 text-[10px] tracking-[0.4em] uppercase"
+          style={{ animation: 'sfrcArcadeFlicker 3s linear infinite' }}>
+          SFRC · STARTUP FEST ROBOTICS CHALLENGE
+        </div>
+      </div>
     </div>
   )
 }

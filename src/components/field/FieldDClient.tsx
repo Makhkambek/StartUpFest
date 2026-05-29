@@ -20,6 +20,17 @@ interface NextMatch {
   whitePartner: TeamLite | null
 }
 
+interface FinalsMatchD {
+  match_id: string
+  status: string
+  red: TeamLite | null
+  redPartner: TeamLite | null
+  white: TeamLite | null
+  whitePartner: TeamLite | null
+  goals1: number | null
+  goals2: number | null
+}
+
 interface FieldStateD {
   state: LiveStateB
   match: ScheduledMatch | null
@@ -28,6 +39,7 @@ interface FieldStateD {
   white: TeamLite | null
   whitePartner: TeamLite | null
   nextMatch: NextMatch | null
+  finalsData?: FinalsMatchD[] | null
 }
 
 interface GoalEvent { time: string; side: 'red' | 'white'; half: number }
@@ -127,12 +139,23 @@ export default function FieldDClient() {
   const locale = useLocale() as 'en' | 'ru' | 'uz'
   const { watermark: eventWatermark } = useEventSettings(locale)
   const [data, setData] = useState<FieldStateD | null>(null)
+  const lastFetchAt = useRef(Date.now())
+  const [stale, setStale] = useState(false)
 
   const refetch = useCallback(async () => {
     try {
       const res = await fetch('/api/field/d/state', { cache: 'no-store' })
-      if (res.ok) setData(await res.json())
+      if (res.ok) {
+        setData(await res.json())
+        lastFetchAt.current = Date.now()
+        setStale(false)
+      }
     } catch {}
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
@@ -175,7 +198,24 @@ export default function FieldDClient() {
   }, [refetch])
 
   if (!data) return <BootD />
-  return <FifaView data={data} t={t} eventWatermark={eventWatermark} />
+  return (
+    <>
+      <FifaView data={data} t={t} eventWatermark={eventWatermark} />
+      {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
+        <FinalsOverlayD items={data.finalsData} />
+      )}
+      {stale && <ReconnectingBanner />}
+    </>
+  )
+}
+
+function ReconnectingBanner() {
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-amber-500/50 text-amber-400 text-xs font-mono tracking-wider">
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+      RECONNECTING…
+    </div>
+  )
 }
 
 function BootD() {
@@ -186,12 +226,99 @@ function BootD() {
   )
 }
 
+// ── Sound system ─────────────────────────────────────────────────────────
+// AudioContext is created lazily on first user interaction (browser policy).
+let _ctx: AudioContext | null = null
+function getCtx(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  if (!_ctx) _ctx = new AudioContext()
+  return _ctx
+}
+
+function playBeep(freq: number, duration: number, vol = 0.5) {
+  const ctx = getCtx()
+  if (!ctx || ctx.state === 'suspended') return
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain); gain.connect(ctx.destination)
+  osc.type = 'sine'
+  osc.frequency.value = freq
+  gain.gain.setValueAtTime(vol, ctx.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+  osc.start(); osc.stop(ctx.currentTime + duration)
+}
+
+const _buffers: Partial<Record<string, AudioBuffer>> = {}
+
+async function playWhistle(src: string) {
+  const ctx = getCtx()
+  if (!ctx) return
+  if (ctx.state === 'suspended') await ctx.resume()
+  if (!_buffers[src]) {
+    try {
+      const res = await fetch(src)
+      const arr = await res.arrayBuffer()
+      _buffers[src] = await ctx.decodeAudioData(arr)
+    } catch { return }
+  }
+  const buf = _buffers[src]
+  if (!buf) return
+  const source = ctx.createBufferSource()
+  source.buffer = buf
+  source.connect(ctx.destination)
+  source.start()
+}
+
+// Unlock AudioContext + warm up on first click — must happen in a user gesture.
+function useSoundUnlock() {
+  const [unlocked, setUnlocked] = useState(false)
+  useEffect(() => {
+    const unlock = () => {
+      const ctx = getCtx()
+      ctx?.resume().then(() => setUnlocked(true)).catch(() => setUnlocked(true))
+    }
+    document.addEventListener('click', unlock, { once: true })
+    return () => document.removeEventListener('click', unlock)
+  }, [])
+  return unlocked
+}
+
+// Countdown beep at each whole second (5→4→3→2→1) + whistle on phase change.
+function useMatchSound(phase: LiveStateB['phase'], cdRemaining: number | null) {
+  const prevPhaseRef = useRef<LiveStateB['phase']>('idle')
+  const prevCeilRef  = useRef<number | null>(null)
+
+  // Countdown beeps: fire when the displayed integer drops by 1
+  useEffect(() => {
+    if (cdRemaining === null) { prevCeilRef.current = null; return }
+    const ceil = Math.ceil(cdRemaining)
+    if (ceil !== prevCeilRef.current && ceil >= 1 && ceil <= 5) {
+      // Higher pitch on 1 so the last beep stands out
+      playBeep(ceil === 1 ? 1200 : 880, 0.12, 0.6)
+    }
+    prevCeilRef.current = ceil
+  }, [cdRemaining])
+
+  // Whistle on phase transitions
+  useEffect(() => {
+    const prev = prevPhaseRef.current
+    prevPhaseRef.current = phase
+    if (phase === 'fighting' && prev !== 'fighting') {
+      playWhistle('/sounds/whistle-start.wav')
+    }
+    if ((phase === 'round_result' || phase === 'match_result') && prev === 'fighting') {
+      playWhistle('/sounds/whistle-end.wav')
+    }
+  }, [phase])
+}
+
 function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnType<typeof useTranslations>; eventWatermark: string }) {
   const { state, match, red, redPartner, white, whitePartner, nextMatch } = data
   const isRunning = state.phase === 'fighting'
   const isCountdown = state.phase === 'countdown'
   const isHalftime = state.phase === 'round_result'
   const isMatchOver = state.phase === 'match_result'
+
   // hasMatch: there's an active match in state — even if team data is still loading.
   const hasActive = state.phase !== 'idle' && !!state.active_match_id
   const hasMatch = hasActive && match && red && white
@@ -199,6 +326,8 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
   const isWaitingForData = hasActive && (!match || !red || !white)
 
   const cdRemaining = useCountdown(state.countdown_started_at, state.phase)
+  const soundUnlocked = useSoundUnlock()
+  useMatchSound(state.phase, cdRemaining)
   const countdownFinished = isCountdown && cdRemaining !== null && cdRemaining <= 0
   const timerActive = isRunning || countdownFinished
   // matchKey combines active_match_id + round_number so the timer resets when
@@ -269,6 +398,14 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
       }}
     >
       <PitchPattern />
+
+      {/* Sound unlock badge — disappears after first click anywhere */}
+      {!soundUnlocked && (
+        <div className="absolute top-3 right-3 z-50 px-3 py-1.5 rounded-full bg-black/60 border border-white/20 text-white/60 text-xs font-mono tracking-widest cursor-pointer select-none"
+          style={{ animation: 'sfrcArcadeFlicker 3s linear infinite' }}>
+          🔇 tap for sound
+        </div>
+      )}
 
       {/* ── TOP SCORE-BUG ── (hidden on full-time so the trophy card is the only composition) */}
       {!isMatchOver && (
@@ -1009,6 +1146,74 @@ function PitchIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
           <div className="relative z-10 text-white/40 text-base sm:text-xl uppercase tracking-widest text-center">{t('noMatchHint')}</div>
         </>
       )}
+    </div>
+  )
+}
+
+// ── Finals round-robin overlay (shown when judge enables Show Finals) ──
+function FinalsOverlayD({ items }: { items: FinalsMatchD[] }) {
+  const sorted = [...items].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
+  const allianceName = (team: TeamLite | null, partner: TeamLite | null): string => {
+    if (!team) return 'TBD'
+    if (!partner) return team.name ?? '—'
+    return `${team.name ?? '—'} + ${partner.name ?? '—'}`
+  }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      style={{
+        background: 'linear-gradient(180deg, #0a3d1c 0%, #052010 50%, #02100a 100%)',
+        fontFamily: '"Inter", "SF Pro Display", "Helvetica Neue", sans-serif',
+      }}
+    >
+      <PitchPattern />
+      <div className="relative z-10 w-full max-w-3xl">
+        <div className="text-emerald-400 font-black tracking-[0.4em] uppercase text-center mb-2"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
+          ⚽ ROBO FOOTBALL · FINALS
+        </div>
+        <div className="text-emerald-300/40 text-[10px] font-mono tracking-widest text-center mb-8 uppercase">
+          3-Alliance Round Robin
+        </div>
+        <div className="space-y-3">
+          {sorted.map((item) => {
+            const isDone = item.status === 'completed'
+            const redName = allianceName(item.red, item.redPartner)
+            const whiteName = allianceName(item.white, item.whitePartner)
+            const redWon = isDone && item.goals1 !== null && item.goals2 !== null && item.goals1 > item.goals2
+            const whiteWon = isDone && item.goals1 !== null && item.goals2 !== null && item.goals2 > item.goals1
+            return (
+              <div key={item.match_id}
+                className="border border-emerald-500/20 bg-black/50 backdrop-blur-sm px-5 py-4 grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-3">
+                <span className="text-white/40 font-mono text-[11px] text-center">{item.match_id}</span>
+                <span className={`font-black text-right truncate ${redWon ? 'text-amber-300' : 'text-rose-300'}`}>
+                  {redName}
+                </span>
+                <span className="font-black tabular-nums text-center text-lg shrink-0 min-w-[4rem] text-white/70">
+                  {isDone && item.goals1 !== null
+                    ? `${item.goals1}–${item.goals2}`
+                    : <span className="text-white/25 text-sm">vs</span>}
+                </span>
+                <span className={`font-black truncate ${whiteWon ? 'text-amber-300' : 'text-cyan-300'}`}>
+                  {whiteName}
+                </span>
+                <span className="text-center text-emerald-400 text-sm">
+                  {isDone ? '✓' : ''}
+                </span>
+              </div>
+            )
+          })}
+          {sorted.length === 0 && (
+            <div className="text-center text-white/20 text-sm tracking-widest py-12">
+              NO FINALS MATCHES SCHEDULED
+            </div>
+          )}
+        </div>
+        <div className="mt-8 text-center text-emerald-300/20 text-[10px] tracking-[0.4em] uppercase">
+          SFRC · STARTUP FEST ROBOTICS CHALLENGE
+        </div>
+      </div>
     </div>
   )
 }

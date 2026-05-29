@@ -19,12 +19,24 @@ interface NextMatch {
   white: TeamLite | null
 }
 
+interface FinalsStandingC {
+  rank: number
+  name: string | null
+  school: string | null
+  wins: number
+  draws: number
+  losses: number
+  points: number
+  judge_score: number
+}
+
 interface FieldStateC {
   state: LiveStateB
   match: ScheduledMatch | null
   red: TeamLite | null
   white: TeamLite | null
   nextMatch: NextMatch | null
+  finalsData?: FinalsStandingC[] | null
 }
 
 const hasSupabase = !!(
@@ -97,12 +109,23 @@ function formatMMSS(s: number): string {
 export default function FieldCClient() {
   const t = useTranslations('field.c')
   const [data, setData] = useState<FieldStateC | null>(null)
+  const lastFetchAt = useRef(Date.now())
+  const [stale, setStale] = useState(false)
 
   const refetch = useCallback(async () => {
     try {
       const res = await fetch('/api/field/c/state', { cache: 'no-store' })
-      if (res.ok) setData(await res.json())
+      if (res.ok) {
+        setData(await res.json())
+        lastFetchAt.current = Date.now()
+        setStale(false)
+      }
     } catch {}
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
@@ -139,7 +162,24 @@ export default function FieldCClient() {
   }, [refetch])
 
   if (!data) return <Boot label={t('title')} />
-  return <FightingView data={data} />
+  return (
+    <>
+      <FightingView data={data} />
+      {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
+        <FinalsOverlayC items={data.finalsData} />
+      )}
+      {stale && <ReconnectingBanner />}
+    </>
+  )
+}
+
+function ReconnectingBanner() {
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-amber-500/50 text-amber-400 text-xs font-mono tracking-wider">
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+      RECONNECTING…
+    </div>
+  )
 }
 
 function Boot({ label }: { label: string }) {
@@ -645,6 +685,76 @@ function PlayerCell({
           {school}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Finals podium overlay (shown when judge enables Show Finals) ──
+function FinalsOverlayC({ items }: { items: FinalsStandingC[] }) {
+  // Podium order: 2nd (left), 1st (center), 3rd (right)
+  const ordered = [items[1], items[0], items[2]]
+  const medals = ['🥈', '🥇', '🥉']
+  const heights = ['h-44 sm:h-52', 'h-56 sm:h-64', 'h-36 sm:h-44']
+  const nameSize = ['text-xl sm:text-2xl', 'text-2xl sm:text-4xl', 'text-lg sm:text-2xl']
+  const borderColor = ['border-slate-400/50', 'border-amber-400/70', 'border-amber-700/50']
+  const bgColor = [
+    'bg-gradient-to-b from-slate-700/60 to-slate-900/60',
+    'bg-gradient-to-b from-amber-900/60 to-black/60',
+    'bg-gradient-to-b from-amber-800/40 to-black/60',
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 40%, #2a0508 0%, #0a0306 65%, #02010a 100%)',
+        fontFamily: '"Anton", "Impact", "Arial Black", sans-serif',
+      }}
+    >
+      <SparkLayer />
+      <div className="relative z-10 w-full max-w-4xl">
+        <div className="text-rose-300 font-black tracking-[0.5em] uppercase text-center mb-2"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
+          ▌ MINIROBOWARS · FINALS ▐
+        </div>
+        <div className="text-rose-300/40 text-[10px] font-mono tracking-widest text-center mb-10 uppercase">
+          Top 3 by cumulative judge score
+        </div>
+        {/* Podium */}
+        <div className="flex items-end justify-center gap-3 sm:gap-6">
+          {ordered.map((item, idx) => {
+            if (!item) return <div key={idx} className={`${heights[idx]} flex-1 max-w-[220px]`} />
+            return (
+              <div
+                key={item.rank}
+                className={`${heights[idx]} flex-1 max-w-[220px] flex flex-col items-center justify-end pb-5 border-t-4 ${borderColor[idx]} ${bgColor[idx]} backdrop-blur-sm relative`}
+              >
+                <span className="text-3xl sm:text-4xl mb-2">{medals[idx]}</span>
+                <div className={`font-black uppercase text-white text-center leading-tight px-3 ${nameSize[idx]}`}>
+                  {item.name ?? '—'}
+                </div>
+                {item.school && (
+                  <div className="text-white/50 text-xs sm:text-sm text-center mt-1 px-3 truncate w-full">{item.school}</div>
+                )}
+                <div className="mt-3 flex items-center gap-2 text-white/70 text-xs sm:text-sm font-bold uppercase tracking-wider">
+                  <span className="text-emerald-400">{item.wins}W</span>
+                  <span>·</span>
+                  <span className="text-amber-300">{item.draws}D</span>
+                  <span>·</span>
+                  <span className="text-rose-400">{item.losses}L</span>
+                </div>
+                <div className={`font-black tabular-nums mt-1 ${idx === 1 ? 'text-amber-300' : 'text-white/80'}`}
+                  style={{ fontSize: 'clamp(1.2rem, 2vw, 1.6rem)' }}>
+                  {item.points}pts
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-8 text-center text-rose-300/20 text-[10px] tracking-[0.4em] uppercase">
+          SFRC · STARTUP FEST ROBOTICS CHALLENGE
+        </div>
+      </div>
     </div>
   )
 }

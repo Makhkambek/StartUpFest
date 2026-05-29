@@ -16,6 +16,7 @@ type Action =
   | { type: 'end_match' }
   | { type: 'retry_persist' }
   | { type: 'reset' }
+  | { type: 'toggle_finals' }
 
 // Default state returned when the DB hasn't been seeded yet. `category` must
 // match the route (live_match_state has one row per category) so any UI that
@@ -36,6 +37,7 @@ const DEFAULT_STATE = {
   fouls_red: 0,
   fouls_white: 0,
   round_history: [],
+  finals_visible: false,
   updated_at: new Date().toISOString(),
 }
 
@@ -230,6 +232,8 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         fouls_white: 0,
         round_history: [],
       }
+    case 'toggle_finals':
+      return { finals_visible: !(c.finals_visible ?? false) }
   }
 }
 

@@ -24,6 +24,10 @@ export default function RecordDPage() {
   const [savedRecordId, setSavedRecordId] = useState<string | null>(null)
   const [undoCountdown, setUndoCountdown] = useState(30)
   const [matchStatus, setMatchStatus] = useState<'pending' | 'active' | 'completed'>('pending')
+  const [forfeit1, setForfeit1] = useState(false)
+  const [forfeit1b, setForfeit1b] = useState(false)
+  const [forfeit2, setForfeit2] = useState(false)
+  const [forfeit2b, setForfeit2b] = useState(false)
 
   async function updateMatchStatus(status: 'pending' | 'active' | 'completed') {
     setMatchStatus(status)
@@ -80,6 +84,10 @@ export default function RecordDPage() {
         setGoals1(String(ex.goals1))
         setGoals2(String(ex.goals2))
         setNotes(ex.notes ?? '')
+        setForfeit1(ex.team1_forfeit ?? false)
+        setForfeit1b(ex.team1b_forfeit ?? false)
+        setForfeit2(ex.team2_forfeit ?? false)
+        setForfeit2b(ex.team2b_forfeit ?? false)
       }
       setLoading(false)
     })
@@ -103,10 +111,16 @@ export default function RecordDPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         team1_id: match.team1_id,
+        team1b_id: match.team1b_id ?? null,
         team2_id: match.team2_id,
+        team2b_id: match.team2b_id ?? null,
         match_phase: matchPhase,
         goals1: goals1 ? parseInt(goals1) : 0,
         goals2: goals2 ? parseInt(goals2) : 0,
+        team1_forfeit: forfeit1,
+        team1b_forfeit: forfeit1b,
+        team2_forfeit: forfeit2,
+        team2b_forfeit: forfeit2b,
         notes: notes || null,
       }),
     })
@@ -210,6 +224,25 @@ export default function RecordDPage() {
               <input type="number" min="0" step="1" value={goals2} onChange={e => setGoals2(e.target.value)}
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-green-300" />
+            </div>
+          </div>
+
+          {/* Forfeit — no-show per team */}
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Неявка (не пришла)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {([
+                { label: teamName(match.team1_id), checked: forfeit1, set: setForfeit1, color: 'rose' },
+                ...(match.team1b_id ? [{ label: teamName(match.team1b_id), checked: forfeit1b, set: setForfeit1b, color: 'rose' }] : []),
+                { label: match.team2_id ? teamName(match.team2_id) : 'Team 2', checked: forfeit2, set: setForfeit2, color: 'blue' },
+                ...(match.team2b_id ? [{ label: teamName(match.team2b_id), checked: forfeit2b, set: setForfeit2b, color: 'blue' }] : []),
+              ] as { label: string; checked: boolean; set: (v: boolean) => void; color: string }[]).map(({ label, checked, set, color }) => (
+                <label key={label} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 cursor-pointer transition-colors ${checked ? (color === 'rose' ? 'bg-rose-50 border-rose-300' : 'bg-blue-50 border-blue-300') : 'border-gray-100 hover:border-gray-200'}`}>
+                  <input type="checkbox" checked={checked} onChange={e => set(e.target.checked)} className="w-4 h-4 accent-red-500 shrink-0" />
+                  <span className={`text-sm font-medium truncate ${checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>{label}</span>
+                  {checked && <span className="ml-auto text-[10px] font-black text-red-500 uppercase shrink-0">НЯ</span>}
+                </label>
+              ))}
             </div>
           </div>
 

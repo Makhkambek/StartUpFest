@@ -60,9 +60,15 @@ export interface MatchD {
   scheduled_match_id?: string | null
   match_number: number | null
   team1_id: string
+  team1b_id?: string | null
   team2_id: string
+  team2b_id?: string | null
   goals1: number
   goals2: number
+  team1_forfeit?: boolean
+  team1b_forfeit?: boolean
+  team2_forfeit?: boolean
+  team2b_forfeit?: boolean
   match_phase: MatchPhase
   notes: string | null
   created_at: string
@@ -111,6 +117,7 @@ export interface LiveStateB {
   fouls_red: number
   fouls_white: number
   round_history: RoundOutcome[]
+  finals_visible: boolean
   updated_at: string
 }
 

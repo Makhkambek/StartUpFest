@@ -24,6 +24,16 @@ export default function JudgeAPage() {
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
+  const [finalsVisible, setFinalsVisible] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/judges/a/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+  }, [])
+
+  const toggleFinals = async () => {
+    const res = await fetch('/api/judges/a/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
+    if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
 
@@ -124,6 +134,10 @@ export default function JudgeAPage() {
               {v === 'schedule' ? 'Matches' : 'Teams'}
             </button>
           ))}
+          <button onClick={toggleFinals}
+            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>
+            {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
+          </button>
           <a href="/judges/view/a" className="ml-2 text-xs text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded border border-gray-200">Public ↗</a>
         </div>
       </header>

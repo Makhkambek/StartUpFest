@@ -17,11 +17,28 @@ export default function StandingsTableD({ standings }: { standings: StandingD[] 
         </tr>
       </thead>
       <tbody>
-        {standings.map((row) => (
-          <tr key={row.team.id} className="hover:bg-gray-50 border-b border-gray-100 last:border-0">
-            <td className="px-3 sm:px-6 py-2 sm:py-3 text-gray-400 w-12">{row.rank}</td>
+        {standings.map((row) => {
+          const isFinalist = row.rank <= 3
+          return (
+          <tr key={row.team.id} className={`border-b border-gray-100 last:border-0 ${isFinalist ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'}`}>
+            <td className="px-3 sm:px-6 py-2 sm:py-3 w-12">
+              {isFinalist ? (
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-black">
+                  {row.rank}
+                </span>
+              ) : (
+                <span className="text-gray-400">{row.rank}</span>
+              )}
+            </td>
             <td className="px-3 sm:px-6 py-2 sm:py-3">
-              <div className="text-blue-600 font-medium text-sm">{row.team.name}</div>
+              <div className="flex items-center gap-2">
+                <div className={`font-medium text-sm ${isFinalist ? 'text-amber-800' : 'text-blue-600'}`}>{row.team.name}</div>
+                {isFinalist && (
+                  <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                    → Finals
+                  </span>
+                )}
+              </div>
               <div className="text-[11px] text-gray-400 mt-0.5">{row.team.school}</div>
             </td>
             <td className="px-3 sm:px-6 py-2 sm:py-3">
@@ -41,9 +58,10 @@ export default function StandingsTableD({ standings }: { standings: StandingD[] 
                 {row.goal_diff > 0 ? '+' : ''}{row.goal_diff}
               </span>
             </td>
-            <td className="px-3 sm:px-6 py-2 sm:py-3 font-bold text-gray-900">{row.points}</td>
+            <td className={`px-3 sm:px-6 py-2 sm:py-3 font-bold ${isFinalist ? 'text-amber-800' : 'text-gray-900'}`}>{row.points}</td>
           </tr>
-        ))}
+          )
+        })}
       </tbody>
     </table>
     </div>

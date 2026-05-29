@@ -20,10 +20,18 @@ export default function JudgeDPage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [tName, setTName] = useState(''); const [tSchool, setTSchool] = useState(''); const [addingTeam, setAddingTeam] = useState(false)
-  const [smId, setSmId] = useState(''); const [smT1, setSmT1] = useState(''); const [smT2, setSmT2] = useState(''); const [addingSm, setAddingSm] = useState(false); const [smErr, setSmErr] = useState('')
+  const [smId, setSmId] = useState(''); const [smT1, setSmT1] = useState(''); const [smT1b, setSmT1b] = useState(''); const [smT2, setSmT2] = useState(''); const [smT2b, setSmT2b] = useState(''); const [addingSm, setAddingSm] = useState(false); const [smErr, setSmErr] = useState('')
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
+  const [finalsVisible, setFinalsVisible] = useState(false)
+  useEffect(() => {
+    fetch('/api/judges/d/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+  }, [])
+  const toggleFinals = async () => {
+    const res = await fetch('/api/judges/d/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
+    if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
 
@@ -100,12 +108,13 @@ export default function JudgeDPage() {
   }
 
   const addScheduledMatch = async () => {
-    if (!smId.trim() || !smT1 || !smT2) { setSmErr('Fill all fields'); return }
-    if (smT1 === smT2) { setSmErr('Teams must differ'); return }
+    if (!smId.trim() || !smT1 || !smT1b || !smT2 || !smT2b) { setSmErr('Fill all 4 team fields'); return }
+    const ids = [smT1, smT1b, smT2, smT2b]
+    if (new Set(ids).size !== 4) { setSmErr('All 4 teams must be different'); return }
     setAddingSm(true); setSmErr('')
-    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', match_id: smId.toUpperCase(), team1_id: smT1, team2_id: smT2 }) })
+    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', match_id: smId.toUpperCase(), team1_id: smT1, team1b_id: smT1b, team2_id: smT2, team2b_id: smT2b }) })
     if (!res.ok) { const e = await res.json(); setSmErr(e.error); setAddingSm(false); return }
-    setSmId(''); setSmT1(''); setSmT2(''); await load(); setAddingSm(false)
+    setSmId(''); setSmT1(''); setSmT1b(''); setSmT2(''); setSmT2b(''); await load(); setAddingSm(false)
   }
 
   const deleteScheduledMatch = async (id: string) => {
@@ -132,6 +141,10 @@ export default function JudgeDPage() {
               {v === 'schedule' ? 'Matches' : 'Teams'}
             </button>
           ))}
+          <button onClick={toggleFinals}
+            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>
+            {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
+          </button>
           <a href="/judges/view/d" className="ml-2 text-xs text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded border border-gray-200">Public ↗</a>
         </div>
       </header>
@@ -228,22 +241,38 @@ export default function JudgeDPage() {
 
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Add Match to Schedule</h2>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 items-start">
                   <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="G-1"
                     onKeyDown={e => e.key === 'Enter' && addScheduledMatch()}
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
-                  <select value={smT1} onChange={e => setSmT1(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300">
-                    <option value="">Team 1…</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                  <select value={smT2} onChange={e => setSmT2(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300">
-                    <option value="">Team 2…</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                    <div className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">🔴 Red Alliance</div>
+                    <select value={smT1} onChange={e => setSmT1(e.target.value)}
+                      className="border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-300">
+                      <option value="">Team 1…</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <select value={smT1b} onChange={e => setSmT1b(e.target.value)}
+                      className="border border-rose-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-300">
+                      <option value="">Team 1b…</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                    <div className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">🔵 Blue Alliance</div>
+                    <select value={smT2} onChange={e => setSmT2(e.target.value)}
+                      className="border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                      <option value="">Team 2…</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <select value={smT2b} onChange={e => setSmT2b(e.target.value)}
+                      className="border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                      <option value="">Team 2b…</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
                   <button onClick={addScheduledMatch} disabled={addingSm}
-                    className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-gray-700">
+                    className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-gray-700 self-end">
                     {addingSm ? '…' : '+'}
                   </button>
                 </div>
@@ -282,9 +311,9 @@ export default function JudgeDPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium text-gray-800">{teamName(m.team1_id)}</span>
+                                <span className="font-medium text-rose-700">{teamName(m.team1_id)}{m.team1b_id ? ` + ${teamName(m.team1b_id)}` : ''}</span>
                                 <span className="text-gray-400 mx-1.5">vs</span>
-                                <span className="font-medium text-gray-800">{teamName(m.team2_id!)}</span>
+                                <span className="font-medium text-blue-700">{teamName(m.team2_id!)}{m.team2b_id ? ` + ${teamName(m.team2b_id)}` : ''}</span>
                               </td>
                               <td className="px-3 py-3 text-center">
                                 {done ? (

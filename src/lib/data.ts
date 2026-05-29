@@ -86,6 +86,7 @@ export async function getLiveStateB(): Promise<LiveStateB> {
       fouls_red: 0,
       fouls_white: 0,
       round_history: [],
+      finals_visible: false,
       updated_at: new Date().toISOString(),
     }
   }
@@ -116,6 +117,7 @@ export async function getLiveStateA(): Promise<LiveStateB> {
       fouls_red: 0,
       fouls_white: 0,
       round_history: [],
+      finals_visible: false,
       updated_at: new Date().toISOString(),
     }
   }
@@ -149,6 +151,7 @@ export async function getLiveStateD(): Promise<LiveStateB> {
       fouls_red: 0,
       fouls_white: 0,
       round_history: [],
+      finals_visible: false,
       updated_at: new Date().toISOString(),
     }
   }
@@ -180,6 +183,7 @@ export async function getLiveStateC(): Promise<LiveStateB> {
       fouls_red: 0,
       fouls_white: 0,
       round_history: [],
+      finals_visible: false,
       updated_at: new Date().toISOString(),
     }
   }

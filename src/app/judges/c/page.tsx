@@ -24,6 +24,16 @@ export default function JudgeCPage() {
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
+  const [finalsVisible, setFinalsVisible] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/judges/c/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+  }, [])
+
+  const toggleFinals = async () => {
+    const res = await fetch('/api/judges/c/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
+    if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
 

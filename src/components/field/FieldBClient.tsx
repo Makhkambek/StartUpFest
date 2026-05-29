@@ -12,11 +12,22 @@ interface TeamLite {
   school: string | null
 }
 
+interface FinalsMatchB {
+  match_id: string
+  status: string
+  red: TeamLite | null
+  white: TeamLite | null
+  winner: 0 | 1 | 2 | null
+  rounds1: number | null
+  rounds2: number | null
+}
+
 interface FieldState {
   state: LiveStateB
   match: ScheduledMatch | null
   red: TeamLite | null
   white: TeamLite | null
+  finalsData?: FinalsMatchB[] | null
 }
 
 const hasSupabase = !!(
@@ -85,12 +96,23 @@ function usePhaseElapsed(phase: LiveStateB['phase']) {
 export default function FieldBClient() {
   const t = useTranslations('field.b')
   const [data, setData] = useState<FieldState | null>(null)
+  const lastFetchAt = useRef(Date.now())
+  const [stale, setStale] = useState(false)
 
   const refetch = useCallback(async () => {
     try {
       const res = await fetch('/api/field/b/state', { cache: 'no-store' })
-      if (res.ok) setData(await res.json())
+      if (res.ok) {
+        setData(await res.json())
+        lastFetchAt.current = Date.now()
+        setStale(false)
+      }
     } catch {}
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
@@ -128,7 +150,24 @@ export default function FieldBClient() {
   }, [refetch])
 
   if (!data) return <Splash label={t('title')} />
-  return <Scoreboard data={data} />
+  return (
+    <>
+      <Scoreboard data={data} />
+      {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
+        <FinalsOverlayB items={data.finalsData} />
+      )}
+      {stale && <ReconnectingBanner />}
+    </>
+  )
+}
+
+function ReconnectingBanner() {
+  return (
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-amber-500/50 text-amber-400 text-xs font-mono tracking-wider">
+      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+      RECONNECTING…
+    </div>
+  )
 }
 
 function Splash({ label }: { label: string }) {
@@ -551,6 +590,69 @@ function CenterOverlay({
   }
 
   return null
+}
+
+// ── Finals bracket overlay (shown when judge enables Show Finals) ──
+function FinalsOverlayB({ items }: { items: FinalsMatchB[] }) {
+  const sorted = [...items].sort((a, b) =>
+    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #14141c 100%)' }}
+    >
+      {/* dot pattern bg */}
+      <div aria-hidden className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+      <div className="relative z-10 w-full max-w-3xl">
+        <div className="text-amber-400 font-black tracking-[0.4em] uppercase text-center mb-2 text-lg sm:text-xl">
+          🏆 MINI SUMO — FINALS
+        </div>
+        <div className="text-white/30 text-xs font-mono tracking-widest text-center mb-8 uppercase">
+          Single Elimination · Best of 3 rounds
+        </div>
+        <div className="space-y-2">
+          {sorted.map((item) => {
+            const isDone = item.status === 'completed'
+            const redWon = item.winner === 1
+            const whiteWon = item.winner === 2
+            return (
+              <div key={item.match_id}
+                className="border border-white/10 bg-white/5 px-5 py-4 grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-3">
+                <span className="text-white/40 font-mono text-[11px] text-center">{item.match_id}</span>
+                <span className={`font-black text-right truncate ${redWon ? 'text-amber-300' : 'text-white'}`}>
+                  {item.red?.name ?? 'TBD'}
+                </span>
+                <span className="text-white/50 font-black tabular-nums text-center text-lg shrink-0 min-w-[4rem] text-center">
+                  {isDone && item.rounds1 !== null
+                    ? `${item.rounds1}–${item.rounds2}`
+                    : <span className="text-white/25 text-sm">vs</span>}
+                </span>
+                <span className={`font-black truncate ${whiteWon ? 'text-amber-300' : 'text-white'}`}>
+                  {item.white?.name ?? 'TBD'}
+                </span>
+                <span className="text-center text-emerald-400 text-sm">
+                  {isDone ? '✓' : ''}
+                </span>
+              </div>
+            )
+          })}
+          {sorted.length === 0 && (
+            <div className="text-center text-white/20 text-sm tracking-widest py-12">
+              NO FINALS MATCHES SCHEDULED
+            </div>
+          )}
+        </div>
+        <div className="mt-6 text-center text-white/20 text-[10px] tracking-[0.4em] uppercase">
+          SFRC · STARTUP FEST ROBOTICS CHALLENGE
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Confetti-style sparkles around the WINNER box. Each star flies outward

@@ -15,11 +15,30 @@ export function computeStandingsD(teams: Team[], matches: MatchD[]): StandingD[]
     // this defends standings math from any bad legacy/test data.
     const g1 = Math.max(0, m.goals1)
     const g2 = Math.max(0, m.goals2)
-    s1.goals_for += g1; s1.goals_against += g2
-    s2.goals_for += g2; s2.goals_against += g1
-    if (g1 > g2)      { s1.wins++; s1.points += 3; s2.losses++ }
-    else if (g2 > g1) { s2.wins++; s2.points += 3; s1.losses++ }
-    else              { s1.draws++; s1.points++; s2.draws++; s2.points++ }
+
+    const s1b = m.team1b_id ? (stats[m.team1b_id] ?? null) : null
+    const s2b = m.team2b_id ? (stats[m.team2b_id] ?? null) : null
+
+    type Stat = typeof s1
+    // Forfeit: team gets L+1, GF=0, GA=0 regardless of alliance score.
+    const applyForfeit = (s: Stat) => { s.losses++ }
+    const applyAlliance1 = (s: Stat) => {
+      s.goals_for += g1; s.goals_against += g2
+      if (g1 > g2)      { s.wins++; s.points += 3 }
+      else if (g2 > g1) { s.losses++ }
+      else              { s.draws++; s.points++ }
+    }
+    const applyAlliance2 = (s: Stat) => {
+      s.goals_for += g2; s.goals_against += g1
+      if (g2 > g1)      { s.wins++; s.points += 3 }
+      else if (g1 > g2) { s.losses++ }
+      else              { s.draws++; s.points++ }
+    }
+
+    m.team1_forfeit  ? applyForfeit(s1)  : applyAlliance1(s1)
+    if (s1b) m.team1b_forfeit ? applyForfeit(s1b) : applyAlliance1(s1b)
+    m.team2_forfeit  ? applyForfeit(s2)  : applyAlliance2(s2)
+    if (s2b) m.team2b_forfeit ? applyForfeit(s2b) : applyAlliance2(s2b)
   })
 
   const rows = teams.map((team) => ({

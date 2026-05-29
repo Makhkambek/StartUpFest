@@ -26,8 +26,11 @@ export async function POST(req: NextRequest) {
   if (!session.categories.includes('d')) return NextResponse.json({ error: 'Not assigned to category D' }, { status: 403 })
 
   const body = await req.json() as {
-    team1_id: string; team2_id: string
+    team1_id: string; team1b_id?: string | null
+    team2_id: string; team2b_id?: string | null
     goals1: number; goals2: number
+    team1_forfeit?: boolean; team1b_forfeit?: boolean
+    team2_forfeit?: boolean; team2b_forfeit?: boolean
     match_number?: number | null
     match_phase?: MatchD['match_phase']
     notes?: string | null
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) {
     return NextResponse.json({ error: 'team1_id/team2_id must be valid UUIDs' }, { status: 400 })
   }
+  if (body.team1b_id && !isUuid(body.team1b_id)) return NextResponse.json({ error: 'team1b_id must be a valid UUID' }, { status: 400 })
+  if (body.team2b_id && !isUuid(body.team2b_id)) return NextResponse.json({ error: 'team2b_id must be a valid UUID' }, { status: 400 })
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })
   if (body.notes && body.notes.length > 500) return NextResponse.json({ error: 'Notes max 500 chars' }, { status: 400 })
   const validGoals = (v: unknown): v is number =>
@@ -49,11 +54,16 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const row = {
       team1_id: body.team1_id,
+      team1b_id: body.team1b_id ?? null,
       team2_id: body.team2_id,
+      team2b_id: body.team2b_id ?? null,
       goals1: body.goals1,
       goals2: body.goals2,
+      team1_forfeit: body.team1_forfeit ?? false,
+      team1b_forfeit: body.team1b_forfeit ?? false,
+      team2_forfeit: body.team2_forfeit ?? false,
+      team2b_forfeit: body.team2b_forfeit ?? false,
       match_number: body.match_number ?? null,
-      // Schema: `match_phase TEXT NOT NULL DEFAULT 'group'` — must not be null.
       match_phase: body.match_phase ?? 'group',
       notes: body.notes ?? null,
     }
