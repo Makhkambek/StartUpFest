@@ -19,6 +19,7 @@ export function makeTeam(opts: Partial<Team> & { category: Category }): Team {
   return {
     id,
     category: opts.category,
+    city_code: opts.city_code ?? 'TSH',
     name: opts.name ?? `Team ${id}`,
     school: opts.school ?? 'School X',
     group_letter: opts.group_letter ?? null,

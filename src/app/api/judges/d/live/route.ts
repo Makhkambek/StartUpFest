@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import type { LiveStateB } from '@/types/database'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -28,6 +29,7 @@ type Action =
 // "Updated: 1970-01-01" on first fetch.
 const DEFAULT_STATE = {
   category: 'd' as const,
+  city_code: 'TSH',
   active_match_id: null,
   phase: 'idle' as const,
   round_number: 1,
@@ -48,10 +50,11 @@ const DEFAULT_STATE = {
 export async function GET() {
   if (hasSupabase) {
     try {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
       const { data, error } = await supabase
-        .from('live_match_state').select('*').eq('category', 'd').maybeSingle()
+        .from('live_match_state').select('*').eq('category', 'd').eq('city_code', cityCode).maybeSingle()
       if (error || !data) return NextResponse.json({ ...DEFAULT_STATE, _migration_missing: !!error })
       return NextResponse.json(data)
     } catch {
@@ -105,10 +108,11 @@ export async function POST(req: NextRequest) {
 
 async function readCurrentState(): Promise<LiveStateB | null> {
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data } = await supabase
-      .from('live_match_state').select('*').eq('category', 'd').maybeSingle()
+      .from('live_match_state').select('*').eq('category', 'd').eq('city_code', cityCode).maybeSingle()
     return (data as LiveStateB | null) ?? null
   }
   const { getLiveD } = await import('@/lib/mock-store')
@@ -217,18 +221,20 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 }
 
 async function applySupabase(action: Action): Promise<{ state: LiveStateB | null; error: string | null }> {
+  const cityCode = await getActiveCityCode()
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: cur, error: readErr } = await supabase
-    .from('live_match_state').select('*').eq('category', 'd').maybeSingle()
+    .from('live_match_state').select('*').eq('category', 'd').eq('city_code', cityCode).maybeSingle()
   if (readErr) return { state: null, error: `select: ${readErr.message}` }
   if (!cur) {
-    const { error: insErr } = await supabase.from('live_match_state').insert({ category: 'd' })
+    const { error: insErr } = await supabase.from('live_match_state').insert({ category: 'd', city_code: cityCode })
     if (insErr) return { state: null, error: `seed: ${insErr.message}` }
   }
   const patch = buildPatch(action, (cur as LiveStateB | null) ?? null)
   const { data, error } = await supabase
-    .from('live_match_state').update(patch).eq('category', 'd').select().maybeSingle()
+    .from('live_match_state').update(patch)
+    .eq('category', 'd').eq('city_code', cityCode).select().maybeSingle()
   if (error) return { state: null, error: `update: ${error.message}` }
   return { state: (data as LiveStateB | null) ?? null, error: null }
 }
@@ -247,6 +253,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
     : 'group'
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: sched, error: schedErr } = await supabase
@@ -265,6 +272,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
         team2_id: sched.team2_id,
         goals1: state.wins_red,
         goals2: state.wins_white,
+        city_code: cityCode,
         match_phase,
         notes: null,
       }).select('id').single()

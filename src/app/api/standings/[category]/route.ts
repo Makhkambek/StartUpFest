@@ -6,6 +6,7 @@ import { computeStandingsA } from '@/lib/standings/a'
 import { computeStandingsB } from '@/lib/standings/b'
 import { computeStandingsC } from '@/lib/standings/c'
 import { computeStandingsD } from '@/lib/standings/d'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 // In-process cache for the public scoreboard. Without a CDN in front, the
 // browser/CDN Cache-Control header alone doesn't protect us — every cold hit
@@ -34,10 +35,11 @@ function withCache(body: unknown): NextResponse {
 
 const standingsA = unstable_cache(
   async () => {
+    const cityCode = await getActiveCityCode()
     const supabase = db()
     const [{ data: teams }, { data: results }] = await Promise.all([
-      supabase.from('teams').select('*').eq('category', 'a').order('created_at'),
-      supabase.from('results_a').select('*'),
+      supabase.from('teams').select('*').eq('category', 'a').eq('city_code', cityCode).order('created_at'),
+      supabase.from('results_a').select('*').eq('city_code', cityCode),
     ])
     return computeStandingsA((teams ?? []) as Team[], (results ?? []) as ResultA[])
   },
@@ -47,10 +49,11 @@ const standingsA = unstable_cache(
 
 const standingsB = unstable_cache(
   async () => {
+    const cityCode = await getActiveCityCode()
     const supabase = db()
     const [{ data: teams }, { data: matches }] = await Promise.all([
-      supabase.from('teams').select('*').eq('category', 'b').order('created_at'),
-      supabase.from('matches_b').select('*').order('created_at'),
+      supabase.from('teams').select('*').eq('category', 'b').eq('city_code', cityCode).order('created_at'),
+      supabase.from('matches_b').select('*').eq('city_code', cityCode).order('created_at'),
     ])
     return computeStandingsB((teams ?? []) as Team[], (matches ?? []) as MatchB[])
   },
@@ -60,10 +63,11 @@ const standingsB = unstable_cache(
 
 const standingsC = unstable_cache(
   async () => {
+    const cityCode = await getActiveCityCode()
     const supabase = db()
     const [{ data: teams }, { data: fights }] = await Promise.all([
-      supabase.from('teams').select('*').eq('category', 'c').order('created_at'),
-      supabase.from('fights_c').select('*').order('created_at'),
+      supabase.from('teams').select('*').eq('category', 'c').eq('city_code', cityCode).order('created_at'),
+      supabase.from('fights_c').select('*').eq('city_code', cityCode).order('created_at'),
     ])
     return computeStandingsC((teams ?? []) as Team[], (fights ?? []) as FightC[])
   },
@@ -73,10 +77,11 @@ const standingsC = unstable_cache(
 
 const standingsD = unstable_cache(
   async () => {
+    const cityCode = await getActiveCityCode()
     const supabase = db()
     const [{ data: teams }, { data: matches }] = await Promise.all([
-      supabase.from('teams').select('*').eq('category', 'd').order('created_at'),
-      supabase.from('matches_d').select('*').order('created_at'),
+      supabase.from('teams').select('*').eq('category', 'd').eq('city_code', cityCode).order('created_at'),
+      supabase.from('matches_d').select('*').eq('city_code', cityCode).order('created_at'),
     ])
     return computeStandingsD((teams ?? []) as Team[], (matches ?? []) as MatchD[])
   },

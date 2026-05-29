@@ -3,6 +3,7 @@ export type Category = 'a' | 'b' | 'c' | 'd'
 export interface Team {
   id: string
   category: Category
+  city_code: string
   name: string
   school: string
   group_letter: string | null
@@ -16,6 +17,7 @@ export type MatchPhase = 'group' | 'extra' | 'penalties'
 
 export interface ResultA {
   id?: string
+  city_code?: string
   scheduled_match_id: string | null
   team_id: string
   run1: number | null
@@ -29,6 +31,7 @@ export interface ResultA {
 
 export interface MatchB {
   id: string
+  city_code?: string
   scheduled_match_id?: string | null
   match_number: number | null
   team1_id: string
@@ -43,6 +46,7 @@ export interface MatchB {
 
 export interface FightC {
   id: string
+  city_code?: string
   scheduled_match_id?: string | null
   fight_number: number | null
   team1_id: string
@@ -57,6 +61,7 @@ export interface FightC {
 
 export interface MatchD {
   id: string
+  city_code?: string
   scheduled_match_id?: string | null
   match_number: number | null
   team1_id: string
@@ -104,6 +109,7 @@ export interface LiveStateB {
   // identifies which one this row belongs to. (Name preserved for backwards
   // compat with existing imports.)
   category: Category
+  city_code: string
   active_match_id: string | null
   phase: LivePhaseB
   round_number: number              // 1, 2, 3, or 4 (golden match)

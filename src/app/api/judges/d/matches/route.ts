@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { MatchD } from '@/types/database'
 import { getSession, requireCategory } from '@/lib/session'
 import { isUuid } from '@/lib/uuid'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -10,9 +11,11 @@ export async function GET() {
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('matches_d').select('*').order('created_at')
+    const { data, error } = await supabase.from('matches_d').select('*')
+      .eq('city_code', cityCode).order('created_at')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const row = {
@@ -65,6 +69,7 @@ export async function POST(req: NextRequest) {
       team2b_forfeit: body.team2b_forfeit ?? false,
       match_number: body.match_number ?? null,
       match_phase: body.match_phase ?? 'group',
+      city_code: cityCode,
       notes: body.notes ?? null,
     }
     const { data, error } = await supabase.from('matches_d').insert(row).select().single()

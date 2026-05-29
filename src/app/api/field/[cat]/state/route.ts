@@ -4,6 +4,7 @@ import { computeStandingsA } from '@/lib/standings/a'
 import { isUuid } from '@/lib/uuid'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import type { LiveStateB, MatchB, ResultA } from '@/types/database'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -75,9 +76,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
     let finalsSchedule: ScheduledMatch[] = []
     let matchesB: MatchB[] = []
     if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
-      const { data: fs } = await supabase.from('scheduled_matches').select('*').eq('category', 'b').eq('phase', 'finals')
+      const { data: fs } = await supabase.from('scheduled_matches').select('*')
+        .eq('category', 'b').eq('city_code', cityCode).eq('phase', 'finals')
       finalsSchedule = (fs as ScheduledMatch[] | null) ?? []
       if (finalsSchedule.length > 0) {
         const ids = finalsSchedule.map((m) => m.id)
@@ -135,12 +138,14 @@ async function getStateForA() {
   let match: ScheduledMatch | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: all } = await supabase
       .from('scheduled_matches')
       .select('*')
       .eq('category', 'a')
+      .eq('city_code', cityCode)
     allSchedule = (all as ScheduledMatch[] | null) ?? []
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
@@ -225,9 +230,11 @@ async function getStateForC() {
   let match: ScheduledMatch | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data: all } = await supabase.from('scheduled_matches').select('*').eq('category', 'c')
+    const { data: all } = await supabase.from('scheduled_matches').select('*')
+      .eq('category', 'c').eq('city_code', cityCode)
     allSchedule = (all as ScheduledMatch[] | null) ?? []
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
@@ -265,9 +272,11 @@ async function getStateForC() {
     const { computeStandingsC } = await import('@/lib/standings/c')
     const { getFightsC } = hasSupabase
       ? await (async () => {
+          const cityCode = await getActiveCityCode()
           const { createClient } = await import('@/lib/supabase/server')
           const supabase = await createClient()
-          const { data } = await supabase.from('fights_c').select('*').order('created_at')
+          const { data } = await supabase.from('fights_c').select('*')
+            .eq('city_code', cityCode).order('created_at')
           return { getFightsC: () => (data ?? []) as Parameters<typeof computeStandingsC>[1] }
         })()
       : await import('@/lib/mock-store')
@@ -301,9 +310,11 @@ async function getStateForD() {
   let match: ScheduledMatch | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data: all } = await supabase.from('scheduled_matches').select('*').eq('category', 'd')
+    const { data: all } = await supabase.from('scheduled_matches').select('*')
+      .eq('category', 'd').eq('city_code', cityCode)
     allSchedule = (all as ScheduledMatch[] | null) ?? []
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null

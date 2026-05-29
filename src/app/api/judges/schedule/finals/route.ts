@@ -5,6 +5,7 @@ import { computeStandingsA } from '@/lib/standings/a'
 import { computeStandingsB } from '@/lib/standings/b'
 import { computeStandingsD } from '@/lib/standings/d'
 import { getTeams, getResultsA, getMatchesB, getMatchesD } from '@/lib/data'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -115,6 +116,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Cat C has no finals bracket — uses cumulative standings only' }, { status: 400 })
   }
 
+  const cityCode = hasSupabase ? await getActiveCityCode() : 'MOCK'
+
   // Bug #20 fix: finals generation deletes any existing finals bracket. Force
   // the caller to confirm if rows already exist, so an accidental click can't
   // wipe hours of bracket setup.
@@ -126,6 +129,7 @@ export async function POST(req: NextRequest) {
       .from('scheduled_matches')
       .select('id', { count: 'exact', head: true })
       .eq('category', category)
+      .eq('city_code', cityCode)
       .eq('phase', 'finals')
     existingFinalsCount = count ?? 0
   } else {
@@ -154,13 +158,15 @@ export async function POST(req: NextRequest) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     // Delete existing finals first (re-randomize)
-    await supabase.from('scheduled_matches').delete().eq('category', category).eq('phase', 'finals')
+    await supabase.from('scheduled_matches').delete()
+      .eq('category', category).eq('city_code', cityCode).eq('phase', 'finals')
     const now = Date.now()
     const rows = plan.matches.map((m, i) => ({
       category,
       match_id: m.match_id,
       team1_id: m.team1_id,
       team2_id: m.team2_id,
+      city_code: cityCode,
       phase: 'finals' as const,
       round: m.round,
       status: 'pending' as const,

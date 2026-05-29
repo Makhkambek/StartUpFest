@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { FightC } from '@/types/database'
 import { getSession, requireCategory } from '@/lib/session'
 import { isUuid } from '@/lib/uuid'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -10,9 +11,11 @@ export async function GET() {
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('fights_c').select('*').order('created_at')
+    const { data, error } = await supabase.from('fights_c').select('*')
+      .eq('city_code', cityCode).order('created_at')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const row = {
@@ -61,6 +65,7 @@ export async function POST(req: NextRequest) {
       judge_score1: body.judge_score1,
       judge_score2: body.judge_score2,
       fight_number: body.fight_number ?? null,
+      city_code: cityCode,
       notes: body.notes ?? null,
     }
     const { data, error } = await supabase.from('fights_c').insert(row).select().single()

@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { ThemeToggle } from '@/components/judges/ThemeToggle'
+import { DashboardCityBadge } from '@/components/judges/DashboardCityBadge'
 
 const ALL_CATEGORIES = [
   {
@@ -57,6 +58,7 @@ export default async function DashboardPage() {
             <>
               <a href="/judges/admin/teams" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Teams</a>
               <a href="/judges/admin/users" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Judges</a>
+              <a href="/judges/admin/event-settings" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">⚙️ Region</a>
             </>
           )}
           <a href="/display" target="_blank" className="text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-2.5 py-1.5 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Display ↗</a>
@@ -75,10 +77,12 @@ export default async function DashboardPage() {
               ? `${categories[0].icon} ${categories[0].full}`
               : 'Judges Dashboard'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-            {session.role === 'admin'
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
+            <span>{session.role === 'admin'
               ? 'Admin — full access to all categories'
               : `Assigned to ${categories.map(c => c.id.toUpperCase()).join(', ')}`}
+            </span>
+            <DashboardCityBadge />
           </p>
         </div>
 

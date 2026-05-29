@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { MatchB } from '@/types/database'
 import { getSession, requireCategory } from '@/lib/session'
 import { isUuid } from '@/lib/uuid'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -10,9 +11,11 @@ export async function GET() {
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('matches_b').select('*').order('created_at')
+    const { data, error } = await supabase.from('matches_b').select('*')
+      .eq('city_code', cityCode).order('created_at')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -48,10 +51,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    // Explicit field list — never forward the raw body to .insert(), which
-    // would let an attacker set protected columns (id, created_at, ...).
     const row = {
       team1_id: body.team1_id,
       team2_id: body.team2_id,
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
       rounds2: body.rounds2,
       match_number: body.match_number ?? null,
       starting_position: body.starting_position ?? 'face',
+      city_code: cityCode,
       notes: body.notes ?? null,
     }
     const { data, error } = await supabase.from('matches_b').insert(row).select().single()
@@ -85,6 +88,7 @@ async function syncLiveStateFromMatchB(body: {
   // below is built by string interpolation, so re-check here too.
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) return
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
@@ -92,6 +96,7 @@ async function syncLiveStateFromMatchB(body: {
       .from('scheduled_matches')
       .select('*')
       .eq('category', 'b')
+      .eq('city_code', cityCode)
       .or(`and(team1_id.eq.${body.team1_id},team2_id.eq.${body.team2_id}),and(team1_id.eq.${body.team2_id},team2_id.eq.${body.team1_id})`)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -114,6 +119,7 @@ async function syncLiveStateFromMatchB(body: {
         starting_position: body.starting_position ?? 'face',
       })
       .eq('category', 'b')
+      .eq('city_code', cityCode)
     return
   }
 

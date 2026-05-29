@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ResultA } from '@/types/database'
 import { requireCategory } from '@/lib/session'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -8,9 +9,10 @@ export async function GET() {
   const authz = await requireCategory('a')
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('results_a').select('*')
+    const { data, error } = await supabase.from('results_a').select('*').eq('city_code', cityCode)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
     : best !== null ? best + penaltySec : null
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const row = {
@@ -65,10 +68,10 @@ export async function POST(req: NextRequest) {
       run1: body.run1,
       run2: body.run2,
       penalty: body.penalty,
-      // Schema: `run_phase TEXT NOT NULL DEFAULT 'qualification'` — must not be null.
       run_phase: body.run_phase ?? 'qualification',
       notes: body.notes ?? null,
       total,
+      city_code: cityCode,
       updated_at: new Date().toISOString(),
     }
     const { data, error } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -51,7 +52,7 @@ function alliancesPossible(teamCount: number): number {
 }
 
 // Bug #19 helpers — count and clear qualification matches before regenerating.
-async function countQualificationMatches(category: string): Promise<number> {
+async function countQualificationMatches(category: string, cityCode: string): Promise<number> {
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
@@ -59,6 +60,7 @@ async function countQualificationMatches(category: string): Promise<number> {
       .from('scheduled_matches')
       .select('id', { count: 'exact', head: true })
       .eq('category', category)
+      .eq('city_code', cityCode)
       .like('match_id', 'Q-%')
     return count ?? 0
   }
@@ -66,7 +68,7 @@ async function countQualificationMatches(category: string): Promise<number> {
   return getSchedule(category).filter(m => m.match_id.startsWith('Q-')).length
 }
 
-async function clearQualificationMatches(category: string) {
+async function clearQualificationMatches(category: string, cityCode: string) {
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
@@ -74,6 +76,7 @@ async function clearQualificationMatches(category: string) {
       .from('scheduled_matches')
       .delete()
       .eq('category', category)
+      .eq('city_code', cityCode)
       .like('match_id', 'Q-%')
     return
   }
@@ -121,10 +124,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
 
+  const cityCode = hasSupabase ? await getActiveCityCode() : 'MOCK'
+
   // Bug #19 fix: refuse to silently append to an existing schedule. Caller must
   // opt into `replace: true` to wipe and regenerate (or use a separate flow to
   // delete first). Otherwise we'd duplicate every match on repeated calls.
-  const existingCount = await countQualificationMatches(body.category)
+  const existingCount = await countQualificationMatches(body.category, cityCode)
   if (existingCount > 0 && !body.replace) {
     return NextResponse.json({
       error: `Schedule already has ${existingCount} matches for category ${body.category.toUpperCase()}. Pass { replace: true } to regenerate.`,
@@ -132,7 +137,7 @@ export async function POST(req: NextRequest) {
     }, { status: 409 })
   }
   if (body.replace && existingCount > 0) {
-    await clearQualificationMatches(body.category)
+    await clearQualificationMatches(body.category, cityCode)
   }
 
   const { getTeams } = await import('@/lib/data')
@@ -155,6 +160,7 @@ export async function POST(req: NextRequest) {
         match_id: `Q-${i + 1}`,
         team1_id: p.team1_id,
         team2_id: p.team2_id,
+        city_code: cityCode,
         created_at: new Date(now + i).toISOString(),
       }))
       const { error } = await supabase.from('scheduled_matches').insert(rows)
@@ -182,6 +188,7 @@ export async function POST(req: NextRequest) {
         team1b_id: a.team1b_id,
         team2_id: a.team2_id,
         team2b_id: a.team2b_id,
+        city_code: cityCode,
         created_at: new Date(now + i).toISOString(),
       }))
       const { error } = await supabase.from('scheduled_matches').insert(rows)
@@ -220,6 +227,7 @@ export async function POST(req: NextRequest) {
       match_id: `Q-${i + 1}`,
       team1_id: p.team1_id,
       team2_id: p.team2_id,
+      city_code: cityCode,
       created_at: new Date(now + i).toISOString(),
     }))
     const { error } = await supabase.from('scheduled_matches').insert(rows)

@@ -40,6 +40,7 @@ export function addTeam(data: { name: string; school: string; category: string }
   const team: Team = {
     id: newId(),
     category: data.category as Team['category'],
+    city_code: 'MOCK',
     name: data.name.trim(),
     school: data.school.trim(),
     group_letter: null,
@@ -233,6 +234,7 @@ export function deleteMatchD(id: string) { matchesD.delete(id) }
 
 const initialLiveB: LiveStateB = {
   category: 'b',
+  city_code: 'MOCK',
   active_match_id: null,
   phase: 'idle',
   round_number: 1,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Category } from '@/types/database'
 import { requireSession, requireAdmin } from '@/lib/session'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const VALID: Category[] = ['a', 'b', 'c', 'd']
@@ -13,9 +14,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('teams').select('*').eq('category', category).order('created_at')
+    const { data, error } = await supabase.from('teams').select('*')
+      .eq('category', category).eq('city_code', cityCode).order('created_at')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -35,11 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cat
   if (!name?.trim()) return NextResponse.json({ error: 'Team name required' }, { status: 400 })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('teams')
-      .insert({ name: name.trim(), school: school?.trim() ?? '', category })
+      .insert({ name: name.trim(), school: school?.trim() ?? '', category, city_code: cityCode })
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

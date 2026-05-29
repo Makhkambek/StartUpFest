@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import type { LiveStateB, PenaltyA } from '@/types/database'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -24,6 +25,7 @@ type Action =
 // public scoreboard doesn't render "Updated: 1970-01-01".
 const DEFAULT_STATE = {
   category: 'a' as const,
+  city_code: 'TSH',
   active_match_id: null,
   phase: 'idle' as const,
   round_number: 1,
@@ -44,10 +46,11 @@ const DEFAULT_STATE = {
 export async function GET() {
   if (hasSupabase) {
     try {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
       const { data, error } = await supabase
-        .from('live_match_state').select('*').eq('category', 'a').maybeSingle()
+        .from('live_match_state').select('*').eq('category', 'a').eq('city_code', cityCode).maybeSingle()
       if (error || !data) return NextResponse.json({ ...DEFAULT_STATE, _migration_missing: !!error })
       return NextResponse.json(data)
     } catch {
@@ -110,10 +113,11 @@ export async function POST(req: NextRequest) {
 
 async function readCurrentState(): Promise<LiveStateB | null> {
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data } = await supabase
-      .from('live_match_state').select('*').eq('category', 'a').maybeSingle()
+      .from('live_match_state').select('*').eq('category', 'a').eq('city_code', cityCode).maybeSingle()
     return (data as LiveStateB | null) ?? null
   }
   const { getLiveA } = await import('@/lib/mock-store')
@@ -245,21 +249,18 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 }
 
 async function applySupabase(action: Action): Promise<LiveStateB | null> {
+  const cityCode = await getActiveCityCode()
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: cur, error: readErr } = await supabase
-    .from('live_match_state').select('*').eq('category', 'a').maybeSingle()
+    .from('live_match_state').select('*').eq('category', 'a').eq('city_code', cityCode).maybeSingle()
   if (readErr) {
     console.error('[live/a] select error:', readErr.message)
     return null
   }
-  // Self-heal: if no row exists for category 'a' (partial migration or row
-  // accidentally deleted), seed one so UPDATE below has something to write to.
-  // Without this, every action returns "Invalid action" because UPDATE matches
-  // zero rows.
   if (!cur) {
     const { error: insErr } = await supabase
-      .from('live_match_state').insert({ category: 'a' })
+      .from('live_match_state').insert({ category: 'a', city_code: cityCode })
     if (insErr) {
       console.error('[live/a] seed insert error:', insErr.message)
       return null
@@ -271,6 +272,7 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
     .from('live_match_state')
     .update(patch)
     .eq('category', 'a')
+    .eq('city_code', cityCode)
     .select()
     .maybeSingle()
   if (error) {
@@ -300,6 +302,7 @@ async function persistRunResult(state: LiveStateB): Promise<string | null> {
     : '0'
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
@@ -312,12 +315,12 @@ async function persistRunResult(state: LiveStateB): Promise<string | null> {
 
     const { error: upsertErr } = await supabase.from('results_a').upsert({
       scheduled_match_id: state.active_match_id,
-      // team_id is required — pull from the scheduled match
       team_id: await teamIdForScheduled(state.active_match_id),
       run1,
       run2,
       penalty,
       total,
+      city_code: cityCode,
       run_phase: 'qualification',
       notes: null,
     }, { onConflict: 'scheduled_match_id' })

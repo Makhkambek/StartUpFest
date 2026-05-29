@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, requireAdmin } from '@/lib/session'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -11,12 +12,14 @@ export async function GET(req: NextRequest) {
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('scheduled_matches')
       .select('*')
       .eq('category', category)
+      .eq('city_code', cityCode)
       .order('created_at')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
@@ -45,9 +48,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    const { data, error } = await supabase.from('scheduled_matches').insert(body).select().single()
+    const { data, error } = await supabase.from('scheduled_matches')
+      .insert({ ...body, city_code: cityCode }).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
@@ -69,9 +74,11 @@ export async function DELETE(req: NextRequest) {
 
   if (body.all && body.category) {
     if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
-      await supabase.from('scheduled_matches').delete().eq('category', body.category)
+      await supabase.from('scheduled_matches').delete()
+        .eq('category', body.category).eq('city_code', cityCode)
       return NextResponse.json({ ok: true })
     }
     const { clearSchedule } = await import('@/lib/schedule-store')

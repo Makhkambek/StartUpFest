@@ -14,6 +14,7 @@ function makeTeams(category: string, names: string[]): Team[] {
   return names.map((name, i) => ({
     id: `${category}-${i + 1}`,
     category: category as Team['category'],
+    city_code: 'MOCK',
     name,
     school: SCHOOLS[i],
     group_letter: category === 'b' ? ['A','B','C','D','E','F'][i % 6] : null,

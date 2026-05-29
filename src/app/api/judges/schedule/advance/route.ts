@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { Category } from '@/types/database'
 import type { MatchRound } from '@/lib/schedule-store'
 import { getTeams, getMatchesB, getMatchesD } from '@/lib/data'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -21,7 +22,7 @@ interface PlannedMatch {
 }
 
 // ── Cat B: R1 → R2 → triangle (FB-F1/F2/F3) ───────────
-async function advanceB(): Promise<{ matches: PlannedMatch[]; warning?: string; round: string }> {
+async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; warning?: string; round: string }> {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
 
@@ -29,6 +30,7 @@ async function advanceB(): Promise<{ matches: PlannedMatch[]; warning?: string; 
     .from('scheduled_matches')
     .select('id, match_id, team1_id, team2_id, round, status')
     .eq('category', 'b')
+    .eq('city_code', cityCode)
     .eq('phase', 'finals')
 
   if (!finalsMatches || finalsMatches.length === 0) {
@@ -96,7 +98,7 @@ async function advanceB(): Promise<{ matches: PlannedMatch[]; warning?: string; 
 }
 
 // ── Cat D: QF → SF → F1 + 3RD ─────────────────────────
-async function advanceD(): Promise<{ matches: PlannedMatch[]; warning?: string; round: string }> {
+async function advanceD(cityCode: string): Promise<{ matches: PlannedMatch[]; warning?: string; round: string }> {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
 
@@ -104,6 +106,7 @@ async function advanceD(): Promise<{ matches: PlannedMatch[]; warning?: string; 
     .from('scheduled_matches')
     .select('id, match_id, team1_id, team2_id, round, status')
     .eq('category', 'd')
+    .eq('city_code', cityCode)
     .eq('phase', 'finals')
 
   if (!finalsMatches || finalsMatches.length === 0) {
@@ -181,10 +184,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Cat ${category.toUpperCase()} advance not supported — manage finals manually` }, { status: 400 })
   }
 
+  const cityCode = await getActiveCityCode()
+
   // Touch teams to surface any auth issues early
   await getTeams(category)
 
-  const plan = category === 'b' ? await advanceB() : await advanceD()
+  const plan = category === 'b' ? await advanceB(cityCode) : await advanceD(cityCode)
 
   if (plan.matches.length === 0) {
     return NextResponse.json({ error: plan.warning ?? 'Cannot advance' }, { status: 400 })
@@ -198,6 +203,7 @@ export async function POST(req: NextRequest) {
     match_id: m.match_id,
     team1_id: m.team1_id,
     team2_id: m.team2_id,
+    city_code: cityCode,
     phase: 'finals' as const,
     round: m.round,
     status: 'pending' as const,

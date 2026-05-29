@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import type { LiveStateB } from '@/types/database'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -26,6 +27,7 @@ type Action =
 // doesn't render "Updated: 1970-01-01" on the first fetch.
 const DEFAULT_STATE = {
   category: 'c' as const,
+  city_code: 'TSH',
   active_match_id: null,
   phase: 'idle' as const,
   round_number: 1,
@@ -46,10 +48,11 @@ const DEFAULT_STATE = {
 export async function GET() {
   if (hasSupabase) {
     try {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
       const { data, error } = await supabase
-        .from('live_match_state').select('*').eq('category', 'c').maybeSingle()
+        .from('live_match_state').select('*').eq('category', 'c').eq('city_code', cityCode).maybeSingle()
       if (error || !data) return NextResponse.json({ ...DEFAULT_STATE, _migration_missing: !!error })
       return NextResponse.json(data)
     } catch {
@@ -197,20 +200,20 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 }
 
 async function applySupabase(action: Action): Promise<{ state: LiveStateB | null; error: string | null }> {
+  const cityCode = await getActiveCityCode()
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: cur, error: readErr } = await supabase
-    .from('live_match_state').select('*').eq('category', 'c').maybeSingle()
+    .from('live_match_state').select('*').eq('category', 'c').eq('city_code', cityCode).maybeSingle()
   if (readErr) {
     console.error('[live/c] select error:', readErr.message)
     return { state: null, error: `select: ${readErr.message}` }
   }
 
-  // If no row exists for category 'c' yet, insert one (handles partial migration).
   if (!cur) {
     const { error: insErr } = await supabase
       .from('live_match_state')
-      .insert({ category: 'c' })
+      .insert({ category: 'c', city_code: cityCode })
     if (insErr) {
       console.error('[live/c] seed insert error:', insErr.message)
       return { state: null, error: `seed: ${insErr.message}` }
@@ -223,6 +226,7 @@ async function applySupabase(action: Action): Promise<{ state: LiveStateB | null
     .from('live_match_state')
     .update(patch)
     .eq('category', 'c')
+    .eq('city_code', cityCode)
     .select()
     .maybeSingle()
   if (error) {
@@ -243,6 +247,7 @@ async function persistFightResult(state: LiveStateB) {
   const winner: 1 | 2 = state.match_winner === 2 ? 2 : 1
 
   if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: sched } = await supabase
@@ -257,6 +262,7 @@ async function persistFightResult(state: LiveStateB) {
       method,
       judge_score1: state.wins_red,
       judge_score2: state.wins_white,
+      city_code: cityCode,
       notes: null,
     }).select().single()
     if (fight?.id) {

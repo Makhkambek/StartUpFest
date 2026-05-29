@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import type { LivePhaseB, LiveStateB, RoundOutcome, StartingPosition } from '@/types/database'
+import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
@@ -20,6 +21,7 @@ type Action =
 
 const DEFAULT_STATE_B = {
   category: 'b' as const,
+  city_code: 'TSH',
   active_match_id: null,
   phase: 'idle' as const,
   round_number: 1,
@@ -39,9 +41,11 @@ const DEFAULT_STATE_B = {
 export async function GET() {
   if (hasSupabase) {
     try {
+      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
-      const { data, error } = await supabase.from('live_match_state').select('*').eq('category', 'b').maybeSingle()
+      const { data, error } = await supabase.from('live_match_state').select('*')
+        .eq('category', 'b').eq('city_code', cityCode).maybeSingle()
       if (error || !data) {
         return NextResponse.json({ ...DEFAULT_STATE_B, _migration_missing: !!error })
       }
@@ -105,6 +109,7 @@ async function persistMatchMock(state: LiveStateB) {
 
 async function persistMatchSupabase(state: LiveStateB) {
   if (!state.active_match_id) return
+  const cityCode = await getActiveCityCode()
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: sched } = await supabase
@@ -119,6 +124,7 @@ async function persistMatchSupabase(state: LiveStateB) {
     rounds1: state.wins_red,
     rounds2: state.wins_white,
     starting_position: state.starting_position ?? 'face',
+    city_code: cityCode,
     notes: null,
   }).select().single()
 
@@ -149,20 +155,19 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
 }
 
 async function applySupabase(action: Action): Promise<LiveStateB | null> {
+  const cityCode = await getActiveCityCode()
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: current, error: readErr } = await supabase
-    .from('live_match_state').select('*').eq('category', 'b').maybeSingle()
+    .from('live_match_state').select('*').eq('category', 'b').eq('city_code', cityCode).maybeSingle()
   if (readErr) {
     console.error('[live/b] select error:', readErr.message)
     return null
   }
   const cur = (current as LiveStateB | null) ?? null
-  // Self-heal: seed missing row so UPDATE below has something to write. Without
-  // this, every action returns "Invalid action" because UPDATE matches 0 rows.
   if (!cur) {
     const { error: insErr } = await supabase
-      .from('live_match_state').insert({ category: 'b' })
+      .from('live_match_state').insert({ category: 'b', city_code: cityCode })
     if (insErr) {
       console.error('[live/b] seed insert error:', insErr.message)
       return null
@@ -205,13 +210,12 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
       })
       break
     case 'round_result': {
-      // Atomically increment the winner's counter via RPC (same pattern as foul)
-      // to avoid read-compute-write race if two requests arrive concurrently.
       const winCol = action.outcome === 'red' ? 'wins_red' : 'wins_white'
       const { data: winRow, error: winErr } = await supabase.rpc('inc_live_counter', {
         p_category: 'b',
         p_column: winCol,
         p_delta: 1,
+        p_city_code: cityCode,
       })
       if (winErr) throw winErr
       const wr = winRow as LiveStateB | null
@@ -238,13 +242,12 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
       Object.assign(patch, { phase: 'match_result', match_winner: action.winner })
       break
     case 'foul': {
-      // Atomic counter increment via migration 018's inc_live_counter RPC.
-      // Read-compute-write would race when two judges submit a foul concurrently.
       const col = action.side === 'red' ? 'fouls_red' : 'fouls_white'
       const { data: row, error: rpcErr } = await supabase.rpc('inc_live_counter', {
         p_category: 'b',
         p_column: col,
         p_delta: 1,
+        p_city_code: cityCode,
       })
       if (rpcErr) throw rpcErr
       // Reflect the authoritative new counter back into the patch so subsequent
@@ -273,7 +276,8 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
       })
       break
     case 'toggle_finals': {
-      const cur = await supabase.from('live_match_state').select('finals_visible').eq('category', 'b').maybeSingle()
+      const cur = await supabase.from('live_match_state').select('finals_visible')
+        .eq('category', 'b').eq('city_code', cityCode).maybeSingle()
       patch.finals_visible = !(cur.data as { finals_visible?: boolean } | null)?.finals_visible
       break
     }
@@ -283,6 +287,7 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
     .from('live_match_state')
     .update(patch)
     .eq('category', 'b')
+    .eq('city_code', cityCode)
     .select()
     .maybeSingle()
   if (error) return null
