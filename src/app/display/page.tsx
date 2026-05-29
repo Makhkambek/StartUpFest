@@ -225,8 +225,8 @@ export default function DisplayPage() {
   const [nextUp, setNextUp] = useState<NextBundle[]>([])
   const [lastUpdate, setLastUpdate] = useState('')
   const [fullscreen, setFullscreen] = useState(false)
-  // /display is locale-agnostic (no [locale] segment) — use English city name for the venue display.
-  const { settings: eventSettings, city: eventCity } = useEventSettings('en')
+  // /display is locale-agnostic (no [locale] segment) — use Uzbek city name for the venue display.
+  const { settings: eventSettings, city: eventCity } = useEventSettings('uz')
 
   const refresh = useCallback(async () => {
     const cats: Cat[] = ['a', 'b', 'c', 'd']

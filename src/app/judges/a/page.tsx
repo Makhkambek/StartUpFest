@@ -7,11 +7,13 @@ import type { ScheduledMatch } from '@/lib/schedule-store'
 import { StatsBar } from '@/components/judges/StatsBar'
 import { RecentActivity, type RecentEntry } from '@/components/judges/RecentActivity'
 import LiveControlsA from '@/components/judges/LiveControlsA'
+import { useEventSettings } from '@/lib/use-event-settings'
 
 type View = 'schedule' | 'teams'
 
 export default function JudgeAPage() {
   const router = useRouter()
+  const { cityName: eventCity } = useEventSettings('en')
   const [view, setView] = useState<View>('schedule')
   const [teams, setTeams] = useState<Team[]>([])
   const [schedule, setSchedule] = useState<ScheduledMatch[]>([])
@@ -127,6 +129,7 @@ export default function JudgeAPage() {
       <header className="bg-white border-b border-gray-200 h-14 flex items-center px-3 sm:px-6 gap-4 sticky top-0 z-10">
         <a href="/judges/dashboard" className="text-sm text-gray-400 hover:text-gray-700">← Dashboard</a>
         <span className="font-black text-sm text-gray-900">🏎️ Line Follower</span>
+        <span className="hidden sm:inline text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">📍 {eventCity}</span>
         <div className="ml-auto flex gap-1 overflow-x-auto">
           {(['schedule', 'teams'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
