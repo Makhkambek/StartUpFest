@@ -22,6 +22,7 @@ export default function JudgeBPage() {
   const [loading, setLoading] = useState(true)
   const { confirm, modal } = useConfirm()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [canGenerate, setCanGenerate] = useState(false)
 
   const [tName, setTName] = useState(''); const [tSchool, setTSchool] = useState(''); const [addingTeam, setAddingTeam] = useState(false)
   const [smId, setSmId] = useState(''); const [smT1, setSmT1] = useState(''); const [smT2, setSmT2] = useState(''); const [addingSm, setAddingSm] = useState(false); const [smErr, setSmErr] = useState('')
@@ -58,7 +59,7 @@ export default function JudgeBPage() {
 
   useEffect(() => {
     load()
-    fetch('/api/auth/me').then(r => r.json()).then(s => { if (s?.role === 'admin') setIsAdmin(true) })
+    fetch('/api/auth/me').then(r => r.json()).then(s => { if (s?.role) setCanGenerate(true); if (s?.role === 'admin') setIsAdmin(true) })
   }, [load])
 
   const handleGenerate = async () => {
@@ -210,8 +211,8 @@ export default function JudgeBPage() {
                   <span className="text-xs text-gray-500 shrink-0">Matches per team:</span>
                   <input type="number" min="1" max="20" value={genN} onChange={e => setGenN(e.target.value)}
                     className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-16 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300" />
-                  <button onClick={handleGenerate} disabled={!isAdmin || generating || teams.length < 2}
-                    title={!isAdmin ? 'Admin only' : teams.length < 2 ? 'Add teams first' : ''}
+                  <button onClick={handleGenerate} disabled={!canGenerate || generating || teams.length < 2}
+                    title={teams.length < 2 ? 'Add teams first' : ''}
                     className="bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-gray-700 transition-colors">
                     {generating ? 'Generating…' : 'Generate'}
                   </button>
@@ -222,8 +223,7 @@ export default function JudgeBPage() {
                       {resetting ? 'Resetting…' : 'Reset ×'}
                     </button>
                   )}
-                  {!isAdmin && <span className="text-xs text-gray-400">Admin only</span>}
-                  {teams.length < 2 && isAdmin && <span className="text-xs text-amber-500">Add teams first</span>}
+                  {teams.length < 2 && <span className="text-xs text-amber-500">Add teams first</span>}
                 </div>
                 {genError && <p className="text-xs text-red-500 mt-2">{genError}</p>}
               </div>

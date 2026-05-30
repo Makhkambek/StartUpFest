@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/session'
+import { requireCategory } from '@/lib/session'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -103,11 +103,6 @@ function buildAlliances(teamIds: string[], n: number): {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session || session.role !== 'admin') {
-    return NextResponse.json({ error: 'Admin only' }, { status: 403 })
-  }
-
   const body = await req.json() as { category: string; n: number; replace?: boolean }
   if (!body.category || !body.n || body.n < 1) {
     return NextResponse.json({ error: 'category and n required' }, { status: 400 })
@@ -117,6 +112,14 @@ export async function POST(req: NextRequest) {
   }
   if (!['a', 'b', 'c', 'd'].includes(body.category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
+  }
+
+  const authz = await requireCategory(body.category)
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
+  // `replace: true` wipes existing matches — only admin can do that (judges must Reset first)
+  if (body.replace && authz.session.role !== 'admin') {
+    return NextResponse.json({ error: 'Only admin can regenerate an existing schedule' }, { status: 403 })
   }
 
   const cityCode = hasSupabase ? await getActiveCityCode() : 'MOCK'
