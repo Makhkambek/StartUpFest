@@ -6,7 +6,13 @@ import { routing } from '@/i18n/routing'
 
 const intl = createIntlMiddleware(routing)
 
-async function handleProtected(request: NextRequest, isProtectedApi: boolean) {
+function loginRedirect(request: NextRequest, redirectTo?: string): NextResponse {
+  const url = new URL('/judges/login', request.url)
+  if (redirectTo) url.searchParams.set('redirect', redirectTo)
+  return NextResponse.redirect(url)
+}
+
+async function handleProtected(request: NextRequest, isProtectedApi: boolean, redirectTo?: string) {
   let response = NextResponse.next({ request })
 
   const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -14,18 +20,18 @@ async function handleProtected(request: NextRequest, isProtectedApi: boolean) {
     const sessionCookie = request.cookies.get('sfrc-mock-session')
     if (!sessionCookie) {
       if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      return NextResponse.redirect(new URL('/judges/login', request.url))
+      return loginRedirect(request, redirectTo)
     }
     try {
       const { verifySession } = await import('@/lib/session')
       const payload = verifySession(sessionCookie.value) as { exp?: number } | null
       if (!payload?.exp || payload.exp < Date.now()) {
         if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        return NextResponse.redirect(new URL('/judges/login', request.url))
+        return loginRedirect(request, redirectTo)
       }
     } catch {
       if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      return NextResponse.redirect(new URL('/judges/login', request.url))
+      return loginRedirect(request, redirectTo)
     }
     return response
   }
@@ -49,7 +55,7 @@ async function handleProtected(request: NextRequest, isProtectedApi: boolean) {
 
   if (!user) {
     if (isProtectedApi) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    return NextResponse.redirect(new URL('/judges/login', request.url))
+    return loginRedirect(request, redirectTo)
   }
 
   return response
@@ -111,6 +117,16 @@ export async function proxy(request: NextRequest) {
 
   // ── /display: passthrough, no locale routing ──────────────
   if (isDisplay) return NextResponse.next({ request })
+
+  // ── /[locale]/field/[cat]: auth required, then intl routing ─
+  // Pattern: /uz/field/a, /en/field/b, etc.
+  if (/^\/[a-z]{2}\/field\//.test(path)) {
+    const auth = await handleProtected(request, false, path)
+    // If handleProtected returns a redirect (to login), forward it
+    if (auth.status === 302 || auth.status === 307 || auth.status === 308) return auth
+    // Authenticated — let next-intl handle locale routing
+    return intl(request)
+  }
 
   // ── Everything else: next-intl locale routing ─────────────
   return intl(request)
