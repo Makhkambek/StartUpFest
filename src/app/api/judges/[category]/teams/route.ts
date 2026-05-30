@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { Category } from '@/types/database'
-import { requireSession, requireAdmin } from '@/lib/session'
+import { requireSession, requireCategory } from '@/lib/session'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cat
   const { category } = await params
   if (!VALID.includes(category as Category)) return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
 
-  const authz = await requireAdmin()
+  const authz = await requireCategory(category)
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   const { name, school } = await req.json()
@@ -54,8 +54,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cat
   return NextResponse.json(addTeam({ name, school: school ?? '', category }))
 }
 
-export async function DELETE(req: NextRequest) {
-  const authz = await requireAdmin()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ category: string }> }) {
+  const { category } = await params
+  const authz = await requireCategory(category)
   if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
 
   const { id } = await req.json()
