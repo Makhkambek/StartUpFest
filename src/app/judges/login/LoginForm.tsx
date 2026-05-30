@@ -4,17 +4,19 @@ import { useRouter } from 'next/navigation'
 
 function safeRedirect(redirect?: string | null): string {
   if (!redirect) return '/judges/dashboard'
-  // Prevent open redirect — must be a relative internal path
   if (!redirect.startsWith('/') || redirect.startsWith('//')) return '/judges/dashboard'
   return redirect
 }
 
-export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
+const inputClass = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-900'
+
+export default function LoginForm({ redirectTo, tvMode }: { redirectTo?: string; tvMode?: boolean }) {
   const router = useRouter()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError]   = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(false)
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -37,6 +39,10 @@ export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
     }
   }
 
+  // In TV mode both fields are type="password" (dots) to hide from audience.
+  // A small toggle lets the judge verify what they typed if needed.
+  const fieldType = tvMode && !showCredentials ? 'password' : 'text'
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center p-6">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-10 w-full max-w-sm">
@@ -47,19 +53,42 @@ export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
             <div className="text-[11px] text-gray-400 dark:text-gray-500">Robotics Challenge</div>
           </div>
         </div>
-        <span className="inline-block bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-bold tracking-wide px-3 py-1 rounded-full mb-5">
-          ⚖️ JUDGES PANEL
-        </span>
+
+        {tvMode ? (
+          <div className="flex items-center justify-between mb-5">
+            <span className="inline-flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-bold tracking-wide px-3 py-1 rounded-full">
+              📺 Field Display Mode
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCredentials(v => !v)}
+              className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline"
+            >
+              {showCredentials ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        ) : (
+          <span className="inline-block bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-bold tracking-wide px-3 py-1 rounded-full mb-5">
+            ⚖️ JUDGES PANEL
+          </span>
+        )}
+
         <h2 className="text-xl font-bold mb-1 dark:text-gray-100">Judge Login</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Enter your credentials to access the panel.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          {tvMode
+            ? 'Credentials are hidden from the audience.'
+            : 'Enter your credentials to access the panel.'}
+        </p>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Username</label>
             <input
+              type={fieldType}
               value={username} onChange={e => setUsername(e.target.value)}
-              placeholder="e.g. admin" autoComplete="username" autoCapitalize="none"
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-900"
+              placeholder={tvMode && !showCredentials ? '••••••••' : 'e.g. admin'}
+              autoComplete="username" autoCapitalize="none"
+              className={inputClass}
             />
           </div>
           <div>
@@ -67,7 +96,7 @@ export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
             <input
               type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Password" autoComplete="current-password"
-              className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:focus:ring-amber-900"
+              className={inputClass}
             />
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-md px-3 py-2">{error}</p>}
