@@ -440,7 +440,13 @@ export default function JudgeAPage() {
                   </tr></thead>
                   <tbody>
                     {teams.map((t, i) => {
-                      const r = results.find(r => r.team_id === t.id)
+                      const teamResults = results.filter(r => r.team_id === t.id)
+                      const r = teamResults.reduce<ResultA | null>((best, curr) => {
+                        if (!best) return curr
+                        if (curr.penalty === 'dnf' || curr.penalty === 'disq') return best
+                        if (best.penalty === 'dnf' || best.penalty === 'disq') return curr
+                        return curr.total !== null && best.total !== null && curr.total < best.total ? curr : best
+                      }, null)
                       return (
                         <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
                           <td className="px-5 py-3 text-gray-400 text-xs">{i + 1}</td>

@@ -13,19 +13,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-// Category A (Line Follower) — solo runs, no opponent
-// Line Follower (category A) — each team gets `n` consecutive Qs so the team
-// stays on the track for all of its attempts back-to-back. Judges hated the
-// previous round-robin layout (B → A → C → B → A → C) because between B's two
-// runs they had to swap robots twice. Now the order is B → B → A → A → C → C:
-// one team finishes its block, then move to the next.
-// The team ORDER is shuffled so the first team to run varies each event,
-// but a team's own Qs are always adjacent.
+// Category A (Line Follower) — solo runs, no opponent.
+// Round-robin: each round shuffles team order independently, so the schedule
+// interleaves teams (A → B → C → A → B → C) rather than running the same
+// team back-to-back (A → A → B → B → C → C).
 function buildSoloRuns(teamIds: string[], n: number): { team1_id: string; team2_id: null }[] {
-  const order = shuffle(teamIds)
   const runs: { team1_id: string; team2_id: null }[] = []
-  for (const id of order) {
-    for (let i = 0; i < n; i++) {
+  for (let round = 0; round < n; round++) {
+    for (const id of shuffle(teamIds)) {
       runs.push({ team1_id: id, team2_id: null })
     }
   }
