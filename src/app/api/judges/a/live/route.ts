@@ -325,6 +325,8 @@ async function persistRunResult(state: LiveStateB): Promise<string | null> {
       notes: null,
     }, { onConflict: 'scheduled_match_id' })
     if (upsertErr) return `save result: ${upsertErr.message}`
+    // Mark the scheduled match as completed so it drops out of "next" suggestions.
+    await supabase.from('scheduled_matches').update({ status: 'completed' }).eq('id', state.active_match_id)
     return null
   }
 

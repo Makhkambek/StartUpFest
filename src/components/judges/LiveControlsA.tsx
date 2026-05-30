@@ -42,10 +42,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const [persistError, setPersistError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const autoGoFightRef = useRef(false)
-  // Auto-advance to next match countdown
-  const [autoCountdown, setAutoCountdown] = useState<number | null>(null)
-  const [autoCancelled, setAutoCancelled] = useState(false)
-  const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const refetch = useCallback(async () => {
     try {
@@ -98,10 +94,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
     }
   }, [onChange])
 
-  const startNext = useCallback(async (id: string) => {
-    await dispatch({ type: 'start_match', active_match_id: id })
-  }, [dispatch])
-
   // Derived
   const eligible = state ? schedule.filter((m) => m.status !== 'completed') : []
   const sortedEligible = [...eligible].sort((a, b) =>
@@ -110,34 +102,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
   // Match is "over" when phase is match_result OR round_result with a final winner (attempt 2 done).
   const isMatchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
-
-  // Auto-advance: after match_result with a next pending match, count down 6s, then auto-start it.
-  useEffect(() => {
-    if (!isMatchOver || !nextPending || autoCancelled) return
-    if (autoTimerRef.current) return
-    setAutoCountdown(6)
-    autoTimerRef.current = setInterval(() => {
-      setAutoCountdown((s) => {
-        if (s === null) return null
-        if (s <= 1) {
-          if (autoTimerRef.current) { clearInterval(autoTimerRef.current); autoTimerRef.current = null }
-          startNext(nextPending.id)
-          return null
-        }
-        return s - 1
-      })
-    }, 1000)
-    return () => {
-      if (autoTimerRef.current) { clearInterval(autoTimerRef.current); autoTimerRef.current = null }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMatchOver, nextPending?.id, autoCancelled])
-
-  const cancelAuto = () => {
-    setAutoCancelled(true)
-    setAutoCountdown(null)
-    if (autoTimerRef.current) { clearInterval(autoTimerRef.current); autoTimerRef.current = null }
-  }
 
   // Auto-dispatch go_fight when 5s countdown finishes.
   useEffect(() => {
@@ -153,16 +117,6 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
     }, remaining + 50)
     return () => clearTimeout(id)
   }, [state?.phase, state?.countdown_started_at, dispatch])
-
-  // Reset auto-advance state whenever we leave match_result.
-  useEffect(() => {
-    const matchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
-    if (!matchOver) {
-      setAutoCountdown(null)
-      setAutoCancelled(false)
-      if (autoTimerRef.current) { clearInterval(autoTimerRef.current); autoTimerRef.current = null }
-    }
-  }, [state?.phase, state?.match_winner])
 
   if (!state) return (
     <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm text-gray-400">
@@ -235,17 +189,12 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
                   <span className="text-gray-700">🏎️ {teamName(nextPending.team1_id)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {autoCountdown !== null && !autoCancelled && (
-                    <span className="text-xs font-bold text-emerald-700">
-                      auto-start in {autoCountdown}s
-                    </span>
-                  )}
-                  <button disabled={busy} onClick={() => startNext(nextPending.id)}
+                  <button disabled={busy} onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded">
                     ▶ Start now
                   </button>
-                  {autoCountdown !== null && !autoCancelled && (
-                    <button onClick={cancelAuto}
+                  {false && (
+                    <button
                       className="border border-gray-300 hover:bg-gray-50 text-xs font-bold px-2 py-1.5 rounded">
                       Cancel
                     </button>
