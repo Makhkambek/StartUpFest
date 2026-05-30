@@ -58,6 +58,8 @@ export default function JudgeDPage() {
   useEffect(() => {
     load()
     fetch('/api/auth/me').then(r => r.json()).then(s => { if (s?.role) setCanGenerate(true); if (s?.role === 'admin') setIsAdmin(true) })
+    const interval = setInterval(load, 10000)
+    return () => clearInterval(interval)
   }, [load])
 
   const handleGenerate = async () => {
@@ -115,12 +117,19 @@ export default function JudgeDPage() {
     await load()
   }
 
+  const nextAutoMatchId = () => {
+    const nums = schedule.map(m => { const x = m.match_id.match(/^Q-(\d+)$/); return x ? parseInt(x[1]) : 0 })
+    return `Q-${nums.length ? Math.max(...nums) + 1 : 1}`
+  }
+
   const addScheduledMatch = async () => {
-    if (!smId.trim() || !smT1 || !smT1b || !smT2 || !smT2b) { setSmErr('Fill all 4 team fields'); return }
+    if (!smT1 || !smT1b || !smT2 || !smT2b) { setSmErr('Fill all 4 team fields'); return }
     const ids = [smT1, smT1b, smT2, smT2b]
     if (new Set(ids).size !== 4) { setSmErr('All 4 teams must be different'); return }
+    if (isAdmin && !smId.trim()) { setSmErr('Match ID required'); return }
+    const matchId = isAdmin ? smId.toUpperCase() : nextAutoMatchId()
     setAddingSm(true); setSmErr('')
-    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', match_id: smId.toUpperCase(), team1_id: smT1, team1b_id: smT1b, team2_id: smT2, team2b_id: smT2b }) })
+    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', match_id: matchId, team1_id: smT1, team1b_id: smT1b, team2_id: smT2, team2b_id: smT2b }) })
     if (!res.ok) { const e = await res.json(); setSmErr(e.error); setAddingSm(false); return }
     setSmId(''); setSmT1(''); setSmT1b(''); setSmT2(''); setSmT2b(''); await load(); setAddingSm(false)
   }
@@ -256,9 +265,14 @@ export default function JudgeDPage() {
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Add Match to Schedule</h2>
                 <div className="flex flex-wrap gap-2 items-start">
-                  <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="G-1"
-                    onKeyDown={e => e.key === 'Enter' && addScheduledMatch()}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
+                  {isAdmin && (
+                    <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="G-1"
+                      onKeyDown={e => e.key === 'Enter' && addScheduledMatch()}
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
+                  )}
+                  {!isAdmin && (
+                    <span className="border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-400">{nextAutoMatchId()}</span>
+                  )}
                   <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
                     <div className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">🔴 Red Alliance</div>
                     <select value={smT1} onChange={e => setSmT1(e.target.value)}

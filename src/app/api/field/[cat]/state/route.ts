@@ -171,6 +171,9 @@ async function getStateForA() {
   const team = teamId ? teams.find((t) => t.id === teamId) ?? null : null
   const teamResult = teamId ? results.find((r) => r.team_id === teamId) ?? null : null
   const bestTime = teamResult?.total ?? null
+  // If judge edited a completed run, override the display time from results_a
+  const activeResult = match?.id ? results.find(r => r.scheduled_match_id === match!.id) ?? null : null
+  const recordedTime: number | null = activeResult?.total ?? null
 
   // Build next preview (team + best time for the next runner)
   const nextTeamId = nextSched?.team1_id ?? null
@@ -214,6 +217,7 @@ async function getStateForA() {
       ? { id: team.id, name: team.name, school: team.school }
       : null,
     bestTime,
+    recordedTime,
     leaderboard,
     nextRun,
     finalsData,

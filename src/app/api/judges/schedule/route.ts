@@ -68,12 +68,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const authz = await requireAdmin()
-  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
-
   const body = await req.json() as { id?: string; category?: string; all?: boolean }
 
+  // Reset (delete all) — admin only
   if (body.all && body.category) {
+    const authz = await requireAdmin()
+    if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
     if (hasSupabase) {
       const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
@@ -87,16 +88,24 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Delete single match — judge of that category can do it
   const id = body.id
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
+  // Look up the match's category to check access
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
+    const { data: match } = await supabase.from('scheduled_matches').select('category').eq('id', id).single()
+    if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+    const authz = await requireCategory(match.category)
+    if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
     await supabase.from('scheduled_matches').delete().eq('id', id)
     return NextResponse.json({ ok: true })
   }
 
+  const authz = await requireSession()
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
   const { deleteScheduledMatch } = await import('@/lib/schedule-store')
   deleteScheduledMatch(id)
   return NextResponse.json({ ok: true })

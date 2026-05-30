@@ -60,6 +60,8 @@ export default function JudgeAPage() {
   useEffect(() => {
     load()
     fetch('/api/auth/me').then(r => r.json()).then(s => { if (s?.role) setCanGenerate(true); if (s?.role === 'admin') setIsAdmin(true) })
+    const interval = setInterval(load, 10000)
+    return () => clearInterval(interval)
   }, [load])
 
   const handleGenerate = async () => {
@@ -103,10 +105,17 @@ export default function JudgeAPage() {
     await load()
   }
 
+  const nextAutoMatchId = () => {
+    const nums = schedule.map(m => { const x = m.match_id.match(/^Q-(\d+)$/); return x ? parseInt(x[1]) : 0 })
+    return `Q-${nums.length ? Math.max(...nums) + 1 : 1}`
+  }
+
   const addMatch = async () => {
-    if (!smId.trim() || !smT1) { setSmErr('Match ID and team required'); return }
+    if (!smT1) { setSmErr('Team required'); return }
+    if (isAdmin && !smId.trim()) { setSmErr('Match ID required'); return }
+    const matchId = isAdmin ? smId.toUpperCase() : nextAutoMatchId()
     setAddingSm(true); setSmErr('')
-    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a', match_id: smId.toUpperCase(), team1_id: smT1, team2_id: null }) })
+    const res = await fetch('/api/judges/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a', match_id: matchId, team1_id: smT1, team2_id: null }) })
     if (!res.ok) { const e = await res.json(); setSmErr(e.error); setAddingSm(false); return }
     setSmId(''); setSmT1(''); setSmT2(''); await load(); setAddingSm(false)
   }
@@ -245,9 +254,14 @@ export default function JudgeAPage() {
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Add Match to Schedule</h2>
                 <div className="flex flex-wrap gap-2">
-                  <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="Q-77"
-                    onKeyDown={e => e.key === 'Enter' && addMatch()}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
+                  {isAdmin && (
+                    <input value={smId} onChange={e => setSmId(e.target.value)} placeholder="Q-77"
+                      onKeyDown={e => e.key === 'Enter' && addMatch()}
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-28 font-mono focus:outline-none focus:ring-2 focus:ring-amber-300 uppercase" />
+                  )}
+                  {!isAdmin && (
+                    <span className="border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-400">{nextAutoMatchId()}</span>
+                  )}
                   <select value={smT1} onChange={e => setSmT1(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300">
                     <option value="">Team…</option>
@@ -258,7 +272,7 @@ export default function JudgeAPage() {
                     {addingSm ? '…' : '+ Add'}
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-2">Use this to add tie-break runs (e.g. T-1, EX-1) or extra qualification slots.</p>
+                <p className="text-[11px] text-gray-400 mt-2">{isAdmin ? 'Use this to add tie-break runs (e.g. T-1, EX-1) or extra qualification slots.' : 'Adds the next match in sequence.'}</p>
                 {smErr && <p className="text-xs text-red-500 mt-2">{smErr}</p>}
               </div>
 

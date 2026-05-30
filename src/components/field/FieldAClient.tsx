@@ -41,6 +41,7 @@ interface FieldStateA {
   match: ScheduledMatch | null
   team: TeamLite | null
   bestTime: number | null
+  recordedTime: number | null
   leaderboard: LeaderRow[]
   nextRun: NextRun | null
   finalsData?: FinalsRunA[] | null
@@ -236,7 +237,7 @@ function BootScreen() {
 const MATCH_RESULT_DISPLAY_MS = 5000
 
 function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnType<typeof useTranslations>; eventWatermark: string }) {
-  const { state, match, team, bestTime, leaderboard, nextRun } = data
+  const { state, match, team, bestTime, recordedTime, leaderboard, nextRun } = data
   const isRunning = state.phase === 'fighting'
   const isCountdown = state.phase === 'countdown'
   const isReady = state.phase === 'waiting' || state.phase === 'positioning'
@@ -254,7 +255,9 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
   const phaseElapsed = usePhaseElapsed(state.phase)
 
   // Last attempt's time from round_history (jsonb of {time: number|null}).
+  // recordedTime overrides when a judge edits the result after the run.
   const lastRunTime: number | null = (() => {
+    if (recordedTime !== null) return recordedTime
     const raw = (state.round_history as unknown) ?? []
     if (!Array.isArray(raw) || raw.length === 0) return null
     const last = raw[raw.length - 1]

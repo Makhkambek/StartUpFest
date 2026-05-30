@@ -13,32 +13,77 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-// Category A (Line Follower) — solo runs, no opponent.
-// Round-robin: each round shuffles team order independently, so the schedule
-// interleaves teams (A → B → C → A → B → C) rather than running the same
-// team back-to-back (A → A → B → B → C → C).
+// Category A (Line Follower) — solo runs, greedy task-scheduler interleaving.
+// Always picks the team with most remaining runs that hasn't run in the last
+// (teamCount-1) slots, so the same team never appears consecutively and the
+// gap between repeats is maximised regardless of team count.
 function buildSoloRuns(teamIds: string[], n: number): { team1_id: string; team2_id: null }[] {
-  const runs: { team1_id: string; team2_id: null }[] = []
-  for (let round = 0; round < n; round++) {
-    for (const id of shuffle(teamIds)) {
-      runs.push({ team1_id: id, team2_id: null })
+  const ids = shuffle(teamIds) // random initial order as tie-breaker
+  const counts = new Map(ids.map(id => [id, n]))
+  const result: { team1_id: string; team2_id: null }[] = []
+  const total = ids.length * n
+  const cooldown = Math.max(ids.length - 1, 1)
+
+  for (let i = 0; i < total; i++) {
+    const recent = new Set(result.slice(-cooldown).map(r => r.team1_id))
+
+    // Pick team with most remaining runs not in cooldown window
+    let pick: string | null = null
+    let pickCount = -1
+    for (const [id, cnt] of counts) {
+      if (cnt > 0 && !recent.has(id) && cnt > pickCount) {
+        pick = id; pickCount = cnt
+      }
     }
+    // Fallback: all available teams are in cooldown (only possible with 1 team)
+    if (!pick) {
+      for (const [id, cnt] of counts) {
+        if (cnt > 0) { pick = id; break }
+      }
+    }
+
+    result.push({ team1_id: pick!, team2_id: null })
+    counts.set(pick!, counts.get(pick!)! - 1)
   }
-  return runs
+
+  return result
 }
 
-// Categories B/C — head-to-head pairings, one match per pair
+// Categories B/C — head-to-head pairings, one match per pair.
+// At round boundaries, swaps the first match to avoid repeating teams from the
+// previous round's last match.
 function buildPairings(teamIds: string[], n: number): { team1_id: string; team2_id: string }[] {
   const pairs: { team1_id: string; team2_id: string }[] = []
+
   for (let round = 0; round < n; round++) {
     const order = shuffle(teamIds)
+    const roundPairs: { team1_id: string; team2_id: string }[] = []
     for (let i = 0; i + 1 < order.length; i += 2) {
-      pairs.push({ team1_id: order[i], team2_id: order[i + 1] })
+      roundPairs.push({ team1_id: order[i], team2_id: order[i + 1] })
     }
     if (order.length % 2 === 1) {
-      pairs.push({ team1_id: order[order.length - 1], team2_id: order[0] })
+      roundPairs.push({ team1_id: order[order.length - 1], team2_id: order[0] })
     }
+
+    // Fix round boundary: swap first match with the first one that doesn't
+    // share teams with the last match of the previous round.
+    if (pairs.length > 0) {
+      const prev = pairs[pairs.length - 1]
+      const prevTeams = new Set([prev.team1_id, prev.team2_id])
+      const first = roundPairs[0]
+      if (prevTeams.has(first.team1_id) || prevTeams.has(first.team2_id)) {
+        const swapIdx = roundPairs.findIndex(
+          p => !prevTeams.has(p.team1_id) && !prevTeams.has(p.team2_id)
+        )
+        if (swapIdx > 0) {
+          [roundPairs[0], roundPairs[swapIdx]] = [roundPairs[swapIdx], roundPairs[0]]
+        }
+      }
+    }
+
+    pairs.push(...roundPairs)
   }
+
   return pairs
 }
 
@@ -83,22 +128,44 @@ async function clearQualificationMatches(category: string, cityCode: string) {
 
 // Category D (Robo Football) — alliance pairings: 4 teams per match (2 vs 2).
 // Each match: red alliance = team1+team1b, blue alliance = team2+team2b.
+// At round boundaries, swaps the first match to avoid repeating teams from
+// the previous round's last match.
 function buildAlliances(teamIds: string[], n: number): {
   team1_id: string; team1b_id: string; team2_id: string; team2b_id: string
 }[] {
   const out: { team1_id: string; team1b_id: string; team2_id: string; team2b_id: string }[] = []
+
   for (let round = 0; round < n; round++) {
     const order = shuffle(teamIds)
-    // Take groups of 4 — each becomes one alliance match.
+    const roundMatches: { team1_id: string; team1b_id: string; team2_id: string; team2b_id: string }[] = []
     for (let i = 0; i + 3 < order.length; i += 4) {
-      out.push({
+      roundMatches.push({
         team1_id: order[i],
         team1b_id: order[i + 1],
         team2_id: order[i + 2],
         team2b_id: order[i + 3],
       })
     }
+
+    // Fix round boundary: swap first match to avoid repeating teams from last match.
+    if (out.length > 0 && roundMatches.length > 1) {
+      const prev = out[out.length - 1]
+      const prevTeams = new Set([prev.team1_id, prev.team1b_id, prev.team2_id, prev.team2b_id])
+      const first = roundMatches[0]
+      const firstTeams = [first.team1_id, first.team1b_id, first.team2_id, first.team2b_id]
+      if (firstTeams.some(t => prevTeams.has(t))) {
+        const swapIdx = roundMatches.findIndex(m =>
+          ![m.team1_id, m.team1b_id, m.team2_id, m.team2b_id].some(t => prevTeams.has(t))
+        )
+        if (swapIdx > 0) {
+          [roundMatches[0], roundMatches[swapIdx]] = [roundMatches[swapIdx], roundMatches[0]]
+        }
+      }
+    }
+
+    out.push(...roundMatches)
   }
+
   return out
 }
 

@@ -68,14 +68,14 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="px-4 sm:px-8 py-4 sm:py-8 max-w-4xl">
-        <div className="mb-6">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] px-4 sm:px-8 py-4 sm:py-8">
+        <div className={`mb-6 ${categories.length === 1 ? 'text-center' : 'text-center'}`}>
           <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">
             {categories.length === 1
               ? `${categories[0].icon} ${categories[0].full}`
               : 'Judges Dashboard'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2 justify-center">
             <span>{session.role === 'admin'
               ? 'Admin — full access to all categories'
               : `Assigned to ${categories.map(c => c.id.toUpperCase()).join(', ')}`}
@@ -84,16 +84,18 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
+        <div className={categories.length === 1
+          ? 'w-full max-w-sm'
+          : 'grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl w-full'}>
           {categories.map(cat => (
             <a key={cat.id} href={`/judges/${cat.id}`}
-              className={`bg-white dark:bg-gray-900 rounded-xl border-l-4 ${cat.color} border border-gray-100 dark:border-gray-800 shadow-sm p-5 min-h-[80px] hover:shadow-md dark:hover:bg-gray-800/50 transition-all group flex flex-col gap-3`}>
+              className={`bg-white dark:bg-gray-900 rounded-xl border-l-4 ${cat.color} border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md dark:hover:bg-gray-800/50 transition-all group flex flex-col gap-3 ${categories.length === 1 ? 'p-7' : 'p-5 min-h-[80px]'}`}>
               <div className="flex items-start justify-between">
-                <span className="text-3xl">{cat.icon}</span>
+                <span className={categories.length === 1 ? 'text-4xl' : 'text-3xl'}>{cat.icon}</span>
                 <span className="text-[10px] font-bold text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors">CAT {cat.id.toUpperCase()}</span>
               </div>
               <div>
-                <div className="font-black text-gray-900 dark:text-gray-100 group-hover:text-gray-700 dark:group-hover:text-white text-base">{cat.label}</div>
+                <div className={`font-black text-gray-900 dark:text-gray-100 group-hover:text-gray-700 dark:group-hover:text-white ${categories.length === 1 ? 'text-lg' : 'text-base'}`}>{cat.label}</div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed mt-0.5">{cat.desc}</div>
               </div>
               <div className="text-xs font-bold text-gray-900 dark:text-gray-100 group-hover:translate-x-0.5 transition-transform">
