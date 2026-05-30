@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
     await supabase.auth.signOut()
   }
 
-  const res = NextResponse.redirect(new URL('/judges/login', req.url), { status: 303 })
+  const res = new NextResponse(null, {
+    status: 303,
+    headers: { Location: '/judges/login' },
+  })
   res.cookies.set('sfrc-mock-session', '', { maxAge: 0, path: '/', httpOnly: true })
   return res
 }

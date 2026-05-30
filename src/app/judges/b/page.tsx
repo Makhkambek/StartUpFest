@@ -8,6 +8,7 @@ import { StatsBar } from '@/components/judges/StatsBar'
 import { RecentActivity, type RecentEntry } from '@/components/judges/RecentActivity'
 import LiveControlsB from '@/components/judges/LiveControlsB'
 import { useEventSettings } from '@/lib/use-event-settings'
+import { useConfirm } from '@/components/judges/useConfirm'
 
 type View = 'schedule' | 'teams'
 
@@ -19,6 +20,7 @@ export default function JudgeBPage() {
   const [schedule, setSchedule] = useState<ScheduledMatch[]>([])
   const [matches, setMatches] = useState<MatchB[]>([])
   const [loading, setLoading] = useState(true)
+  const { confirm, modal } = useConfirm()
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [tName, setTName] = useState(''); const [tSchool, setTSchool] = useState(''); const [addingTeam, setAddingTeam] = useState(false)
@@ -67,7 +69,7 @@ export default function JudgeBPage() {
   }
 
   const handleReset = async () => {
-    if (!confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
+    if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
     setResetting(true)
     await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b', all: true }) })
     await load(); setResetting(false)
@@ -76,7 +78,7 @@ export default function JudgeBPage() {
   const [genFinalsErr, setGenFinalsErr] = useState('')
   const [genFinals, setGenFinals] = useState(false)
   const handleGenerateFinals = async () => {
-    if (!confirm('Generate FINALS bracket from current standings? Existing finals will be replaced.')) return
+    if (!await confirm('Generate FINALS bracket from current standings? Existing finals will be replaced.')) return
     setGenFinals(true); setGenFinalsErr('')
     const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setGenFinals(false); return }
@@ -85,7 +87,7 @@ export default function JudgeBPage() {
 
   const [advancing, setAdvancing] = useState(false)
   const handleAdvance = async () => {
-    if (!confirm('Generate the NEXT finals round from winners of completed matches? You can edit/delete the generated matches afterwards.')) return
+    if (!await confirm('Generate the NEXT finals round from winners of completed matches? You can edit/delete the generated matches afterwards.')) return
     setAdvancing(true); setGenFinalsErr('')
     const res = await fetch('/api/judges/schedule/advance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setAdvancing(false); return }
@@ -108,7 +110,7 @@ export default function JudgeBPage() {
   }
 
   const deleteTeam = async (id: string) => {
-    if (!confirm('Delete team?')) return
+    if (!await confirm('Delete team?')) return
     await fetch('/api/judges/b/teams', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     await load()
   }
@@ -128,7 +130,7 @@ export default function JudgeBPage() {
   }
 
   const replayMatch = async (id: string, matchId: string) => {
-    if (!confirm(`Reset ${matchId} and delete its result? The match will go back to PENDING.`)) return
+    if (!await confirm(`Reset ${matchId} and delete its result? The match will go back to PENDING.`)) return
     await fetch(`/api/judges/schedule/${id}/replay`, { method: 'POST' })
     await load()
   }
@@ -142,7 +144,7 @@ export default function JudgeBPage() {
     r.winner === 0 ? 'Draw' : r.winner === 1 ? teamName(r.team1_id) : teamName(r.team2_id)
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <>{modal}<div className="min-h-screen bg-gray-100">
       <header className="bg-white border-b border-gray-200 h-14 flex items-center px-3 sm:px-6 gap-4 sticky top-0 z-10">
         <a href="/judges/dashboard" className="text-sm text-gray-400 hover:text-gray-700">← Dashboard</a>
         <span className="font-black text-sm text-gray-900">🤼 Mini Sumo</span>
@@ -347,7 +349,7 @@ export default function JudgeBPage() {
                                       See
                                     </button>
                                   )}
-                                  <button onClick={() => { if (confirm(`Delete ${m.match_id}?`)) deleteScheduledMatch(m.id) }}
+                                  <button onClick={async () => { if (await confirm(`Delete ${m.match_id}?`)) deleteScheduledMatch(m.id) }}
                                     className="px-2 py-2 rounded text-xs text-red-300 hover:text-red-500 border border-transparent hover:border-red-200 transition-colors min-h-[36px]">✕</button>
                                 </div>
                               </td>
@@ -469,6 +471,6 @@ export default function JudgeBPage() {
           </div>
         )}
       </div>
-    </div>
+    </div></>
   )
 }
