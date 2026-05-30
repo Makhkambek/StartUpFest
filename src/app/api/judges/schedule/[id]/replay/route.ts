@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/session'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
 
@@ -52,6 +53,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     if (patchErr) return NextResponse.json({ error: patchErr.message }, { status: 500 })
 
+    revalidateTag(`standings-${match.category}`, {})
     return NextResponse.json({ ok: true })
   }
 
@@ -60,5 +62,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const match = getMatchById(id)
   if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
   setMatchStatus(id, 'pending')
+  revalidateTag(`standings-${match.category}`, {})
   return NextResponse.json({ ok: true })
 }

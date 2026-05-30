@@ -1,76 +1,36 @@
-// In-memory token bucket rate limiter.
-// Per-endpoint limits chosen for the live-scoring workload:
-//   • Public scoreboard (/api/standings, /api/field) is hammered by spectators
-//     and field displays — tight read limit so a flood can't pin the Node loop
-//     even with unstable_cache absorbing the DB hit.
-//   • Judge UI polls 4 endpoints at ~3–5s intervals plus realtime fallback,
-//     and the Goal/foul button can fire ~20–30 POSTs/min on a hot ring.
-//   • /api/auth/login is brute-force-prone; the route itself adds a 10/15min
-//     wall, this is an additional per-minute trip-wire.
-// For real DDoS protection at the edge, put Cloudflare in front and swap this
-// for Upstash Redis via @upstash/ratelimit.
+// Token-bucket rate limiter with Redis backend (falls back to in-memory when
+// REDIS_URL is not set, e.g. in mock/dev mode without Docker).
+//
+// Redis path: atomic INCR + PEXPIRE via Lua — no race conditions across
+// multiple Next.js workers or between restarts.
+// In-memory path: same fixed-window logic, single-process only.
 
+import redis from './redis'
+
+// ── Lua script: increment key, set TTL on first touch, return count ──────────
+// KEYS[1] = bucket key  ARGV[1] = window_ms
+const INCR_SCRIPT = `
+local cur = redis.call('INCR', KEYS[1])
+if cur == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return cur
+`
+
+// ── In-memory fallback ───────────────────────────────────────────────────────
 type Bucket = { count: number; resetAt: number }
-
 const buckets = new Map<string, Bucket>()
-const WINDOW_MS = 60_000          // 1 minute
-const MAX_BUCKETS = 10_000        // cap memory; oldest evicted when exceeded
+const MAX_BUCKETS = 10_000
 
-interface EndpointLimit {
-  prefix: string
-  read: number
-  write: number
-}
-
-// Order matters: first matching prefix wins. Put longer/more-specific paths first.
-const ENDPOINT_LIMITS: EndpointLimit[] = [
-  { prefix: '/api/auth/login', read: 30,  write: 5   },
-  { prefix: '/api/standings',  read: 30,  write: 0   },
-  { prefix: '/api/field',      read: 60,  write: 0   },
-  { prefix: '/api/event',      read: 60,  write: 10  },
-  { prefix: '/api/admin',      read: 60,  write: 30  },
-  { prefix: '/api/judges',     read: 180, write: 60  },
-  { prefix: '/api/auth',       read: 60,  write: 20  },
-]
-const DEFAULT_LIMIT: Omit<EndpointLimit, 'prefix'> = { read: 60, write: 20 }
-
-function pickLimit(path: string): Omit<EndpointLimit, 'prefix'> {
-  for (const l of ENDPOINT_LIMITS) {
-    if (path.startsWith(l.prefix)) return { read: l.read, write: l.write }
-  }
-  return DEFAULT_LIMIT
-}
-
-export interface RateLimitResult {
-  ok: boolean
-  remaining: number
-  resetAt: number
-}
-
-export function rateLimit(ip: string, method: string, path: string = ''): RateLimitResult {
-  const isWrite = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
-  const cfg = pickLimit(path)
-  const limit = isWrite ? cfg.write : cfg.read
-  // A zero limit means "method not allowed for this path under rate limiting" —
-  // we still let it through (route handler will 405) but track the bucket so
-  // a flood of disallowed methods can't be used to probe the limiter for free.
-  if (limit === 0) {
-    return { ok: true, remaining: 0, resetAt: Date.now() + WINDOW_MS }
-  }
-  const key = `${ip}:${path.split('/').slice(0, 4).join('/')}:${isWrite ? 'w' : 'r'}`
+function inMemoryIncr(key: string, windowMs: number): number {
   const now = Date.now()
-
   let bucket = buckets.get(key)
   if (!bucket || bucket.resetAt < now) {
-    bucket = { count: 0, resetAt: now + WINDOW_MS }
+    bucket = { count: 0, resetAt: now + windowMs }
     buckets.set(key, bucket)
   }
-
   bucket.count += 1
 
-  // Evict stale entries when map grows too large. Collect keys first so we
-  // don't mutate the Map mid-iteration (single-threaded JS makes this fine,
-  // but it's still clearer + correct under unexpected re-entry).
   if (buckets.size > MAX_BUCKETS) {
     const stale: string[] = []
     for (const [k, b] of buckets) {
@@ -80,8 +40,6 @@ export function rateLimit(ip: string, method: string, path: string = ''): RateLi
       buckets.delete(k)
       if (buckets.size <= MAX_BUCKETS * 0.8) break
     }
-    // If everything is still hot (no stale entries), evict the oldest 20% by
-    // resetAt so we don't grow unbounded under a determined floood.
     if (buckets.size > MAX_BUCKETS) {
       const oldest = [...buckets.entries()]
         .sort((a, b) => a[1].resetAt - b[1].resetAt)
@@ -90,15 +48,72 @@ export function rateLimit(ip: string, method: string, path: string = ''): RateLi
     }
   }
 
+  return bucket.count
+}
+
+// ── Endpoint limits ──────────────────────────────────────────────────────────
+const WINDOW_MS = 60_000
+
+interface EndpointLimit { prefix: string; read: number; write: number }
+
+const ENDPOINT_LIMITS: EndpointLimit[] = [
+  { prefix: '/api/auth/login', read: 30,  write: 5  },
+  { prefix: '/api/standings',  read: 30,  write: 0  },
+  { prefix: '/api/field',      read: 60,  write: 0  },
+  { prefix: '/api/event',      read: 60,  write: 10 },
+  { prefix: '/api/admin',      read: 60,  write: 30 },
+  { prefix: '/api/judges',     read: 180, write: 60 },
+  { prefix: '/api/auth',       read: 60,  write: 20 },
+]
+const DEFAULT_LIMIT: Omit<EndpointLimit, 'prefix'> = { read: 60, write: 20 }
+
+function pickLimit(path: string): Omit<EndpointLimit, 'prefix'> {
+  for (const l of ENDPOINT_LIMITS) {
+    if (path.startsWith(l.prefix)) return l
+  }
+  return DEFAULT_LIMIT
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
+export interface RateLimitResult {
+  ok: boolean
+  remaining: number
+  resetAt: number
+}
+
+export async function rateLimit(
+  ip: string,
+  method: string,
+  path: string = '',
+): Promise<RateLimitResult> {
+  const isWrite = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+  const cfg = pickLimit(path)
+  const limit = isWrite ? cfg.write : cfg.read
+  if (limit === 0) return { ok: true, remaining: 0, resetAt: Date.now() + WINDOW_MS }
+
+  const key = `rl:${ip}:${path.split('/').slice(0, 4).join('/')}:${isWrite ? 'w' : 'r'}`
+
+  let count: number
+
+  if (redis) {
+    try {
+      count = (await redis.eval(INCR_SCRIPT, 1, key, String(WINDOW_MS))) as number
+    } catch {
+      // Redis unavailable — degrade gracefully to in-memory
+      count = inMemoryIncr(key, WINDOW_MS)
+    }
+  } else {
+    count = inMemoryIncr(key, WINDOW_MS)
+  }
+
   return {
-    ok: bucket.count <= limit,
-    remaining: Math.max(0, limit - bucket.count),
-    resetAt: bucket.resetAt,
+    ok: count <= limit,
+    remaining: Math.max(0, limit - count),
+    resetAt: Date.now() + WINDOW_MS,
   }
 }
 
 export function getClientIp(req: Request): string {
-  // Vercel forwards real client IP in x-forwarded-for (first hop)
   const xff = req.headers.get('x-forwarded-for')
   if (xff) return xff.split(',')[0].trim()
   const real = req.headers.get('x-real-ip')

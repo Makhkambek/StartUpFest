@@ -14,8 +14,8 @@ import { getActiveCityCode } from '@/lib/get-active-city-code'
 // re-runs at most every `revalidate` seconds, so a 1000 req/s flood collapses
 // to one DB read per 5s. Tag-based revalidation lets judge mutations punch
 // through the cache when they need to (call revalidateTag('standings-X')).
-const CACHE_HEADER = 'public, s-maxage=10, stale-while-revalidate=30'
-const REVALIDATE_SECONDS = 5
+const CACHE_HEADER = 'public, s-maxage=3600, stale-while-revalidate=60'
+const REVALIDATE_SECONDS = 3600
 
 // cookies() cannot be called inside unstable_cache (runs outside request context
 // in Next.js 16). Standings are public reads so we use a plain anon client.

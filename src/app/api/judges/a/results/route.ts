@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import type { ResultA } from '@/types/database'
 import { requireCategory } from '@/lib/session'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
@@ -80,10 +81,12 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    revalidateTag('standings-a', {})
     return NextResponse.json(data)
   }
 
   const { upsertResultA } = await import('@/lib/mock-store')
+  revalidateTag('standings-a', {})
   return NextResponse.json(upsertResultA(body))
 }
 
@@ -99,10 +102,12 @@ export async function DELETE(req: NextRequest) {
     const supabase = await createClient()
     const { error } = await supabase.from('results_a').delete().eq('scheduled_match_id', scheduled_match_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    revalidateTag('standings-a', {})
     return NextResponse.json({ ok: true })
   }
 
   const { deleteResultA } = await import('@/lib/mock-store')
+  revalidateTag('standings-a', {})
   deleteResultA(scheduled_match_id)
   return NextResponse.json({ ok: true })
 }

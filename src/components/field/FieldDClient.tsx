@@ -197,6 +197,15 @@ export default function FieldDClient() {
     }
   }, [refetch])
 
+  const [splashDone, setSplashDone] = useState(false)
+
+  const handleSplash = useCallback(() => {
+    const ctx = getCtx()
+    ctx?.resume().catch(() => {})
+    setSplashDone(true)
+  }, [])
+
+  if (!splashDone) return <SoundSplash onStart={handleSplash} />
   if (!data) return <BootD />
   return (
     <>
@@ -222,6 +231,34 @@ function BootD() {
   return (
     <div className="h-screen flex items-center justify-center bg-[#0a1e0a] text-emerald-400 text-2xl tracking-widest font-black">
       ⚽ LOADING ⚽
+    </div>
+  )
+}
+
+function SoundSplash({ onStart }: { onStart: () => void }) {
+  return (
+    <div
+      className="h-screen w-screen flex flex-col items-center justify-center cursor-pointer select-none relative overflow-hidden"
+      style={{ background: 'linear-gradient(180deg, #0a3d1c 0%, #052010 50%, #02100a 100%)' }}
+      onClick={onStart}
+    >
+      <PitchPattern />
+      <div className="relative z-10 flex flex-col items-center gap-8 text-center px-8">
+        <div className="text-emerald-400 font-black tracking-[0.45em] uppercase"
+          style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
+          ⚽ ROBO FOOTBALL
+        </div>
+        <div
+          className="font-black uppercase text-white leading-tight"
+          style={{ fontSize: 'clamp(3rem, 9vw, 7rem)', letterSpacing: '-0.03em', textShadow: '0 0 40px rgba(16,185,129,0.5)' }}
+        >
+          TAP TO START
+        </div>
+        <div className="text-emerald-300/60 font-mono tracking-widest uppercase"
+          style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1rem)', animation: 'sfrcArcadeFlicker 2s linear infinite' }}>
+          🔊 нажмите чтобы включить звук
+        </div>
+      </div>
     </div>
   )
 }
@@ -269,20 +306,6 @@ async function playWhistle(src: string) {
   source.start()
 }
 
-// Unlock AudioContext + warm up on first click — must happen in a user gesture.
-function useSoundUnlock() {
-  const [unlocked, setUnlocked] = useState(false)
-  useEffect(() => {
-    const unlock = () => {
-      const ctx = getCtx()
-      ctx?.resume().then(() => setUnlocked(true)).catch(() => setUnlocked(true))
-    }
-    document.addEventListener('click', unlock, { once: true })
-    return () => document.removeEventListener('click', unlock)
-  }, [])
-  return unlocked
-}
-
 // Countdown beep at each whole second (5→4→3→2→1) + whistle on phase change.
 function useMatchSound(phase: LiveStateB['phase'], cdRemaining: number | null) {
   const prevPhaseRef = useRef<LiveStateB['phase']>('idle')
@@ -326,7 +349,6 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
   const isWaitingForData = hasActive && (!match || !red || !white)
 
   const cdRemaining = useCountdown(state.countdown_started_at, state.phase)
-  const soundUnlocked = useSoundUnlock()
   useMatchSound(state.phase, cdRemaining)
   const countdownFinished = isCountdown && cdRemaining !== null && cdRemaining <= 0
   const timerActive = isRunning || countdownFinished
@@ -399,13 +421,6 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
     >
       <PitchPattern />
 
-      {/* Sound unlock badge — disappears after first click anywhere */}
-      {!soundUnlocked && (
-        <div className="absolute top-3 right-3 z-50 px-3 py-1.5 rounded-full bg-black/60 border border-white/20 text-white/60 text-xs font-mono tracking-widest cursor-pointer select-none"
-          style={{ animation: 'sfrcArcadeFlicker 3s linear infinite' }}>
-          🔇 tap for sound
-        </div>
-      )}
 
       {/* ── TOP SCORE-BUG ── (hidden on full-time so the trophy card is the only composition) */}
       {!isMatchOver && (

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
+import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
@@ -117,11 +118,11 @@ export default function FieldBClient() {
 
   useEffect(() => { refetch() }, [refetch])
 
-  // Always poll (safety net for Supabase realtime).
+  const pollMs = fieldPollMs(data?.state?.phase, hasSupabase)
   useEffect(() => {
-    const id = setInterval(refetch, hasSupabase ? 4000 : 1500)
+    const id = setInterval(refetch, pollMs)
     return () => clearInterval(id)
-  }, [refetch])
+  }, [refetch, pollMs])
 
   useEffect(() => {
     if (!hasSupabase) return

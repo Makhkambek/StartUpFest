@@ -1,4 +1,11 @@
 services:
+  redis:
+    container_name: ${PROJECT_NAME:-sfrc-next}-redis-dev
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - sfrc_redis_data:/data
+
   web:
     container_name: ${PROJECT_NAME:-sfrc-next}-web-dev
     image: node:20-alpine
@@ -14,10 +21,14 @@ services:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
       WATCHPACK_POLLING: "true"
+      REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
     restart: unless-stopped
+    depends_on:
+      - redis
 
 volumes:
   sfrc_node_modules:
   sfrc_next_cache:
+  sfrc_redis_data:

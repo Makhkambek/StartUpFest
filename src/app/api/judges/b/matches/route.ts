@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import type { MatchB } from '@/types/database'
 import { getSession, requireCategory } from '@/lib/session'
 import { isUuid } from '@/lib/uuid'
@@ -68,12 +69,14 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase.from('matches_b').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await syncLiveStateFromMatchB(body)
+    revalidateTag('standings-b', {})
     return NextResponse.json(data)
   }
 
   const { addMatchB } = await import('@/lib/mock-store')
   const created = addMatchB(body)
   await syncLiveStateFromMatchB(body)
+  revalidateTag('standings-b', {})
   return NextResponse.json(created)
 }
 
@@ -155,10 +158,12 @@ export async function DELETE(req: NextRequest) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     await supabase.from('matches_b').delete().eq('id', id)
+    revalidateTag('standings-b', {})
     return NextResponse.json({ ok: true })
   }
 
   const { deleteMatchB } = await import('@/lib/mock-store')
+  revalidateTag('standings-b', {})
   deleteMatchB(id)
   return NextResponse.json({ ok: true })
 }

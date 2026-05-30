@@ -85,7 +85,7 @@ export async function proxy(request: NextRequest) {
       }
     }
     const ip = getClientIp(request)
-    const rl = rateLimit(ip, request.method, path)
+    const rl = await rateLimit(ip, request.method, path)
     if (!rl.ok) {
       return NextResponse.json(
         { error: 'Too many requests' },
