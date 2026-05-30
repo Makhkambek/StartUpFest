@@ -59,7 +59,7 @@ interface EndpointLimit { prefix: string; read: number; write: number }
 const ENDPOINT_LIMITS: EndpointLimit[] = [
   { prefix: '/api/auth/login', read: 30,  write: 5  },
   { prefix: '/api/standings',  read: 30,  write: 0  },
-  { prefix: '/api/field',      read: 60,  write: 0  },
+  { prefix: '/api/field',      read: 300, write: 0  },
   { prefix: '/api/event',      read: 60,  write: 10 },
   { prefix: '/api/admin',      read: 60,  write: 30 },
   { prefix: '/api/judges',     read: 180, write: 60 },

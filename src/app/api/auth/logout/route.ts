@@ -9,12 +9,17 @@ const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_
  */
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin')
-  // Same-site requests from forms/fetch include Origin matching the request URL.
-  // Reject mismatched origins outright; null Origin (some same-origin navigations)
-  // is treated as ok because cookies are SameSite=Lax and only same-origin
-  // top-level navigations include them.
-  if (origin && origin !== req.nextUrl.origin) {
-    return NextResponse.json({ error: 'Cross-origin logout forbidden' }, { status: 403 })
+  const host = req.headers.get('host')
+  // Compare origin hostname to the Host header so the check works correctly
+  // behind a reverse proxy (where req.nextUrl.origin is the internal address).
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) {
+        return NextResponse.json({ error: 'Cross-origin logout forbidden' }, { status: 403 })
+      }
+    } catch {
+      return NextResponse.json({ error: 'Cross-origin logout forbidden' }, { status: 403 })
+    }
   }
 
   if (hasSupabase) {
