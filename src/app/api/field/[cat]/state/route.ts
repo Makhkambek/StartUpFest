@@ -3,7 +3,7 @@ import { getLiveStateA, getLiveStateB, getLiveStateC, getLiveStateD, getTeams, g
 import { computeStandingsA } from '@/lib/standings/a'
 import { isUuid } from '@/lib/uuid'
 import type { ScheduledMatch } from '@/lib/schedule-store'
-import type { LiveStateB, MatchB, ResultA } from '@/types/database'
+import type { LiveStateB, MatchB, FightC, MatchD, ResultA } from '@/types/database'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -33,12 +33,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
       match = (m as ScheduledMatch | null) ?? null
 
       if (match && isUuid(match.team1_id) && isUuid(match.team2_id)) {
-        // Pull the recorded final result, if any — so direct DB edits show up.
-        // isUuid guard is defense-in-depth in case row IDs are ever tampered with.
+        // Pull the recorded final result for THIS scheduled match specifically.
+        // Use scheduled_match_id for precision — avoids picking up a result from
+        // a different match between the same two teams (e.g. Q-1 result bleeding into Q-2).
         const { data: rb } = await supabase
           .from('matches_b')
           .select('*')
-          .or(`and(team1_id.eq.${match.team1_id},team2_id.eq.${match.team2_id}),and(team1_id.eq.${match.team2_id},team2_id.eq.${match.team1_id})`)
+          .eq('scheduled_match_id', match.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -51,11 +52,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
       if (match) {
         const { getMatchesB } = await import('@/lib/mock-store')
         const all = getMatchesB()
-        recordedMatch = all.find(
-          (r) =>
-            (r.team1_id === match!.team1_id && r.team2_id === match!.team2_id) ||
-            (r.team1_id === match!.team2_id && r.team2_id === match!.team1_id),
-        ) ?? null
+        // Match by scheduled_match_id first to avoid picking up a result from a
+        // different match between the same two teams (e.g. Q-1 bleeding into Q-2).
+        recordedMatch = all.find((r) => r.scheduled_match_id === match!.id)
+          ?? all.find((r) =>
+              !r.scheduled_match_id &&
+              ((r.team1_id === match!.team1_id && r.team2_id === match!.team2_id) ||
+               (r.team1_id === match!.team2_id && r.team2_id === match!.team1_id))
+            )
+          ?? null
       }
     }
   }
@@ -232,6 +237,7 @@ async function getStateForC() {
   ])
 
   let match: ScheduledMatch | null = null
+  let recordedFight: FightC | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
@@ -242,12 +248,28 @@ async function getStateForC() {
     allSchedule = (all as ScheduledMatch[] | null) ?? []
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
+      if (match) {
+        const { data: rf } = await supabase.from('fights_c').select('*')
+          .eq('scheduled_match_id', match.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        recordedFight = (rf as FightC | null) ?? null
+      }
     }
   } else {
     const { getSchedule } = await import('@/lib/schedule-store')
     allSchedule = getSchedule('c')
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
+      if (match) {
+        const { getFightsC } = await import('@/lib/mock-store')
+        const all = getFightsC()
+        recordedFight = all.find((r) => r.scheduled_match_id === match!.id)
+          ?? all.find((r) =>
+              !r.scheduled_match_id &&
+              ((r.team1_id === match!.team1_id && r.team2_id === match!.team2_id) ||
+               (r.team1_id === match!.team2_id && r.team2_id === match!.team1_id))
+            )
+          ?? null
+      }
     }
   }
 
@@ -257,6 +279,10 @@ async function getStateForC() {
     sortedSchedule.find((m) => m.status === 'waiting' && m.id !== liveState.active_match_id)
     ?? sortedSchedule.find((m) => m.status === 'pending' && m.id !== liveState.active_match_id)
     ?? null
+
+  const state = recordedFight && match
+    ? mergeRecordedIntoStateC(liveState, match, recordedFight)
+    : liveState
 
   const teamName = (id: string | null) => id ? teams.find((t) => t.id === id)?.name ?? null : null
   const teamSchool = (id: string | null) => id ? teams.find((t) => t.id === id)?.school ?? null : null
@@ -298,7 +324,7 @@ async function getStateForC() {
   }
 
   return NextResponse.json({
-    state: liveState,
+    state,
     match,
     red,
     white,
@@ -312,6 +338,7 @@ async function getStateForD() {
   const [liveState, teams] = await Promise.all([getLiveStateD(), getTeams('d')])
 
   let match: ScheduledMatch | null = null
+  let recordedMatchD: MatchD | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
@@ -322,12 +349,28 @@ async function getStateForD() {
     allSchedule = (all as ScheduledMatch[] | null) ?? []
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
+      if (match) {
+        const { data: rd } = await supabase.from('matches_d').select('*')
+          .eq('scheduled_match_id', match.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        recordedMatchD = (rd as MatchD | null) ?? null
+      }
     }
   } else {
     const { getSchedule } = await import('@/lib/schedule-store')
     allSchedule = getSchedule('d')
     if (liveState.active_match_id) {
       match = allSchedule.find((m) => m.id === liveState.active_match_id) ?? null
+      if (match) {
+        const { getMatchesD } = await import('@/lib/mock-store')
+        const all = getMatchesD()
+        recordedMatchD = all.find((r) => r.scheduled_match_id === match!.id)
+          ?? all.find((r) =>
+              !r.scheduled_match_id &&
+              ((r.team1_id === match!.team1_id && r.team2_id === match!.team2_id) ||
+               (r.team1_id === match!.team2_id && r.team2_id === match!.team1_id))
+            )
+          ?? null
+      }
     }
   }
 
@@ -337,6 +380,10 @@ async function getStateForD() {
     sortedSchedule.find((m) => m.status === 'waiting' && m.id !== liveState.active_match_id)
     ?? sortedSchedule.find((m) => m.status === 'pending' && m.id !== liveState.active_match_id)
     ?? null
+
+  const state = recordedMatchD && match
+    ? mergeRecordedIntoStateD(liveState, match, recordedMatchD)
+    : liveState
 
   const teamName = (id: string | null | undefined) => id ? teams.find((t) => t.id === id)?.name ?? null : null
   const teamSchool = (id: string | null | undefined) => id ? teams.find((t) => t.id === id)?.school ?? null : null
@@ -386,7 +433,7 @@ async function getStateForD() {
   }
 
   return NextResponse.json({
-    state: liveState,
+    state,
     match,
     red,
     redPartner,
@@ -430,4 +477,27 @@ function mergeRecordedIntoState(live: LiveStateB, sched: ScheduledMatch, rec: Ma
     match_winner: match_winner as LiveStateB['match_winner'],
     starting_position: rec.starting_position ?? live.starting_position,
   }
+}
+
+function mergeRecordedIntoStateC(live: LiveStateB, sched: ScheduledMatch, rec: FightC): LiveStateB {
+  // wins_red/white in Cat C = judge scores (0-100). Align with scheduled team order.
+  const swap = rec.team1_id !== sched.team1_id
+  const wins_red = swap ? rec.judge_score2 : rec.judge_score1
+  const wins_white = swap ? rec.judge_score1 : rec.judge_score2
+  const match_winner: LiveStateB['match_winner'] = rec.winner === 1 ? (swap ? 2 : 1) : (swap ? 1 : 2)
+  const phase: LiveStateB['phase'] =
+    live.phase === 'match_result' || live.phase === 'idle' ? live.phase : 'match_result'
+  return { ...live, phase, wins_red, wins_white, match_winner }
+}
+
+function mergeRecordedIntoStateD(live: LiveStateB, sched: ScheduledMatch, rec: MatchD): LiveStateB {
+  // wins_red/white in Cat D = goals1/goals2. Align with scheduled team order.
+  const swap = rec.team1_id !== sched.team1_id
+  const wins_red = swap ? rec.goals2 : rec.goals1
+  const wins_white = swap ? rec.goals1 : rec.goals2
+  const match_winner: LiveStateB['match_winner'] =
+    wins_red > wins_white ? 1 : wins_white > wins_red ? 2 : 0
+  const phase: LiveStateB['phase'] =
+    live.phase === 'match_result' || live.phase === 'idle' ? live.phase : 'match_result'
+  return { ...live, phase, wins_red, wins_white, match_winner }
 }

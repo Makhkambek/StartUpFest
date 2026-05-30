@@ -103,6 +103,7 @@ async function persistMatchMock(state: LiveStateB) {
     rounds2: state.wins_white,
     starting_position: state.starting_position ?? 'face',
     notes: null,
+    scheduled_match_id: sched.id,
   })
   markComplete(sched.id, created.id, null)
 }

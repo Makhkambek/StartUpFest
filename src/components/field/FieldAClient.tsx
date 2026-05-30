@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard from './TrophyCard'
 import { fieldPollMs } from '@/lib/field-poll'
@@ -124,9 +123,7 @@ function formatSec(s: number): string {
 }
 
 export default function FieldAClient() {
-  const t = useTranslations('field.a')
-  const locale = useLocale() as 'en' | 'ru' | 'uz'
-  const { watermark: eventWatermark } = useEventSettings(locale)
+  const { watermark: eventWatermark } = useEventSettings('en')
   const [data, setData] = useState<FieldStateA | null>(null)
   const lastFetchAt = useRef(Date.now())
   const [stale, setStale] = useState(false)
@@ -202,7 +199,7 @@ export default function FieldAClient() {
   if (!data) return <BootScreen />
   return (
     <>
-      <ArcadeView data={data} t={t} eventWatermark={eventWatermark} />
+      <ArcadeView data={data} eventWatermark={eventWatermark} />
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
         <FinalsOverlayA items={data.finalsData} />
       )}
@@ -236,7 +233,7 @@ function BootScreen() {
 
 const MATCH_RESULT_DISPLAY_MS = 5000
 
-function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnType<typeof useTranslations>; eventWatermark: string }) {
+function ArcadeView({ data, eventWatermark }: { data: FieldStateA; eventWatermark: string }) {
   const { state, match, team, bestTime, recordedTime, leaderboard, nextRun } = data
   const isRunning = state.phase === 'fighting'
   const isCountdown = state.phase === 'countdown'
@@ -309,12 +306,12 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
         <section className="col-span-12 lg:col-span-8 flex flex-col items-center justify-center px-6 sm:px-12 text-center">
           {/* After match ends, show the result for ~5s then fall through to "on deck" */}
           {isMatchOver && phaseElapsed > MATCH_RESULT_DISPLAY_MS && nextRun?.team ? (
-            <ArcadeOnDeck next={nextRun} t={t} />
+            <ArcadeOnDeck next={nextRun} />
           ) : isMatchOver && phaseElapsed > MATCH_RESULT_DISPLAY_MS ? (
-            <ArcadeIdle t={t} />
+            <ArcadeIdle />
           ) : null}
-          {(!isMatchOver || phaseElapsed <= MATCH_RESULT_DISPLAY_MS) && !team && !nextRun?.team && <ArcadeIdle t={t} />}
-          {(!isMatchOver || phaseElapsed <= MATCH_RESULT_DISPLAY_MS) && !team && nextRun?.team && <ArcadeOnDeck next={nextRun} t={t} />}
+          {(!isMatchOver || phaseElapsed <= MATCH_RESULT_DISPLAY_MS) && !team && !nextRun?.team && <ArcadeIdle />}
+          {(!isMatchOver || phaseElapsed <= MATCH_RESULT_DISPLAY_MS) && !team && nextRun?.team && <ArcadeOnDeck next={nextRun} />}
           {team && (!isMatchOver || phaseElapsed <= MATCH_RESULT_DISPLAY_MS) && (
             <ArcadeRunner
               team={team}
@@ -330,19 +327,18 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
               isFinished={isFinished}
               isMatchOver={isMatchOver}
               channel={channel}
-              t={t}
             />
           )}
         </section>
 
         {/* Right leaderboard rail */}
         <aside className="hidden lg:flex col-span-4 flex-col border-l border-cyan-400/20 bg-black/40 backdrop-blur-sm">
-          <Leaderboard rows={leaderboard} currentTeamId={team?.id ?? null} t={t} />
+          <Leaderboard rows={leaderboard} currentTeamId={team?.id ?? null} />
         </aside>
       </main>
 
       {/* ── BOTTOM TICKER ── */}
-      <BottomTicker channel={channel} state={state} t={t} matchId={match?.match_id ?? null} eventWatermark={eventWatermark} />
+      <BottomTicker channel={channel} state={state} matchId={match?.match_id ?? null} eventWatermark={eventWatermark} />
 
       {/* Branded trophy card — celebrates the finished run (solo, no opponent):
           team name + their time + leaderboard rank. Shown during the ~5s result
@@ -357,17 +353,17 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
               accent={isTop ? 'amber' : 'cyan'}
               serial={match?.match_id ?? '—'}
               watermark={eventWatermark}
-              caption={`${t('title')} · SFRC`}
-              label={isTop ? t('fastestToday') : t('runComplete')}
+              caption={'Line Follower · SFRC'}
+              label={isTop ? 'FASTEST TODAY' : 'RUN COMPLETE'}
               winnerName={team.name ?? '—'}
             >
               <div className="flex flex-col items-center gap-3">
                 <div className="font-black tabular-nums text-white leading-none" style={{ fontSize: 'clamp(3rem, 10vw, 7rem)', letterSpacing: '-0.04em', textShadow: '0 0 30px rgba(34,211,238,0.4)' }}>
-                  {finalTime !== null ? formatSec(finalTime) : t('dnf')}
+                  {finalTime !== null ? formatSec(finalTime) : 'DNF'}
                 </div>
                 {myRank !== null && (
                   <div className="font-black tracking-[0.3em] uppercase text-cyan-200/90" style={{ fontSize: 'clamp(0.8rem, 1.6vw, 1.1rem)' }}>
-                    {isTop ? '🥇' : '#'}{myRank} · {t('leaderboard')}
+                    {isTop ? '🥇' : '#'}{myRank} · {'Leaderboard'}
                   </div>
                 )}
               </div>
@@ -383,7 +379,7 @@ function ArcadeView({ data, t, eventWatermark }: { data: FieldStateA; t: ReturnT
 function ArcadeRunner({
   team, bestTime, lastRunTime, fouls, liveMs, cdRemaining, timerActive, phaseElapsed,
   isCountdown, isReady, isFinished, isMatchOver,
-  channel, t,
+  channel,
 }: {
   team: TeamLite
   bestTime: number | null
@@ -398,7 +394,6 @@ function ArcadeRunner({
   isFinished: boolean
   isMatchOver: boolean
   channel: string
-  t: ReturnType<typeof useTranslations>
 }) {
   void channel
   const penaltySec = fouls === 0 ? 0 : fouls === 1 ? 20 : 40
@@ -505,11 +500,11 @@ function ArcadeRunner({
 
       {/* Stats row */}
       <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-4 text-center">
-        <StatCell label=">> STATUS <<" value={isFinished ? t('runComplete') : isReady ? 'READY' : 'LIVE'} accent="cyan" />
+        <StatCell label=">> STATUS <<" value={isFinished ? 'RUN COMPLETE' : isReady ? 'READY' : 'LIVE'} accent="cyan" />
         <StatCell label=">> BEST <<" value={bestTime !== null ? formatSec(bestTime) : '—'} accent="cyan" />
         <StatCell
           label=">> PENALTY <<"
-          value={penaltySec > 0 ? `+${penaltySec}s` : t('noPenalty')}
+          value={penaltySec > 0 ? `+${penaltySec}s` : 'Clean'}
           accent={penaltySec > 0 ? 'amber' : 'mute'}
         />
       </div>
@@ -518,7 +513,7 @@ function ArcadeRunner({
 }
 
 // ── On-deck preview when judge sets matches to "waiting" ──
-function ArcadeOnDeck({ next, t }: { next: NextRun; t: ReturnType<typeof useTranslations> }) {
+function ArcadeOnDeck({ next }: { next: NextRun }) {
   return (
     <div className="text-center">
       <div className="text-pink-400 text-xs sm:text-sm font-black tracking-[0.4em] uppercase mb-2">
@@ -536,7 +531,7 @@ function ArcadeOnDeck({ next, t }: { next: NextRun; t: ReturnType<typeof useTran
       )}
       {next.bestTime !== null && (
         <div className="mt-6 inline-flex items-baseline gap-3 px-5 py-2 bg-black/60 border border-cyan-400/30">
-          <span className="text-[10px] font-black tracking-[0.3em] uppercase text-cyan-300/50">{t('bestTime')}</span>
+          <span className="text-[10px] font-black tracking-[0.3em] uppercase text-cyan-300/50">{'Best'}</span>
           <span className="font-mono text-cyan-300 text-2xl sm:text-3xl">{formatSec(next.bestTime)}</span>
         </div>
       )}
@@ -547,28 +542,27 @@ function ArcadeOnDeck({ next, t }: { next: NextRun; t: ReturnType<typeof useTran
   )
 }
 
-function ArcadeIdle({ t }: { t: ReturnType<typeof useTranslations> }) {
+function ArcadeIdle() {
   return (
     <div className="text-center">
-      <div className="text-cyan-400/30 text-xs font-black tracking-[0.5em] uppercase mb-4">{t('title')}</div>
+      <div className="text-cyan-400/30 text-xs font-black tracking-[0.5em] uppercase mb-4">{'Line Follower'}</div>
       <div
         className="text-5xl sm:text-7xl font-black tracking-tight text-cyan-300/70 mb-3"
         style={{ animation: 'sfrcArcadeFlicker 3s linear infinite' }}
       >
-        » {t('noMatchActive')} «
+        » {'Awaiting next runner'} «
       </div>
-      <div className="text-cyan-300/40 text-base tracking-wider">{t('noMatchHint')}</div>
+      <div className="text-cyan-300/40 text-base tracking-wider">{'Track is clear · standby'}</div>
     </div>
   )
 }
 
 // ── Leaderboard rail ──
 function Leaderboard({
-  rows, currentTeamId, t,
+  rows, currentTeamId,
 }: {
   rows: LeaderRow[]
   currentTeamId: string | null
-  t: ReturnType<typeof useTranslations>
 }) {
   void currentTeamId
   return (
@@ -583,7 +577,7 @@ function Leaderboard({
       <div className="flex-1 overflow-hidden">
         {rows.length === 0 ? (
           <div className="h-full flex items-center justify-center text-cyan-300/30 text-xs tracking-widest">
-            » {t('noResultsYet')} «
+            » {'No results yet'} «
           </div>
         ) : (
           <ul className="divide-y divide-cyan-400/10 font-mono">
@@ -612,19 +606,18 @@ function Leaderboard({
 
 // ── Bottom marquee ticker ──
 function BottomTicker({
-  channel, state, t, matchId, eventWatermark,
+  channel, state, matchId, eventWatermark,
 }: {
   channel: string
   state: LiveStateB
-  t: ReturnType<typeof useTranslations>
   matchId: string | null
   eventWatermark: string
 }) {
   const status =
-    state.phase === 'fighting' ? t('trackLive')
-    : state.phase === 'countdown' ? t('trackArmed')
-    : state.phase === 'waiting' || state.phase === 'positioning' ? t('ready')
-    : t('trackClear')
+    state.phase === 'fighting' ? 'LIVE'
+    : state.phase === 'countdown' ? 'ARMED'
+    : state.phase === 'waiting' || state.phase === 'positioning' ? 'Ready'
+    : 'CLEAR'
 
   const dot =
     state.phase === 'fighting' ? 'bg-pink-400' :
@@ -639,7 +632,7 @@ function BottomTicker({
       <div className="flex items-center gap-2 shrink-0">
         <span className={`w-2 h-2 rounded-full ${dot}`} style={{ animation: 'sfrcLive 1.1s ease-in-out infinite' }} />
         <span className="text-[10px] font-black tracking-[0.3em] uppercase text-cyan-200">
-          {t('trackStatus')} {channel} · {status}
+          {'Track'} {channel} · {status}
         </span>
       </div>
       <div className="flex-1 overflow-hidden">

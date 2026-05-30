@@ -65,18 +65,18 @@ export function MatchTimer({ duration, warnAt = 10, onEnd }: MatchTimerProps) {
   const isWarning = remaining > 0 && remaining <= warnAt
 
   return (
-    <div className={`bg-white rounded-xl border-2 shadow-sm p-5 transition-colors ${
-      isEnded ? 'border-red-500 bg-red-50' : isWarning ? 'border-amber-500 bg-amber-50' : 'border-gray-100'
+    <div className={`bg-white dark:bg-zinc-900 rounded-xl border-2 shadow-sm p-5 transition-colors ${
+      isEnded ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : isWarning ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-gray-100 dark:border-zinc-700'
     }`}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Match Timer</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-zinc-400">Match Timer</span>
         <button onClick={() => setMuted(m => !m)}
-          className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded border border-gray-200">
+          className="text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-2 py-1 rounded border border-gray-200 dark:border-zinc-700">
           {muted ? '🔇 Muted' : '🔊 Sound on'}
         </button>
       </div>
       <div className={`text-center font-mono font-black text-6xl mb-4 tabular-nums transition-colors ${
-        isEnded ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-gray-900'
+        isEnded ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-gray-900 dark:text-zinc-100'
       }`}>
         {mins}:{secs.toString().padStart(2, '0')}
       </div>
@@ -93,7 +93,7 @@ export function MatchTimer({ duration, warnAt = 10, onEnd }: MatchTimerProps) {
           </button>
         )}
         <button onClick={reset}
-          className="px-6 bg-gray-200 text-gray-700 font-bold py-4 rounded-xl text-base hover:bg-gray-300">
+          className="px-6 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 font-bold py-4 rounded-xl text-base hover:bg-gray-300 dark:hover:bg-zinc-700">
           ↻ Reset
         </button>
       </div>

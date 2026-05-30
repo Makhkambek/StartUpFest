@@ -283,6 +283,7 @@ async function persistFightResult(state: LiveStateB) {
     judge_score1: state.wins_red,
     judge_score2: state.wins_white,
     notes: null,
+    scheduled_match_id: sched.id,
   })
   markComplete(sched.id, fight.id, null)
 }

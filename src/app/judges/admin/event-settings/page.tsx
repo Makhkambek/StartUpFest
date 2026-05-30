@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { UZ_CITIES } from '@/lib/cities'
 import type { EventSettings } from '@/types/database'
+import { ThemeToggle } from '@/components/judges/ThemeToggle'
 
 export default function EventSettingsPage() {
   const [settings, setSettings] = useState<EventSettings | null>(null)
@@ -69,27 +70,30 @@ export default function EventSettingsPage() {
   return (
     <div className="max-w-3xl mx-auto p-6 sm:p-10">
       <header className="mb-8">
-        <a href="/judges/admin" className="text-sm text-emerald-600 hover:underline">← Admin</a>
+        <div className="flex items-center justify-between">
+          <a href="/judges/admin" className="text-sm text-emerald-600 hover:underline">← Admin</a>
+          <ThemeToggle />
+        </div>
         <h1 className="text-3xl font-black mt-2">Event Settings</h1>
-        <p className="text-gray-600 text-sm mt-1">
+        <p className="text-gray-600 dark:text-zinc-400 text-sm mt-1">
           One setting per region. Changing the city updates every field display, scoreboard, and PDF watermark.
         </p>
       </header>
 
       {loading ? (
-        <div className="text-gray-500">Loading…</div>
+        <div className="text-gray-500 dark:text-zinc-400">Loading…</div>
       ) : (
-        <div className="space-y-6 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <div className="space-y-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6 shadow-sm">
 
           {/* CITY SELECT */}
           <div>
-            <label className="block text-sm font-bold text-gray-800 mb-2">
-              City <span className="text-red-500">*</span>
+            <label className="block text-sm font-bold text-gray-800 dark:text-zinc-200 mb-2">
+              City <span className="text-red-500 dark:text-red-400">*</span>
             </label>
             <select
               value={cityCode}
               onChange={(e) => setCityCode(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-lg focus:border-emerald-500 focus:outline-none"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-lg focus:border-emerald-500 focus:outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
             >
               {UZ_CITIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -97,28 +101,28 @@ export default function EventSettingsPage() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
               All three locales render the appropriate name automatically.
             </p>
           </div>
 
           {/* YEAR */}
           <div>
-            <label className="block text-sm font-bold text-gray-800 mb-2">Year</label>
+            <label className="block text-sm font-bold text-gray-800 dark:text-zinc-200 mb-2">Year</label>
             <input
               type="number"
               min={2024}
               max={2099}
               value={year}
               onChange={(e) => setYear(parseInt(e.target.value || '0', 10))}
-              className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-lg tabular-nums focus:border-emerald-500 focus:outline-none"
+              className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg font-bold text-lg tabular-nums focus:border-emerald-500 focus:outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
             />
           </div>
 
           {/* EVENT NAME (optional) */}
           <div>
-            <label className="block text-sm font-bold text-gray-800 mb-2">
-              Event name <span className="text-gray-400 font-normal">(optional)</span>
+            <label className="block text-sm font-bold text-gray-800 dark:text-zinc-200 mb-2">
+              Event name <span className="text-gray-400 dark:text-zinc-400 font-normal">(optional)</span>
             </label>
             <input
               type="text"
@@ -126,13 +130,13 @@ export default function EventSettingsPage() {
               onChange={(e) => setEventName(e.target.value)}
               placeholder="e.g. SFRC · Bukhara Stage"
               maxLength={80}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-emerald-500 focus:outline-none"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-emerald-500 focus:outline-none dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500"
             />
           </div>
 
           {/* PREVIEW */}
-          <div className="border-t border-gray-200 pt-6">
-            <div className="text-xs font-bold tracking-widest uppercase text-gray-500 mb-3">
+          <div className="border-t border-gray-200 dark:border-zinc-700 pt-6">
+            <div className="text-xs font-bold tracking-widest uppercase text-gray-500 dark:text-zinc-400 mb-3">
               Preview (how displays will render)
             </div>
             <div className="bg-black text-white rounded-lg p-6 font-mono text-sm space-y-2">
@@ -154,9 +158,9 @@ export default function EventSettingsPage() {
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
-            {dirty && <span className="text-xs text-amber-700">Unsaved changes</span>}
+            {dirty && <span className="text-xs text-amber-700 dark:text-amber-400">Unsaved changes</span>}
             {!dirty && settings && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 dark:text-zinc-400">
                 Last updated: {new Date(settings.updated_at).toLocaleString()}
               </span>
             )}

@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import { fieldPollMs } from '@/lib/field-poll'
@@ -95,7 +94,6 @@ function usePhaseElapsed(phase: LiveStateB['phase']) {
 }
 
 export default function FieldBClient() {
-  const t = useTranslations('field.b')
   const [data, setData] = useState<FieldState | null>(null)
   const lastFetchAt = useRef(Date.now())
   const [stale, setStale] = useState(false)
@@ -150,7 +148,7 @@ export default function FieldBClient() {
     }
   }, [refetch])
 
-  if (!data) return <Splash label={t('title')} />
+  if (!data) return <Splash label="Mini Sumo" />
   return (
     <>
       <Scoreboard data={data} />
@@ -180,9 +178,7 @@ function Splash({ label }: { label: string }) {
 }
 
 function Scoreboard({ data }: { data: FieldState }) {
-  const t = useTranslations('field.b')
-  const locale = useLocale() as 'en' | 'ru' | 'uz'
-  const { settings: eventSettings, cityName: eventCity, watermark: eventWatermark } = useEventSettings(locale)
+  const { settings: eventSettings, cityName: eventCity, watermark: eventWatermark } = useEventSettings('en')
   const { state, match, red, white } = data
   const remaining = useCountdown(state.countdown_started_at, state.phase)
   const matchTimer = useMatchTimer(state.phase)
@@ -222,7 +218,7 @@ function Scoreboard({ data }: { data: FieldState }) {
       <header className="relative z-20 shrink-0 px-6 sm:px-10 py-3 flex items-center justify-between border-b border-white/10 bg-black/30 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="text-xs sm:text-sm font-black tracking-[0.2em] uppercase text-white/80">
-            {t('matchResults')}
+            Match Results
           </div>
           {hasMatch && (state.phase === 'fighting' || state.phase === 'countdown' || state.phase === 'waiting' || state.phase === 'positioning') && (
             <div className="hidden sm:flex items-center gap-1.5 bg-red-600/90 px-2.5 py-1 rounded-full">
@@ -235,10 +231,10 @@ function Scoreboard({ data }: { data: FieldState }) {
           {hasMatch && (
             <>
               <div className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-white/40 uppercase">
-                {state.round_number > 3 ? t('goldenMatch') : t('roundOf', { n: state.round_number, total })}
+                {state.round_number > 3 ? 'Golden Match' : `Round ${state.round_number} of ${total}`}
               </div>
               <div className="font-black text-base sm:text-lg tracking-tight flex items-baseline gap-3 justify-center">
-                <span>{t('matchPrefix')} {match!.match_id}</span>
+                <span>Match {match!.match_id}</span>
                 {state.phase === 'fighting' && (
                   <span className="font-mono tabular-nums text-amber-400 text-lg sm:text-2xl">{matchTimer}</span>
                 )}
@@ -247,19 +243,19 @@ function Scoreboard({ data }: { data: FieldState }) {
           )}
         </div>
         <div className="flex items-center gap-2 text-amber-400 text-xs sm:text-sm font-black tracking-[0.3em] uppercase">
-          🤼 {t('title')}
+          🤼 Mini Sumo
         </div>
       </header>
 
       {/* ── Idle ── */}
       {!hasMatch && (
         <section className="relative flex-1 flex flex-col items-center justify-center text-center px-8 z-10">
-          <div className="text-amber-400/70 text-xs font-black tracking-[0.4em] uppercase mb-4">{t('title')}</div>
+          <div className="text-amber-400/70 text-xs font-black tracking-[0.4em] uppercase mb-4">Mini Sumo</div>
           <div className="w-24 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent mb-6" />
           <div className="text-5xl sm:text-7xl font-black tracking-tight mb-3" style={{ animation: 'sfrcGlow 3s ease-in-out infinite' }}>
-            {t('noMatchActive')}
+            No active match
           </div>
-          <div className="text-white/40 text-lg">{t('noMatchHint')}</div>
+          <div className="text-white/40 text-lg">Waiting for judge to start the next match</div>
         </section>
       )}
 
@@ -275,7 +271,7 @@ function Scoreboard({ data }: { data: FieldState }) {
             />
             <div className="absolute inset-y-0 right-0 w-1/2"
               style={{
-                background: 'linear-gradient(70deg, #e5e7eb 0%, #f3f4f6 60%, #ffffff 100%)',
+                background: 'linear-gradient(70deg, #1e3a8a 0%, #1d4ed8 60%, #2563eb 100%)',
                 clipPath: 'polygon(4vw 0, 100% 0, 100% 100%, 0 100%)',
               }}
             />
@@ -294,7 +290,7 @@ function Scoreboard({ data }: { data: FieldState }) {
               fighting={state.phase === 'fighting'}
             />
 
-            {/* White side */}
+            {/* Blue side */}
             <SideColumn
               side="white"
               team={white!}
@@ -322,8 +318,8 @@ function Scoreboard({ data }: { data: FieldState }) {
                   accent={winnerSide === 'red' ? 'red' : 'blue'}
                   serial={match!.match_id}
                   watermark={eventWatermark}
-                  caption={`${t('title')} · SFRC`}
-                  label={t('winnerBadge')}
+                  caption="Mini Sumo · SFRC"
+                  label="WINNER"
                   winnerName={(winnerSide === 'red' ? red! : white!).name ?? '—'}
                 >
                   <TrophyCrest accent="red" code={teamCode(red!.name)} />
@@ -347,7 +343,7 @@ function Scoreboard({ data }: { data: FieldState }) {
           </span>
         </div>
         <div className="text-[10px] sm:text-xs text-white/40 font-mono">
-          {hasMatch ? `${eventCity} · ${t('title')}` : '—'}
+          {hasMatch ? `${eventCity} · Mini Sumo` : '—'}
         </div>
       </footer>
     </div>
@@ -365,11 +361,11 @@ function SideColumn({
   winnerBadge: boolean
   fighting: boolean
 }) {
-  const t = useTranslations('field.b')
   const isRed = side === 'red'
-  const textPrimary = isRed ? 'text-white' : 'text-gray-900'
-  const textMuted = isRed ? 'text-white/60' : 'text-gray-600'
-  const sideLabel = isRed ? t('red') : t('white')
+  // Both sides now have white text (red side on red bg, blue side on blue bg)
+  const textPrimary = 'text-white'
+  const textMuted = isRed ? 'text-white/60' : 'text-blue-100/80'
+  const sideLabel = isRed ? 'Red' : 'Blue'
 
   // Re-mount the number on wins change so the flip animation re-plays.
   const [flipKey, setFlipKey] = useState(0)
@@ -382,8 +378,8 @@ function SideColumn({
     >
       {/* Side label */}
       <div className={`flex items-center gap-2 ${isRed ? '' : 'justify-end'}`}>
-        <span className="text-2xl">{isRed ? '🔴' : '⚪'}</span>
-        <span className={`text-xs sm:text-sm font-black tracking-[0.3em] uppercase ${isRed ? 'text-white/70' : 'text-gray-600'}`}>
+        <span className="text-2xl">{isRed ? '🔴' : '🔵'}</span>
+        <span className={`text-xs sm:text-sm font-black tracking-[0.3em] uppercase ${isRed ? 'text-white/70' : 'text-blue-100/80'}`}>
           {sideLabel}
         </span>
       </div>
@@ -398,11 +394,11 @@ function SideColumn({
           {wins}
         </div>
         <div className={`text-xs sm:text-sm font-bold tracking-[0.3em] uppercase mt-2 ${textMuted}`}>
-          {t('roundWins')}
+          Round Wins
         </div>
         {fouls > 0 && (
-          <div className={`mt-3 text-xs font-bold tracking-widest ${isRed ? 'text-amber-300' : 'text-amber-600'}`}>
-            {fouls} {t('fouls').toUpperCase()}
+          <div className="mt-3 text-xs font-bold tracking-widest text-amber-300">
+            {fouls} FOULS
           </div>
         )}
       </div>
@@ -423,7 +419,7 @@ function SideColumn({
       {winnerBadge && (
         <div className={`absolute top-6 ${isRed ? 'right-6' : 'left-6'} z-30 flex items-center gap-2 bg-amber-400 text-gray-900 px-3 py-1.5 rounded shadow-2xl`}>
           <span className="text-base">🏆</span>
-          <span className="text-xs font-black tracking-[0.25em] uppercase">{t('winnerBadge')}</span>
+          <span className="text-xs font-black tracking-[0.25em] uppercase">WINNER</span>
         </div>
       )}
     </div>
@@ -431,18 +427,17 @@ function SideColumn({
 }
 
 function BreakdownTable({ state }: { state: LiveStateB }) {
-  const t = useTranslations('field.b')
   const positionLabel = state.starting_position
-    ? state.starting_position === 'face' ? t('positionFace')
-      : state.starting_position === 'side' ? t('positionSide')
-      : t('positionBack')
+    ? state.starting_position === 'face' ? 'Face-to-Face'
+      : state.starting_position === 'side' ? 'Side-by-Side'
+      : 'Back-to-Back'
     : '—'
 
   type Row = { label: string; red: React.ReactNode; white: React.ReactNode; center: React.ReactNode | null }
   const rows: Row[] = [
-    { label: t('position').toUpperCase(), red: positionShort(state.starting_position), white: positionShort(state.starting_position), center: positionLabel },
-    { label: t('fouls').toUpperCase(),    red: state.fouls_red,                       white: state.fouls_white,                       center: null },
-    { label: t('history').toUpperCase(),  red: historyCount(state.round_history, 'red'), white: historyCount(state.round_history, 'white'), center: historyDots(state.round_history) },
+    { label: 'POSITION', red: positionShort(state.starting_position), white: positionShort(state.starting_position), center: positionLabel },
+    { label: 'FOULS',    red: state.fouls_red,                       white: state.fouls_white,                       center: null },
+    { label: 'HISTORY',  red: historyCount(state.round_history, 'red'), white: historyCount(state.round_history, 'white'), center: historyDots(state.round_history) },
   ]
 
   return (
@@ -475,7 +470,7 @@ function historyDots(hist: ('red' | 'white' | 'draw')[]): React.ReactNode {
   return (
     <div className="flex justify-center gap-1">
       {hist.map((h, i) => (
-        <span key={i} className={`inline-block w-2 h-2 rounded-full ${h === 'red' ? 'bg-red-500' : h === 'white' ? 'bg-gray-200' : 'bg-amber-400'}`} />
+        <span key={i} className={`inline-block w-2 h-2 rounded-full ${h === 'red' ? 'bg-red-500' : h === 'white' ? 'bg-blue-500' : 'bg-amber-400'}`} />
       ))}
     </div>
   )
@@ -490,16 +485,14 @@ function CenterOverlay({
   phaseElapsed: number
   matchTimer: string
 }) {
-  const t = useTranslations('field.b')
-
   // Countdown always shown in full while we're in countdown phase.
   if (state.phase === 'countdown' && remaining !== null) {
     const isGo = remaining <= 0.2
-    const big = isGo ? t('go') : Math.ceil(remaining).toString()
+    const big = isGo ? 'GO!' : Math.ceil(remaining).toString()
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
         <div className="bg-black/85 backdrop-blur-md rounded-3xl px-12 py-8 border-2 border-amber-400 shadow-[0_0_80px_rgba(245,158,11,0.4)]">
-          <div className="text-amber-400 text-xs font-black tracking-[0.4em] uppercase text-center mb-2">{t('phaseCountdownLabel')}</div>
+          <div className="text-amber-400 text-xs font-black tracking-[0.4em] uppercase text-center mb-2">Get ready</div>
           <div className={`font-black tabular-nums leading-none text-center ${isGo ? 'text-amber-400' : 'text-white'}`} style={{ fontSize: 'clamp(7rem, 18vw, 16rem)' }}>
             {big}
           </div>
@@ -514,7 +507,7 @@ function CenterOverlay({
       return (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <div className="font-black text-amber-400 tracking-tight animate-[sfrcStart_0.4s_ease-out] drop-shadow-[0_0_40px_rgba(245,158,11,0.8)]" style={{ fontSize: 'clamp(6rem, 16vw, 14rem)' }}>
-            {t('go')}
+            GO!
           </div>
         </div>
       )
@@ -538,17 +531,17 @@ function CenterOverlay({
       return (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <div className="bg-black/85 rounded-2xl px-10 py-6 border-2 border-amber-400 animate-[sfrcStart_0.35s_ease-out]">
-            <div className="font-black text-amber-400 text-5xl sm:text-7xl">🟰 {t('draw')}</div>
+            <div className="font-black text-amber-400 text-5xl sm:text-7xl">🟰 Draw</div>
           </div>
         </div>
       )
     }
-    const side = w === 'red' ? t('red') : t('white')
-    const color = w === 'red' ? 'text-red-400' : 'text-white'
+    const side = w === 'red' ? 'Red' : 'Blue'
+    const color = w === 'red' ? 'text-red-400' : 'text-blue-300'
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
         <div className="bg-black/85 rounded-2xl px-10 py-6 border-2 border-amber-400 animate-[sfrcStart_0.35s_ease-out]">
-          <div className={`font-black text-3xl sm:text-5xl ${color}`}>{t('yuhkohBy', { side })}</div>
+          <div className={`font-black text-3xl sm:text-5xl ${color}`}>Yuhkoh by {side}</div>
         </div>
       </div>
     )
@@ -560,12 +553,12 @@ function CenterOverlay({
       return (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
           <div className="bg-black/85 rounded-3xl px-14 py-10 border-2 border-amber-400 animate-[sfrcStart_0.5s_ease-out]">
-            <div className="font-black text-amber-400 text-5xl sm:text-7xl text-center">🟰 {t('matchDraw')}</div>
+            <div className="font-black text-amber-400 text-5xl sm:text-7xl text-center">🟰 Match Drawn</div>
           </div>
         </div>
       )
     }
-    const winColor = winnerSide === 'red' ? 'text-red-400' : 'text-gray-100'
+    const winColor = winnerSide === 'red' ? 'text-red-400' : 'text-blue-300'
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
         <div className="relative animate-[sfrcWinner_0.7s_ease-out]">
@@ -576,10 +569,10 @@ function CenterOverlay({
           <div className="bg-black/90 backdrop-blur-md rounded-3xl px-16 py-12 border-4 border-amber-400 shadow-[0_0_120px_rgba(245,158,11,0.6)] text-center">
             <div className="flex items-center justify-center gap-4 text-amber-400 text-xl sm:text-2xl font-black tracking-[0.35em] uppercase mb-3">
               <span className="text-3xl sm:text-4xl">🏆</span>
-              {t('winnerBadge')}
+              WINNER
             </div>
             <div className={`font-black tracking-tight ${winColor} leading-none`} style={{ fontSize: 'clamp(4rem, 11vw, 9rem)' }}>
-              {winnerSide === 'red' ? t('red') : t('white')}
+              {winnerSide === 'red' ? 'Red' : 'Blue'}
             </div>
             <div className="text-white/70 text-base sm:text-xl font-bold tracking-widest uppercase mt-3">
               {state.wins_red} − {state.wins_white}

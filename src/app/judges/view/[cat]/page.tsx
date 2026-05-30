@@ -38,14 +38,14 @@ export default async function JudgesViewPage({ params }: { params: Promise<{ cat
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-4 sticky top-0 z-10">
-        <a href={meta.back} className="text-sm text-gray-400 hover:text-gray-700">← Back</a>
-        <span className="font-black text-sm text-gray-900">{meta.icon} {meta.label}</span>
+    <div className="min-h-screen bg-gray-100 dark:bg-zinc-950">
+      <header className="bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 h-14 flex items-center px-6 gap-4 sticky top-0 z-10">
+        <a href={meta.back} className="text-sm text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200">← Back</a>
+        <span className="font-black text-sm text-gray-900 dark:text-zinc-100">{meta.icon} {meta.label}</span>
         <span className="ml-2 text-[10px] font-bold text-green-600 animate-pulse">● LIVE</span>
       </header>
       <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
           {node}
         </div>
       </div>

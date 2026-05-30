@@ -1,6 +1,7 @@
 'use client'
 import { Fragment, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { ThemeToggle } from '@/components/judges/ThemeToggle'
 
 interface Judge {
   id: string
@@ -152,53 +153,56 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 sm:px-10 justify-between">
+    <div className="min-h-screen bg-gray-100 dark:bg-zinc-950">
+      <header className="bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-700 h-14 flex items-center px-4 sm:px-10 justify-between">
         <div className="flex items-center gap-3">
-          <a href="/judges/dashboard" className="text-sm text-gray-500 hover:text-gray-900">← Dashboard</a>
-          <span className="text-gray-300 hidden sm:inline">|</span>
+          <a href="/judges/dashboard" className="text-sm text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50">← Dashboard</a>
+          <span className="text-gray-300 dark:text-zinc-400 hidden sm:inline">|</span>
           <span className="text-sm font-bold hidden sm:inline">User Management</span>
         </div>
-        <a href="/judges/admin/teams" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Teams</a>
+        <div className="flex items-center gap-2">
+          <a href="/judges/admin/teams" className="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 px-2.5 py-1.5 rounded border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800">Teams</a>
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="px-4 sm:px-10 py-6 sm:py-10 max-w-5xl">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Users & Permissions</h1>
-        <p className="text-sm text-gray-500 mb-6 sm:mb-8">Create judge and admin accounts, assign categories and roles.</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-zinc-100 mb-1">Users & Permissions</h1>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 mb-6 sm:mb-8">Create judge and admin accounts, assign categories and roles.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Create form ── */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900 mb-4">Add Account</h2>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm p-5 border border-gray-100 dark:border-zinc-800">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Add Account</h2>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Username</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5">Username</label>
                   <input value={username} onChange={e => setUsername(e.target.value)}
                     placeholder="e.g. judge_a1" autoCapitalize="none" autoCorrect="off"
-                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Password</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5">Password</label>
                   <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    className="text-base w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                 </div>
 
                 {/* Role toggle */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Role</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-2">Role</label>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => handleAdminToggle(false)}
                       className={`flex-1 py-2 rounded-md text-xs font-bold border transition-colors ${
-                        !isAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                        !isAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-gray-500'
                       }`}>
                       Judge
                     </button>
                     <button type="button" onClick={() => handleAdminToggle(true)}
                       className={`flex-1 py-2 rounded-md text-xs font-bold border transition-colors ${
-                        isAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-400'
+                        isAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400'
                       }`}>
                       Admin
                     </button>
@@ -207,7 +211,7 @@ export default function UsersPage() {
 
                 {/* Categories */}
                 <div>
-                  <label className={`block text-xs font-semibold mb-2 ${isAdmin ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <label className={`block text-xs font-semibold mb-2 ${isAdmin ? 'text-gray-400 dark:text-zinc-400' : 'text-gray-700 dark:text-zinc-300'}`}>
                     {isAdmin ? 'Categories (all — admin)' : 'Categories'}
                   </label>
                   <div className="flex gap-1.5 flex-wrap">
@@ -218,7 +222,7 @@ export default function UsersPage() {
                         className={`px-2.5 py-1.5 rounded-md text-xs font-bold border transition-colors ${
                           cats.includes(c) || isAdmin
                             ? 'bg-amber-600 text-white border-amber-600'
-                            : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
+                            : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-300 dark:border-amber-800'
                         } ${isAdmin ? 'opacity-60 cursor-default' : ''}`}>
                         {c.toUpperCase()}
                       </button>
@@ -236,30 +240,30 @@ export default function UsersPage() {
 
           {/* ── Users list ── */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100">
-                <h2 className="text-sm font-bold text-gray-900">
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 dark:border-zinc-800">
+                <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-100">
                   {loadingList ? 'Loading…' : `${judges.length} user${judges.length === 1 ? '' : 's'}`}
                 </h2>
               </div>
 
               {loadingList ? (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-gray-50 dark:divide-zinc-800">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
-                      <div className="h-3 w-24 bg-gray-200 rounded" />
-                      <div className="h-3 w-16 bg-gray-200 rounded" />
+                      <div className="h-3 w-24 bg-gray-200 dark:bg-zinc-800 rounded" />
+                      <div className="h-3 w-16 bg-gray-200 dark:bg-zinc-800 rounded" />
                       <div className="flex-1" />
-                      <div className="h-7 w-20 bg-gray-200 rounded" />
+                      <div className="h-7 w-20 bg-gray-200 dark:bg-zinc-800 rounded" />
                     </div>
                   ))}
                 </div>
               ) : judges.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">No users yet.</div>
+                <div className="px-5 py-12 text-center text-sm text-gray-400 dark:text-zinc-400">No users yet.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[480px]">
-                    <thead className="bg-gray-50 text-xs text-gray-500 font-semibold">
+                    <thead className="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 font-semibold">
                       <tr>
                         <th className="text-left px-4 py-2.5">Username</th>
                         <th className="text-left px-4 py-2.5">Role</th>
@@ -273,20 +277,20 @@ export default function UsersPage() {
                         return (
                           <Fragment key={j.id}>
                             {/* Main row */}
-                            <tr className="border-t border-gray-100 hover:bg-gray-50">
-                              <td className="px-4 py-3 font-semibold text-gray-900">
+                            <tr className="border-t border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800">
+                              <td className="px-4 py-3 font-semibold text-gray-900 dark:text-zinc-100">
                                 @{j.username}
-                                {isSelf && <span className="ml-1.5 text-[10px] text-blue-500 font-bold">(you)</span>}
+                                {isSelf && <span className="ml-1.5 text-[10px] text-blue-500 dark:text-blue-400 font-bold">(you)</span>}
                               </td>
                               <td className="px-4 py-3">
                                 {j.is_admin
-                                  ? <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">ADMIN</span>
-                                  : <span className="text-xs text-gray-400">judge</span>}
+                                  ? <span className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 border border-amber-200 dark:border-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">ADMIN</span>
+                                  : <span className="text-xs text-gray-400 dark:text-zinc-400">judge</span>}
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-1 flex-wrap">
                                   {j.categories.map(c => (
-                                    <span key={c} className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                    <span key={c} className="text-[10px] font-bold bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 px-1.5 py-0.5 rounded">
                                       {c.toUpperCase()}
                                     </span>
                                   ))}
@@ -298,7 +302,7 @@ export default function UsersPage() {
                                     className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
                                       editing === j.id
                                         ? 'bg-amber-600 text-white'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                        : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 hover:bg-gray-100 dark:hover:bg-zinc-800'
                                     }`}>
                                     Edit
                                   </button>
@@ -306,14 +310,14 @@ export default function UsersPage() {
                                     className={`text-xs font-semibold px-2 py-1 rounded transition-colors ${
                                       resetting === j.id
                                         ? 'bg-gray-700 text-white'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                        : 'text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 hover:bg-gray-100 dark:hover:bg-zinc-800'
                                     }`}>
                                     PW
                                   </button>
                                   <button onClick={() => handleDelete(j.id, j.username)}
                                     disabled={isSelf}
                                     title={isSelf ? 'Cannot delete your own account' : `Delete ${j.username}`}
-                                    className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50 disabled:opacity-25 disabled:cursor-not-allowed">
+                                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 font-semibold px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 dark:bg-red-950/30 disabled:opacity-25 disabled:cursor-not-allowed">
                                     Del
                                   </button>
                                 </div>
@@ -322,28 +326,28 @@ export default function UsersPage() {
 
                             {/* Edit permissions row */}
                             {editing === j.id && (
-                              <tr className="border-t border-amber-100 bg-amber-50/30">
+                              <tr className="border-t border-amber-100 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20">
                                 <td colSpan={4} className="px-4 py-4">
                                   <div className="space-y-3">
                                     <div>
-                                      <span className="text-xs font-semibold text-gray-700 block mb-2">Role</span>
+                                      <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300 block mb-2">Role</span>
                                       <div className="flex gap-2 max-w-[200px]">
                                         <button type="button" onClick={() => handleEditAdminToggle(false)}
                                           className={`flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${
-                                            !editIsAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                                            !editIsAdmin ? 'bg-gray-900 text-white border-gray-900' : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-gray-400 dark:hover:border-gray-500'
                                           }`}>
                                           Judge
                                         </button>
                                         <button type="button" onClick={() => handleEditAdminToggle(true)}
                                           className={`flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${
-                                            editIsAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-400'
+                                            editIsAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400'
                                           }`}>
                                           Admin
                                         </button>
                                       </div>
                                     </div>
                                     <div>
-                                      <span className={`text-xs font-semibold block mb-2 ${editIsAdmin ? 'text-gray-400' : 'text-gray-700'}`}>
+                                      <span className={`text-xs font-semibold block mb-2 ${editIsAdmin ? 'text-gray-400 dark:text-zinc-400' : 'text-gray-700 dark:text-zinc-300'}`}>
                                         {editIsAdmin ? 'Categories (all — admin)' : 'Categories'}
                                       </span>
                                       <div className="flex gap-1.5 flex-wrap">
@@ -354,7 +358,7 @@ export default function UsersPage() {
                                             className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${
                                               editCats.includes(c) || editIsAdmin
                                                 ? 'bg-amber-600 text-white border-amber-600'
-                                                : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
+                                                : 'bg-white dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-300 dark:border-amber-800'
                                             } ${editIsAdmin ? 'opacity-60 cursor-default' : ''}`}>
                                             {c.toUpperCase()}
                                           </button>
@@ -367,7 +371,7 @@ export default function UsersPage() {
                                         {saving ? 'Saving…' : 'Save'}
                                       </button>
                                       <button onClick={() => setEditing(null)}
-                                        className="text-xs text-gray-500 hover:text-gray-900 px-3 py-1.5">
+                                        className="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 px-3 py-1.5">
                                         Cancel
                                       </button>
                                     </div>
@@ -378,19 +382,19 @@ export default function UsersPage() {
 
                             {/* Reset password row */}
                             {resetting === j.id && (
-                              <tr className="border-t border-gray-100 bg-gray-50/60">
+                              <tr className="border-t border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-800/40">
                                 <td colSpan={4} className="px-4 py-3">
                                   <div className="flex gap-2 items-center flex-wrap">
-                                    <span className="text-xs font-semibold text-gray-700 shrink-0">New PW for @{j.username}:</span>
+                                    <span className="text-xs font-semibold text-gray-700 dark:text-zinc-300 shrink-0">New PW for @{j.username}:</span>
                                     <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
                                       placeholder="Min 6 chars"
-                                      className="text-base flex-1 min-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-amber-500" />
+                                      className="text-base flex-1 min-w-[140px] px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-amber-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                                     <button onClick={() => handleResetPassword(j.id, j.username)}
                                       className="bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-gray-800">
                                       Set
                                     </button>
                                     <button onClick={() => { setResetting(null); setNewPassword('') }}
-                                      className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1.5">
+                                      className="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 px-2 py-1.5">
                                       Cancel
                                     </button>
                                   </div>

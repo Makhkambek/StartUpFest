@@ -132,6 +132,7 @@ export function addMatchB(data: {
   match_number?: number | null
   starting_position?: MatchB['starting_position']
   notes?: string | null
+  scheduled_match_id?: string | null
 }): MatchB {
   const match: MatchB = {
     id: newId(),
@@ -143,6 +144,7 @@ export function addMatchB(data: {
     rounds2: data.rounds2,
     starting_position: data.starting_position ?? 'face',
     notes: data.notes ?? null,
+    scheduled_match_id: data.scheduled_match_id ?? null,
     created_at: new Date().toISOString(),
   }
   matchesB.set(match.id, match)
@@ -167,6 +169,7 @@ export function addFightC(data: {
   judge_score2: number
   fight_number?: number | null
   notes?: string | null
+  scheduled_match_id?: string | null
 }): FightC {
   const fight: FightC = {
     id: newId(),
@@ -178,6 +181,7 @@ export function addFightC(data: {
     judge_score1: data.judge_score1,
     judge_score2: data.judge_score2,
     notes: data.notes ?? null,
+    scheduled_match_id: data.scheduled_match_id ?? null,
     created_at: new Date().toISOString(),
   }
   fightsC.set(fight.id, fight)
@@ -205,6 +209,7 @@ export function addMatchD(data: {
   match_number?: number | null
   match_phase?: MatchD['match_phase']
   notes?: string | null
+  scheduled_match_id?: string | null
 }): MatchD {
   const match: MatchD = {
     id: newId(),
@@ -221,6 +226,7 @@ export function addMatchD(data: {
     team2b_forfeit: data.team2b_forfeit ?? false,
     match_phase: data.match_phase ?? 'group',
     notes: data.notes ?? null,
+    scheduled_match_id: data.scheduled_match_id ?? null,
     created_at: new Date().toISOString(),
   }
   matchesD.set(match.id, match)

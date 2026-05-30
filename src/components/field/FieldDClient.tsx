@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
@@ -135,9 +134,7 @@ function teamCode(name: string | null | undefined): string {
 }
 
 export default function FieldDClient() {
-  const t = useTranslations('field.d')
-  const locale = useLocale() as 'en' | 'ru' | 'uz'
-  const { watermark: eventWatermark } = useEventSettings(locale)
+  const { watermark: eventWatermark } = useEventSettings('en')
   const [data, setData] = useState<FieldStateD | null>(null)
   const lastFetchAt = useRef(Date.now())
   const [stale, setStale] = useState(false)
@@ -209,7 +206,7 @@ export default function FieldDClient() {
   if (!data) return <BootD />
   return (
     <>
-      <FifaView data={data} t={t} eventWatermark={eventWatermark} />
+      <FifaView data={data} eventWatermark={eventWatermark} />
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
         <FinalsOverlayD items={data.finalsData} />
       )}
@@ -256,7 +253,7 @@ function SoundSplash({ onStart }: { onStart: () => void }) {
         </div>
         <div className="text-emerald-300/60 font-mono tracking-widest uppercase"
           style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1rem)', animation: 'sfrcArcadeFlicker 2s linear infinite' }}>
-          🔊 нажмите чтобы включить звук
+          🔊 click to enable sound
         </div>
       </div>
     </div>
@@ -335,7 +332,7 @@ function useMatchSound(phase: LiveStateB['phase'], cdRemaining: number | null) {
   }, [phase])
 }
 
-function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnType<typeof useTranslations>; eventWatermark: string }) {
+function FifaView({ data, eventWatermark }: { data: FieldStateD; eventWatermark: string }) {
   const { state, match, red, redPartner, white, whitePartner, nextMatch } = data
   const isRunning = state.phase === 'fighting'
   const isCountdown = state.phase === 'countdown'
@@ -373,8 +370,8 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
   }, [totalGoals, state.last_round_winner])
 
   if (!hasMatch) {
-    if (isWaitingForData) return <PitchLoading t={t} />
-    return <PitchIdle next={nextMatch} t={t} />
+    if (isWaitingForData) return <PitchLoading />
+    return <PitchIdle next={nextMatch} />
   }
 
   const winnerSide: 'red' | 'white' | 'draw' | null =
@@ -388,18 +385,18 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
   // Pattern: "HALF-TIME → 2ND HALF" so audiences/judges know the next phase.
   const halfLabel = (() => {
     const current =
-      state.round_number === 1 ? t('firstHalf')
-      : state.round_number === 2 ? t('secondHalf')
-      : state.round_number === 3 ? t('extraTime')
-      : t('penalties')
+      state.round_number === 1 ? '1ST HALF'
+      : state.round_number === 2 ? '2ND HALF'
+      : state.round_number === 3 ? 'EXTRA TIME'
+      : 'PENALTIES'
 
     if (isHalftime) {
       const next =
-        state.round_number === 1 ? t('secondHalf')
-        : state.round_number === 2 ? t('extraTime')
-        : state.round_number === 3 ? t('penalties')
+        state.round_number === 1 ? '2ND HALF'
+        : state.round_number === 2 ? 'EXTRA TIME'
+        : state.round_number === 3 ? 'PENALTIES'
         : null
-      return next ? `${t('halftime')} → ${next}` : t('halftime')
+      return next ? `HALF-TIME → ${next}` : 'HALF-TIME'
     }
     return current
   })()
@@ -461,14 +458,14 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
       <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center px-6 sm:px-10">
         {isCountdown && cdRemaining !== null ? (
           <CenterBig
-            text={cdRemaining <= 0.25 ? t('go') : String(Math.ceil(cdRemaining))}
+            text={cdRemaining <= 0.25 ? 'GO!' : String(Math.ceil(cdRemaining))}
             color="text-amber-300"
-            small={t('getReady')}
+            small="GET READY"
           />
         ) : isHalftime ? (
-          <HalftimeStage red={red!} redPartner={redPartner} white={white!} whitePartner={whitePartner} state={state} t={t} />
+          <HalftimeStage red={red!} redPartner={redPartner} white={white!} whitePartner={whitePartner} state={state} />
         ) : isMatchOver ? (
-          <FullTimeStage red={red!} redPartner={redPartner} white={white!} whitePartner={whitePartner} state={state} winnerSide={winnerSide} matchId={match!.match_id} eventWatermark={eventWatermark} t={t} />
+          <FullTimeStage red={red!} redPartner={redPartner} white={white!} whitePartner={whitePartner} state={state} winnerSide={winnerSide} matchId={match!.match_id} eventWatermark={eventWatermark} />
         ) : isRunning ? (
           <KickoffOrLive
             red={red!}
@@ -478,17 +475,16 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
             lastGoal={lastGoal}
             scoreRed={state.wins_red}
             scoreWhite={state.wins_white}
-            t={t}
           />
         ) : (
-          <CenterBig text={t('phasePositioning')} color="text-emerald-200" />
+          <CenterBig text="ROBOTS ON PITCH" color="text-emerald-200" />
         )}
       </main>
 
       {/* ── BOTTOM TICKER ── */}
       <footer className="relative z-20 px-6 sm:px-10 py-2.5 flex items-center justify-between border-t border-emerald-500/20 bg-black/70 backdrop-blur-sm">
         <div className="text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase text-emerald-300">
-          ⚽ {t('title')}
+          ⚽ Robo Football
         </div>
         <div className="text-[10px] sm:text-xs font-mono text-emerald-200/60 tracking-wider">
           {match!.match_id} · {eventWatermark}
@@ -499,7 +495,7 @@ function FifaView({ data, t, eventWatermark }: { data: FieldStateD; t: ReturnTyp
       </footer>
 
       {/* ── GOAL OVERLAY ── */}
-      {goalOverlay && <GoalOverlay key={goalOverlay.ts} side={goalOverlay.side} scoredBy={goalOverlay.side === 'red' ? red!.name : white!.name} t={t} />}
+      {goalOverlay && <GoalOverlay key={goalOverlay.ts} side={goalOverlay.side} scoredBy={goalOverlay.side === 'red' ? red!.name : white!.name} />}
     </div>
   )
 }
@@ -558,7 +554,7 @@ function CenterBig({ text, color, small }: { text: string; color: string; small?
 
 // ── Main "live" content area: big team crests + score, last goal info ──
 function KickoffOrLive({
-  red, redPartner, white, whitePartner, lastGoal, scoreRed, scoreWhite, t,
+  red, redPartner, white, whitePartner, lastGoal, scoreRed, scoreWhite,
 }: {
   red: TeamLite
   redPartner: TeamLite | null
@@ -567,14 +563,13 @@ function KickoffOrLive({
   lastGoal: GoalEvent | null
   scoreRed: number
   scoreWhite: number
-  t: ReturnType<typeof useTranslations>
 }) {
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col items-center">
       {/* Two alliances with their OWN big score on top — no floating center number */}
       <div className="grid grid-cols-[1fr_auto_1fr] gap-4 sm:gap-10 items-start w-full mb-6 sm:mb-10">
         <SideScoreboard side="red"   team={red}   partner={redPartner}   score={scoreRed}   />
-        <CenterDivider lastGoal={lastGoal} red={red} white={white} t={t} />
+        <CenterDivider lastGoal={lastGoal} red={red} white={white} />
         <SideScoreboard side="white" team={white} partner={whitePartner} score={scoreWhite} />
       </div>
     </div>
@@ -617,12 +612,11 @@ function SideScoreboard({
 
 // Center column: VS divider with optional last-goal ticker stacked underneath.
 function CenterDivider({
-  lastGoal, red, white, t,
+  lastGoal, red, white,
 }: {
   lastGoal: GoalEvent | null
   red: TeamLite
   white: TeamLite
-  t: ReturnType<typeof useTranslations>
 }) {
   return (
     <div className="flex flex-col items-center justify-start gap-3 sm:gap-4 px-2 sm:px-4 pt-2">
@@ -640,7 +634,7 @@ function CenterDivider({
           style={{ animation: 'sfrcScoreBugSlide 0.5s ease-out' }}>
           <div className="flex items-center gap-1.5">
             <span className="text-amber-300 text-xs sm:text-sm">⚽</span>
-            <span className="text-amber-300 font-black tracking-widest text-[10px] sm:text-xs uppercase">{t('lastGoal')}</span>
+            <span className="text-amber-300 font-black tracking-widest text-[10px] sm:text-xs uppercase">Last goal</span>
             <span className="font-mono font-black text-xs sm:text-sm">{lastGoal.time}</span>
           </div>
           <div className={`font-black text-xs sm:text-sm ${lastGoal.side === 'red' ? 'text-rose-300' : 'text-cyan-300'}`}>
@@ -746,13 +740,12 @@ function CrestColumn({ side, team }: { side: 'red' | 'white'; team: TeamLite }) 
 }
 
 // ── HALF-TIME interlude ──
-function HalftimeStage({ red, redPartner, white, whitePartner, state, t }: {
+function HalftimeStage({ red, redPartner, white, whitePartner, state }: {
   red: TeamLite
   redPartner: TeamLite | null
   white: TeamLite
   whitePartner: TeamLite | null
   state: LiveStateB
-  t: ReturnType<typeof useTranslations>
 }) {
   // Mini-trophy-card layout for halftime — same glass panel + accent stripes as
   // full-time, but with HALFTIME caption instead of WINNERS and both sides
@@ -774,7 +767,7 @@ function HalftimeStage({ red, redPartner, white, whitePartner, state, t }: {
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           <span className="text-amber-300/90 font-semibold tracking-[0.45em] uppercase"
             style={{ fontSize: 'clamp(0.7rem, 1vw, 0.85rem)' }}>
-            {t('firstHalf')} → {t('secondHalf')}
+            1ST HALF → 2ND HALF
           </span>
         </div>
 
@@ -786,7 +779,7 @@ function HalftimeStage({ red, redPartner, white, whitePartner, state, t }: {
               letterSpacing: '0.3em',
               textShadow: '0 0 24px rgba(251,191,36,0.35)',
             }}>
-            {t('halftime')}
+            HALF-TIME
           </span>
         </div>
 
@@ -821,7 +814,7 @@ function HalftimeStage({ red, redPartner, white, whitePartner, state, t }: {
 
         {/* Bottom hint */}
         <div className="mt-8 pt-4 border-t border-white/10 text-center text-white/40 text-[10px] sm:text-xs font-mono tracking-[0.3em] uppercase">
-          ⏸ {t('fairPlay')} · {t('halftimeHint')}
+          ⏸ Fair play · 2nd half coming up
         </div>
       </div>
     </div>
@@ -867,7 +860,7 @@ function HalftimeAllianceCol({ side, team, partner }: {
 
 // ── FULL-TIME / final result ──
 function FullTimeStage({
-  red, redPartner, white, whitePartner, state, winnerSide, matchId, eventWatermark, t,
+  red, redPartner, white, whitePartner, state, winnerSide, matchId, eventWatermark,
 }: {
   red: TeamLite
   redPartner: TeamLite | null
@@ -877,7 +870,6 @@ function FullTimeStage({
   winnerSide: 'red' | 'white' | 'draw' | null
   matchId: string
   eventWatermark: string
-  t: ReturnType<typeof useTranslations>
 }) {
   const winnerTeam: TeamLite | null = winnerSide === 'red' ? red : winnerSide === 'white' ? white : null
   const winnerPartner: TeamLite | null = winnerSide === 'red' ? redPartner : winnerSide === 'white' ? whitePartner : null
@@ -921,7 +913,7 @@ function FullTimeStage({
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-emerald-300/80 font-semibold tracking-[0.45em] uppercase"
             style={{ fontSize: 'clamp(0.65rem, 0.9vw, 0.8rem)' }}>
-            {t('matchOver')} · {t('title')}
+            FULL-TIME · Robo Football
           </span>
         </div>
 
@@ -933,7 +925,7 @@ function FullTimeStage({
               letterSpacing: '0.5em',
               textShadow: winnerGlow,
             }}>
-            {isDraw ? t('draw') : t('winner')}
+            {isDraw ? 'DRAW' : 'WINNER'}
           </span>
         </div>
 
@@ -1028,7 +1020,7 @@ function MiniCrest({ side, code }: { side: 'red' | 'white'; code: string }) {
 }
 
 // ── GOAL! flash overlay (full screen) ──
-function GoalOverlay({ side, scoredBy, t }: { side: 'red' | 'white'; scoredBy: string | null; t: ReturnType<typeof useTranslations> }) {
+function GoalOverlay({ side, scoredBy }: { side: 'red' | 'white'; scoredBy: string | null }) {
   const isRed = side === 'red'
   const grad = isRed
     ? 'radial-gradient(ellipse at center, rgba(244,63,94,0.55), rgba(244,63,94,0.0) 60%)'
@@ -1055,12 +1047,12 @@ function GoalOverlay({ side, scoredBy, t }: { side: 'red' | 'white'; scoredBy: s
           willChange: 'transform, opacity',
           transform: 'translateZ(0)',
         }}>
-        {t('goal')}
+        GOAL!
       </div>
       {scoredBy && (
         <div className="relative mt-4 text-xl sm:text-3xl font-bold tracking-widest text-white/90"
           style={{ animation: 'sfrcKOSlam 0.7s ease-out 0.2s both' }}>
-          {t('scoredBy')} <span className="font-black">{scoredBy}</span>
+          Scored by <span className="font-black">{scoredBy}</span>
         </div>
       )}
     </div>
@@ -1096,7 +1088,7 @@ function ConfettiBurst({ side }: { side: 'red' | 'white' }) {
 }
 
 // ── Loading: we have active match id but teams/match data still fetching ──
-function PitchLoading({ t }: { t: ReturnType<typeof useTranslations> }) {
+function PitchLoading() {
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden text-white"
       style={{
@@ -1106,7 +1098,7 @@ function PitchLoading({ t }: { t: ReturnType<typeof useTranslations> }) {
       <PitchPattern />
       <div className="relative z-10 text-emerald-300 font-black tracking-[0.45em] uppercase mb-6"
         style={{ fontSize: 'clamp(1.5rem, 4vw, 3.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
-        ⚽ {t('title')}
+        ⚽ Robo Football
       </div>
       <div className="relative z-10 text-emerald-100 font-black uppercase tracking-tight"
         style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}>
@@ -1120,7 +1112,7 @@ function PitchLoading({ t }: { t: ReturnType<typeof useTranslations> }) {
 }
 
 // ── Idle: pitch with next-match KICK-OFF preview ──
-function PitchIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof useTranslations> }) {
+function PitchIdle({ next }: { next: NextMatch | null }) {
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden text-white"
       style={{
@@ -1131,7 +1123,7 @@ function PitchIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
 
       <div className="relative z-10 text-emerald-300 font-black tracking-[0.45em] uppercase mb-6"
         style={{ fontSize: 'clamp(1.5rem, 4vw, 3.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
-        ⚽ {t('title')}
+        ⚽ Robo Football
       </div>
 
       {next && next.red && next.white ? (
@@ -1140,7 +1132,7 @@ function PitchIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
             style={{ animation: 'sfrcBorderCycle 4s ease-in-out infinite' }}>
             <div className="text-amber-300 font-black tracking-[0.4em] uppercase text-center"
               style={{ fontSize: 'clamp(1rem, 2.4vw, 2rem)' }}>
-              ⚡ {t('kickoff')} <span className="text-white/40 mx-2">·</span> <span className="font-mono">#{next.match_id}</span>
+              ⚡ KICK-OFF <span className="text-white/40 mx-2">·</span> <span className="font-mono">#{next.match_id}</span>
             </div>
           </div>
           <div className="relative z-10 grid grid-cols-[5fr_2fr_5fr] gap-4 sm:gap-8 items-center w-full max-w-7xl mx-auto px-6">
@@ -1156,9 +1148,9 @@ function PitchIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
         <>
           <div className="relative z-10 text-emerald-200 font-black uppercase tracking-tight text-center mb-3"
             style={{ fontSize: 'clamp(2.5rem, 6vw, 5.5rem)' }}>
-            {t('noMatchActive')}
+            Awaiting kick-off
           </div>
-          <div className="relative z-10 text-white/40 text-base sm:text-xl uppercase tracking-widest text-center">{t('noMatchHint')}</div>
+          <div className="relative z-10 text-white/40 text-base sm:text-xl uppercase tracking-widest text-center">Pitch is clear · standby</div>
         </>
       )}
     </div>

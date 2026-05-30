@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     judge_score1: number; judge_score2: number
     fight_number?: number | null
     notes?: string | null
+    scheduled_match_id?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) {
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
       fight_number: body.fight_number ?? null,
       city_code: cityCode,
       notes: body.notes ?? null,
+      scheduled_match_id: body.scheduled_match_id ?? null,
     }
     const { data, error } = await supabase.from('fights_c').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   const { addFightC } = await import('@/lib/mock-store')
   revalidateTag('standings-c', {})
-  return NextResponse.json(addFightC(body))
+  return NextResponse.json(addFightC({ ...body, scheduled_match_id: body.scheduled_match_id ?? null }))
 }
 
 export async function DELETE(req: NextRequest) {

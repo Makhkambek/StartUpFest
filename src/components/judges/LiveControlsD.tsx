@@ -227,9 +227,9 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   }, [state?.phase, state?.countdown_started_at, state?.round_number, dispatch])
 
   if (authExpired) return (
-    <div className="bg-red-50 rounded-lg p-4 border-2 border-red-300 text-sm">
-      <div className="font-black text-red-700 mb-1">⚠ Session expired</div>
-      <div className="text-red-600 text-xs mb-2">Your login has expired. Please sign in again to continue.</div>
+    <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 border-2 border-red-300 dark:border-red-800 text-sm">
+      <div className="font-black text-red-700 dark:text-red-400 mb-1">⚠ Session expired</div>
+      <div className="text-red-600 dark:text-red-400 text-xs mb-2">Your login has expired. Please sign in again to continue.</div>
       <a href="/judges/login" className="inline-block bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2 rounded">
         → Sign in
       </a>
@@ -242,9 +242,9 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
     }
     if (loadError) {
       return (
-        <div className="bg-amber-50 rounded-lg p-4 border-2 border-amber-300 text-sm">
-          <div className="font-black text-amber-800 mb-1">⚠ Live controls unavailable</div>
-          <div className="text-amber-700 text-xs font-mono mb-2 break-all">{loadError}</div>
+        <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border-2 border-amber-300 dark:border-amber-800 text-sm">
+          <div className="font-black text-amber-800 dark:text-amber-400 mb-1">⚠ Live controls unavailable</div>
+          <div className="text-amber-700 dark:text-amber-400 text-xs font-mono mb-2 break-all">{loadError}</div>
           <button onClick={refetch} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3 py-1.5 rounded">
             Retry
           </button>
@@ -252,8 +252,8 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
       )
     }
     return (
-      <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm text-gray-400 flex items-center gap-2">
-        <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+      <div className="bg-white dark:bg-zinc-900 rounded-lg p-4 border border-gray-200 dark:border-zinc-700 text-sm text-gray-400 dark:text-zinc-400 flex items-center gap-2">
+        <span className="inline-block w-3 h-3 border-2 border-gray-300 dark:border-zinc-700 border-t-gray-600 dark:border-t-gray-300 rounded-full animate-spin" />
         Loading live controls{hasFetchedOnce ? ' (retrying)' : ''}…
       </div>
     )
@@ -284,36 +284,36 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-lg border-2 border-emerald-400 shadow-sm">
-      <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between">
+    <div className="bg-white dark:bg-zinc-900 rounded-lg border-2 border-emerald-400 dark:border-emerald-800 shadow-sm dark:shadow-lg dark:shadow-emerald-950/20">
+      <div className="px-4 py-3 bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
+          <span className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
             ⚽ Live field control · Robo Football
           </span>
         </div>
-        <div className="text-[11px] text-gray-500">
+        <div className="text-[11px] text-gray-500 dark:text-zinc-400">
           Field display: <a className="text-blue-600 underline" href="/field/d" target="_blank" rel="noopener">/field/d</a>
         </div>
       </div>
 
       <div className="p-4 space-y-3">
         {migrationMissing && (
-          <div className="rounded-md bg-red-50 border border-red-300 text-red-800 px-3 py-2 text-xs">
+          <div className="rounded-md bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-400 px-3 py-2 text-xs">
             <div className="font-bold">⚠ Supabase migration 012 not applied</div>
           </div>
         )}
         {error && (
-          <div className="rounded-md bg-red-50 border-2 border-red-400 text-red-800 px-3 py-2 text-xs flex items-center justify-between gap-2">
+          <div className="rounded-md bg-red-50 dark:bg-red-950/20 border-2 border-red-400 text-red-800 dark:text-red-400 px-3 py-2 text-xs flex items-center justify-between gap-2">
             <div><span className="font-black">⚠ Action failed:</span> <code className="font-mono">{error}</code></div>
             <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800 font-bold">✕</button>
           </div>
         )}
 
         {persistError && (
-          <div className="rounded-md bg-amber-50 border-2 border-amber-400 text-amber-900 px-3 py-2.5 text-xs">
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 dark:border-amber-800 text-amber-900 px-3 py-2.5 text-xs">
             <div className="font-black mb-1">⚠ Результат показан на табло, но НЕ записан в базу</div>
-            <div className="text-amber-800 mb-2">
+            <div className="text-amber-800 dark:text-amber-400 mb-2">
               Матч завершён в live, но запись в таблицу результатов не прошла. Без неё команда не попадёт в leaderboard.
               {' '}<code className="font-mono text-[10px] break-all">{persistError}</code>
             </div>
@@ -326,13 +326,13 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
         {/* Match completed banner */}
         {isMatchOver && (
-          <div className="rounded-md bg-emerald-50 border-2 border-emerald-300 p-3">
+          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 p-3">
             <div className="flex items-center justify-between gap-3 mb-1">
-              <div className="text-xs font-black uppercase tracking-widest text-emerald-700">🏁 Match complete</div>
+              <div className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">🏁 Match complete</div>
               <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
-                className="text-xs font-bold text-gray-500 hover:text-gray-700 underline">Close / idle</button>
+                className="text-xs font-bold text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-50 underline">Close / idle</button>
             </div>
-            <div className="text-sm font-mono font-black mb-3">
+            <div className="text-sm font-mono font-black mb-3 dark:text-zinc-100">
               {state.wins_red} − {state.wins_white}
             </div>
 
@@ -351,16 +351,16 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
             {/* Auto-suggest NEXT MATCH — one-click start without dropdown */}
             {!tieAtFullTime && nextSuggested && (
-              <div className="rounded-md bg-white border border-emerald-300 p-3 mt-2">
+              <div className="rounded-md bg-white dark:bg-zinc-800 border border-emerald-300 dark:border-emerald-800 p-3 mt-2">
                 <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">
                   ⏭ Next up
                 </div>
-                <div className="font-mono text-sm text-gray-800 mb-2">
+                <div className="font-mono text-sm text-gray-800 dark:text-zinc-200 mb-2">
                   <div className="font-bold">#{nextSuggested.match_id}</div>
-                  <div className="text-rose-700">
+                  <div className="text-rose-700 dark:text-rose-400">
                     🔴 {teamName(nextSuggested.team1_id)}{nextSuggested.team1b_id ? ` + ${teamName(nextSuggested.team1b_id)}` : ''}
                   </div>
-                  <div className="text-blue-700">
+                  <div className="text-blue-700 dark:text-blue-400">
                     🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
                   </div>
                 </div>
@@ -371,7 +371,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                     ▶ Start #{nextSuggested.match_id}
                   </button>
                   <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs px-3 py-2 rounded">
+                    className="bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-300 font-bold text-xs px-3 py-2 rounded">
                     Choose another…
                   </button>
                 </div>
@@ -380,7 +380,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
             {/* All matches done — suggest finals */}
             {!tieAtFullTime && !nextSuggested && (
-              <div className="rounded-md bg-amber-50 border border-amber-300 p-3 mt-2 text-xs text-amber-800">
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 p-3 mt-2 text-xs text-amber-800 dark:text-amber-400">
                 <div className="font-black mb-1">🏆 All scheduled matches are complete</div>
                 <div>Generate finals bracket below to continue, or close to idle.</div>
               </div>
@@ -390,19 +390,19 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
         {/* Active match */}
         {activeMatch && !isMatchOver ? (
-          <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">Active match</div>
-            <div className="font-mono text-sm text-gray-800">
+          <div className="rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-0.5">Active match</div>
+            <div className="font-mono text-sm text-gray-800 dark:text-zinc-200">
               <div>#{activeMatch.match_id}</div>
-              <div className="text-rose-700">
+              <div className="text-rose-700 dark:text-rose-400">
                 🔴 RED: {teamName(activeMatch.team1_id)}{activeMatch.team1b_id ? ` + ${teamName(activeMatch.team1b_id)}` : ''}
               </div>
-              <div className="text-blue-700">
+              <div className="text-blue-700 dark:text-blue-400">
                 🔵 BLUE: {teamName(activeMatch.team2_id)}{activeMatch.team2b_id ? ` + ${teamName(activeMatch.team2b_id)}` : ''}
               </div>
             </div>
-            <div className="text-[11px] text-gray-500 mt-1">
-              Phase: <span className="font-semibold text-gray-700">{PHASE_LABEL[state.phase]}</span>
+            <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">
+              Phase: <span className="font-semibold text-gray-700 dark:text-zinc-300">{PHASE_LABEL[state.phase]}</span>
               {' · '}<span>{HALF_NAME[state.round_number] ?? `Half ${state.round_number}`}</span>
               {' · '}🔴 {state.wins_red} − {state.wins_white} 🔵
             </div>
@@ -411,16 +411,16 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
           <div className="space-y-2">
             {/* Hero: auto-suggested next match — one-click start */}
             {nextSuggested && (
-              <div className="rounded-md bg-emerald-50 border-2 border-emerald-300 p-3">
-                <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 p-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 mb-1">
                   ⏭ Next up · auto-picked
                 </div>
-                <div className="font-mono text-sm text-gray-800 mb-2">
+                <div className="font-mono text-sm text-gray-800 dark:text-zinc-200 mb-2">
                   <div className="font-bold">#{nextSuggested.match_id}</div>
-                  <div className="text-rose-700">
+                  <div className="text-rose-700 dark:text-rose-400">
                     🔴 {teamName(nextSuggested.team1_id)}{nextSuggested.team1b_id ? ` + ${teamName(nextSuggested.team1b_id)}` : ''}
                   </div>
-                  <div className="text-blue-700">
+                  <div className="text-blue-700 dark:text-blue-400">
                     🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
                   </div>
                 </div>
@@ -435,12 +435,12 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
             {/* Fallback: manual picker — collapsed by default into a small "or pick another" row */}
             {eligible.length > 0 && (
               <details className="text-xs">
-                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                   {nextSuggested ? 'Or choose a different match…' : 'Pick a match…'}
                 </summary>
                 <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2">
                   <select value={picked} onChange={(e) => setPicked(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                     <option value="">Pick a match…</option>
                     {sortedEligible.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -459,7 +459,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
             {/* No eligible matches — guide judge to generate */}
             {eligible.length === 0 && (
-              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+              <div className="rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-3 text-xs text-gray-600 dark:text-zinc-400">
                 No scheduled matches available. Generate a schedule below or add a match manually.
               </div>
             )}
@@ -486,7 +486,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
             {/* Goal buttons */}
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Goals</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-1">Goals</div>
               <div className="grid grid-cols-2 gap-2">
                 <button disabled={busy || !isLive} onClick={() => goal('red')}
                   className="bg-rose-600 hover:bg-rose-700 disabled:opacity-30 text-white font-bold text-lg py-3 rounded">
@@ -499,18 +499,18 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button disabled={busy || state.wins_red === 0} onClick={() => dispatch({ type: 'undo_goal', side: 'red' })}
-                  className="text-rose-700 border border-rose-300 hover:bg-rose-50 text-[10px] font-bold py-1 rounded">
+                  className="text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:bg-rose-950/30 dark:hover:bg-rose-950/20 text-[10px] font-bold py-1 rounded">
                   ↶ Undo red
                 </button>
                 <button disabled={busy || state.wins_white === 0} onClick={() => dispatch({ type: 'undo_goal', side: 'white' })}
-                  className="text-blue-700 border border-blue-300 hover:bg-blue-50 text-[10px] font-bold py-1 rounded">
+                  className="text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:bg-blue-950/30 dark:hover:bg-blue-950/20 text-[10px] font-bold py-1 rounded">
                   ↶ Undo blue
                 </button>
               </div>
             </div>
 
             {/* Half navigation */}
-            <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-100 dark:border-zinc-800">
               {state.round_number === 1 && isLive && (
                 <button disabled={busy} onClick={() => dispatch({ type: 'halftime' })}
                   className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded">
@@ -528,13 +528,13 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                 🏁 End match
               </button>
               <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
-                className="text-xs font-bold text-red-600 hover:text-red-700 border border-red-300 hover:border-red-500 rounded px-2 py-1.5">
+                className="text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-400 border border-red-300 hover:border-red-500 dark:border-red-700 rounded px-2 py-1.5">
                 Reset
               </button>
             </div>
 
-            <div className="text-[10px] text-gray-400 italic">
-              Tip: Press <kbd className="bg-gray-100 px-1 rounded font-mono">R</kbd> for red goal, <kbd className="bg-gray-100 px-1 rounded font-mono">B</kbd> for blue (only during Live).
+            <div className="text-[10px] text-gray-400 dark:text-zinc-400 italic">
+              Tip: Press <kbd className="bg-gray-100 dark:bg-zinc-800 px-1 rounded font-mono dark:text-zinc-300">R</kbd> for red goal, <kbd className="bg-gray-100 dark:bg-zinc-800 px-1 rounded font-mono dark:text-zinc-300">B</kbd> for blue (only during Live).
             </div>
           </>
         )}
@@ -545,7 +545,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
 
 function btn(active: boolean) {
   return `text-sm font-bold py-1.5 px-3 rounded border-2 transition-colors ${
-    active ? 'bg-emerald-100 border-emerald-500 text-emerald-800' : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+    active ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 dark:border-emerald-600 text-emerald-800 dark:text-emerald-200' : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300'
   }`
 }
 
@@ -554,12 +554,12 @@ function btn(active: boolean) {
 // the floor and look like a system bug.
 function RateLimitBanner({ seconds, onRetryNow }: { seconds: number; onRetryNow: () => void }) {
   return (
-    <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-300 text-sm">
+    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border-2 border-blue-300 dark:border-blue-800 text-sm">
       <div className="flex items-center gap-2 mb-1">
-        <span className="inline-block w-3 h-3 border-2 border-blue-300 border-t-blue-700 rounded-full animate-spin" />
-        <div className="font-black text-blue-800">Слишком быстро · ждём {seconds}с</div>
+        <span className="inline-block w-3 h-3 border-2 border-blue-300 dark:border-blue-800 border-t-blue-700 rounded-full animate-spin" />
+        <div className="font-black text-blue-800 dark:text-blue-400">Слишком быстро · ждём {seconds}с</div>
       </div>
-      <div className="text-blue-700 text-xs mb-2">
+      <div className="text-blue-700 dark:text-blue-400 text-xs mb-2">
         Сервер защищает себя от спама. Подожди — экран обновится автоматически.
         Это <b>не ошибка</b>: твои предыдущие действия сохранены.
       </div>

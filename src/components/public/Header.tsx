@@ -1,8 +1,6 @@
 'use client'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
-import LocaleSwitcher from './LocaleSwitcher'
-
 export default function Header() {
   const pathname = usePathname()
   const t = useTranslations('header')
@@ -20,13 +18,10 @@ export default function Header() {
           <div className="text-[11px] text-gray-400 hidden sm:block">{t('brandLine2')}</div>
         </div>
       </Link>
-      <div className="flex items-center gap-2">
-        <nav className="hidden sm:flex items-center gap-1">
-          <Link href="/about" className={linkClass(pathname === '/about')}>{t('navAbout')}</Link>
-          <Link href="/challenge" className={linkClass(pathname === '/challenge')}>{t('navChallenge')}</Link>
-        </nav>
-        <LocaleSwitcher />
-      </div>
+      <nav className="hidden sm:flex items-center gap-1">
+        <Link href="/about" className={linkClass(pathname === '/about')}>{t('navAbout')}</Link>
+        <Link href="/challenge" className={linkClass(pathname === '/challenge')}>{t('navChallenge')}</Link>
+      </nav>
     </header>
   )
 }

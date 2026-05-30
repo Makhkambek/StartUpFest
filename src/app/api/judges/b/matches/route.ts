@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     match_number?: number | null
     starting_position?: MatchB['starting_position']
     notes?: string | null
+    scheduled_match_id?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) {
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
       starting_position: body.starting_position ?? 'face',
       city_code: cityCode,
       notes: body.notes ?? null,
+      scheduled_match_id: body.scheduled_match_id ?? null,
     }
     const { data, error } = await supabase.from('matches_b').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -74,8 +76,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { addMatchB } = await import('@/lib/mock-store')
-  const created = addMatchB(body)
-  await syncLiveStateFromMatchB(body)
+  const created = addMatchB({ ...body, scheduled_match_id: body.scheduled_match_id ?? null })
+  await syncLiveStateFromMatchB({ ...body, scheduled_match_id: body.scheduled_match_id ?? null })
   revalidateTag('standings-b', {})
   return NextResponse.json(created)
 }
@@ -86,24 +88,34 @@ async function syncLiveStateFromMatchB(body: {
   team1_id: string; team2_id: string
   winner: 0 | 1 | 2; rounds1: number; rounds2: number
   starting_position?: MatchB['starting_position']
+  scheduled_match_id?: string | null
 }) {
-  // Defense in depth: callers (POST) already validate UUIDs, but the .or() filter
-  // below is built by string interpolation, so re-check here too.
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) return
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
-    const { data: sched } = await supabase
-      .from('scheduled_matches')
-      .select('*')
-      .eq('category', 'b')
-      .eq('city_code', cityCode)
-      .or(`and(team1_id.eq.${body.team1_id},team2_id.eq.${body.team2_id}),and(team1_id.eq.${body.team2_id},team2_id.eq.${body.team1_id})`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Prefer direct lookup by scheduled_match_id — avoids picking the wrong match
+    // when two teams play each other twice (e.g. Q-1 and Q-2 reversed).
+    let sched: { id: string; team1_id: string; team2_id: string } | null = null
+    if (body.scheduled_match_id && isUuid(body.scheduled_match_id)) {
+      const { data } = await supabase
+        .from('scheduled_matches').select('*').eq('id', body.scheduled_match_id).maybeSingle()
+      sched = data
+    }
+    if (!sched) {
+      const { data } = await supabase
+        .from('scheduled_matches')
+        .select('*')
+        .eq('category', 'b')
+        .eq('city_code', cityCode)
+        .or(`and(team1_id.eq.${body.team1_id},team2_id.eq.${body.team2_id}),and(team1_id.eq.${body.team2_id},team2_id.eq.${body.team1_id})`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      sched = data
+    }
     if (!sched) return
 
     const swap = body.team1_id !== sched.team1_id
@@ -127,10 +139,16 @@ async function syncLiveStateFromMatchB(body: {
   }
 
   const { getSchedule } = await import('@/lib/schedule-store')
-  const sched = getSchedule('b').find((s) =>
-    (s.team1_id === body.team1_id && s.team2_id === body.team2_id) ||
-    (s.team1_id === body.team2_id && s.team2_id === body.team1_id),
-  )
+  // Prefer direct lookup by scheduled_match_id
+  let sched = body.scheduled_match_id
+    ? getSchedule('b').find((s) => s.id === body.scheduled_match_id)
+    : undefined
+  if (!sched) {
+    sched = getSchedule('b').find((s) =>
+      (s.team1_id === body.team1_id && s.team2_id === body.team2_id) ||
+      (s.team1_id === body.team2_id && s.team2_id === body.team1_id),
+    )
+  }
   if (!sched) return
   const swap = body.team1_id !== sched.team1_id
   const wins_red = swap ? body.rounds2 : body.rounds1

@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     match_number?: number | null
     match_phase?: MatchD['match_phase']
     notes?: string | null
+    scheduled_match_id?: string | null
   }
   if (!body.team1_id || !body.team2_id) return NextResponse.json({ error: 'Both teams required' }, { status: 400 })
   if (!isUuid(body.team1_id) || !isUuid(body.team2_id)) {
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       match_phase: body.match_phase ?? 'group',
       city_code: cityCode,
       notes: body.notes ?? null,
+      scheduled_match_id: body.scheduled_match_id ?? null,
     }
     const { data, error } = await supabase.from('matches_d').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -81,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   const { addMatchD } = await import('@/lib/mock-store')
   revalidateTag('standings-d', {})
-  return NextResponse.json(addMatchD(body))
+  return NextResponse.json(addMatchD({ ...body, scheduled_match_id: body.scheduled_match_id ?? null }))
 }
 
 export async function DELETE(req: NextRequest) {

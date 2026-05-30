@@ -112,7 +112,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
   }, [state?.phase, state?.countdown_started_at, dispatch])
 
   if (!state) return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm text-gray-400">
+    <div className="bg-white dark:bg-zinc-900 rounded-lg p-4 border border-gray-200 dark:border-zinc-700 text-sm text-gray-400 dark:text-zinc-400">
       Loading live controls…
     </div>
   )
@@ -120,40 +120,40 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
   const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
 
   return (
-    <div className="bg-white rounded-lg border-2 border-amber-300 shadow-sm">
+    <div className="bg-white dark:bg-zinc-900 rounded-lg border-2 border-amber-300 dark:border-amber-800 shadow-sm dark:shadow-lg dark:shadow-amber-950/20">
       {/* Header */}
-      <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+      <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-xs font-black uppercase tracking-widest text-amber-700">
+          <span className="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
             Live field control
           </span>
         </div>
-        <div className="text-[11px] text-gray-500">
+        <div className="text-[11px] text-gray-500 dark:text-zinc-400">
           Field display: <a className="text-blue-600 underline" href="/field/b" target="_blank" rel="noopener">/field/b</a>
         </div>
       </div>
 
       <div className="p-4 space-y-3">
         {migrationMissing && (
-          <div className="rounded-md bg-red-50 border border-red-300 text-red-800 px-3 py-2 text-xs">
+          <div className="rounded-md bg-red-50 dark:bg-red-950/20 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-400 px-3 py-2 text-xs">
             <div className="font-bold">⚠ Supabase migration 012 not applied yet</div>
-            <div className="mt-0.5">Run <code className="bg-red-100 px-1 rounded">supabase/migrations/012_live_match_state.sql</code> in Supabase SQL Editor to enable live state.</div>
+            <div className="mt-0.5">Run <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">supabase/migrations/012_live_match_state.sql</code> in Supabase SQL Editor to enable live state.</div>
           </div>
         )}
 
         {/* Match-over banner with auto-advance to next */}
         {isMatchOver && (
-          <div className="rounded-md bg-emerald-50 border-2 border-emerald-300 p-3">
+          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 p-3">
             <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="text-xs font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1.5">
+              <div className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                 🏆 Match ended
                 <span className="text-emerald-600 font-mono normal-case tracking-normal">
-                  ({state.wins_red}−{state.wins_white}, winner: {state.match_winner === 1 ? '🔴 Red' : state.match_winner === 2 ? '⚪ White' : '🟰 Draw'})
+                  ({state.wins_red}−{state.wins_white}, winner: {state.match_winner === 1 ? '🔴 Red' : state.match_winner === 2 ? '🔵 Blue' : '🟰 Draw'})
                 </span>
               </div>
               <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
-                className="text-xs font-bold text-gray-500 hover:text-gray-700 underline">
+                className="text-xs font-bold text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-50 underline">
                 Close / idle
               </button>
             </div>
@@ -161,12 +161,12 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             {nextPending ? (
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0 text-sm">
-                  <span className="text-gray-500 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
-                  <span className="font-mono font-black text-gray-900">#{nextPending.match_id}</span>
-                  <span className="text-gray-500 mx-1.5">·</span>
-                  <span className="text-gray-700">🔴 {teamName(nextPending.team1_id)}</span>
-                  <span className="text-gray-400 mx-1.5">vs</span>
-                  <span className="text-gray-700">⚪ {teamName(nextPending.team2_id)}</span>
+                  <span className="text-gray-500 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
+                  <span className="font-mono font-black text-gray-900 dark:text-zinc-100">#{nextPending.match_id}</span>
+                  <span className="text-gray-500 dark:text-zinc-400 mx-1.5">·</span>
+                  <span className="text-gray-700 dark:text-zinc-300">🔴 {teamName(nextPending.team1_id)}</span>
+                  <span className="text-gray-400 dark:text-zinc-400 mx-1.5">vs</span>
+                  <span className="text-gray-700 dark:text-zinc-300">🔵 {teamName(nextPending.team2_id)}</span>
                 </div>
                 <button disabled={busy} onClick={() => startNext(nextPending.id)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-1.5 rounded">
@@ -174,28 +174,28 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-gray-500 italic">All matches completed 🎉</div>
+              <div className="text-sm text-gray-500 dark:text-zinc-400 italic">All matches completed 🎉</div>
             )}
           </div>
         )}
 
         {/* Active match indicator (hidden during match_result — we show the ended banner instead) */}
         {activeMatch && !isMatchOver ? (
-          <div className="rounded-md bg-gray-50 border border-gray-200 p-3 flex items-center justify-between gap-3">
+          <div className="rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">Active match</div>
-              <div className="font-mono text-sm text-gray-800 truncate">
-                #{activeMatch.match_id} · 🔴 {teamName(activeMatch.team1_id)} vs ⚪ {teamName(activeMatch.team2_id)}
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-0.5">Active match</div>
+              <div className="font-mono text-sm text-gray-800 dark:text-zinc-200 truncate">
+                #{activeMatch.match_id} · 🔴 {teamName(activeMatch.team1_id)} vs 🔵 {teamName(activeMatch.team2_id)}
               </div>
-              <div className="text-[11px] text-gray-500 mt-0.5">
-                Phase: <span className="font-semibold text-gray-700">{PHASE_LABEL[state.phase]}</span>
-                {' · '}Round {state.round_number} · 🔴 {state.wins_red} − {state.wins_white} ⚪
+              <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
+                Phase: <span className="font-semibold text-gray-700 dark:text-zinc-300">{PHASE_LABEL[state.phase]}</span>
+                {' · '}Round {state.round_number} · 🔴 {state.wins_red} − {state.wins_white} 🔵
               </div>
             </div>
             <button
               disabled={busy}
               onClick={() => dispatch({ type: 'reset' })}
-              className="text-xs font-bold text-red-600 hover:text-red-700 border border-red-300 hover:border-red-500 rounded px-2 py-1"
+              className="text-xs font-bold text-red-600 hover:text-red-700 dark:text-red-400 border border-red-300 hover:border-red-500 dark:border-red-700 rounded px-2 py-1"
             >
               End / reset
             </button>
@@ -204,16 +204,16 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
           <div className="space-y-2">
             {/* Hero: auto-suggested next match — one-click start */}
             {nextPending && (
-              <div className="rounded-md bg-amber-50 border-2 border-amber-300 p-3">
-                <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-300 dark:border-amber-800 p-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-1">
                   ⏭ Next up · auto-picked
                 </div>
-                <div className="font-mono text-sm text-gray-800 mb-2">
+                <div className="font-mono text-sm text-gray-800 dark:text-zinc-200 mb-2">
                   <span className="font-bold">#{nextPending.match_id}</span>
-                  <span className="text-gray-400 mx-2">·</span>
+                  <span className="text-gray-400 dark:text-zinc-400 mx-2">·</span>
                   🔴 {teamName(nextPending.team1_id)}
-                  <span className="text-gray-400 mx-2">vs</span>
-                  ⚪ {teamName(nextPending.team2_id)}
+                  <span className="text-gray-400 dark:text-zinc-400 mx-2">vs</span>
+                  🔵 {teamName(nextPending.team2_id)}
                 </div>
                 <button disabled={busy}
                   onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
@@ -226,12 +226,12 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             {/* Manual picker collapsed by default */}
             {eligible.length > 0 && (
               <details className="text-xs">
-                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                   {nextPending ? 'Or choose a different match…' : 'Pick a match to start…'}
                 </summary>
                 <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mt-2">
                   <select value={picked} onChange={(e) => setPicked(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                     <option value="">Pick a match…</option>
                     {sortedEligible.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -249,7 +249,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             )}
 
             {eligible.length === 0 && (
-              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600">
+              <div className="rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-3 text-xs text-gray-600 dark:text-zinc-400">
                 No scheduled matches available. Generate a schedule below or add a match manually.
               </div>
             )}
@@ -282,7 +282,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
               </button>
               <button disabled={busy || state.phase !== 'countdown'}
                 onClick={() => dispatch({ type: 'cancel_countdown' })}
-                className="border border-gray-300 hover:bg-gray-50 disabled:opacity-30 text-sm font-bold px-3 py-1.5 rounded">
+                className="border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-30 text-sm font-bold px-3 py-1.5 rounded dark:text-zinc-300">
                 Cancel countdown
               </button>
               <button disabled={busy || (state.phase !== 'countdown' && state.phase !== 'positioning')}
@@ -294,7 +294,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
 
             {/* Round result */}
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Round result</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-1">Round result</div>
               <div className="grid grid-cols-3 gap-2">
                 <button disabled={busy || state.phase !== 'fighting'}
                   onClick={() => dispatch({ type: 'round_result', outcome: 'red' })}
@@ -303,12 +303,12 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
                 </button>
                 <button disabled={busy || state.phase !== 'fighting'}
                   onClick={() => dispatch({ type: 'round_result', outcome: 'white' })}
-                  className="bg-gray-100 hover:bg-gray-200 disabled:opacity-30 text-gray-900 font-bold text-sm py-2 rounded border border-gray-300">
-                  ⚪ White won
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white font-bold text-sm py-2 rounded">
+                  🔵 Blue won
                 </button>
                 <button disabled={busy || state.phase !== 'fighting'}
                   onClick={() => dispatch({ type: 'round_result', outcome: 'draw' })}
-                  className="bg-amber-100 hover:bg-amber-200 disabled:opacity-30 text-amber-800 font-bold text-sm py-2 rounded border border-amber-300">
+                  className="bg-amber-100 dark:bg-amber-950/30 hover:bg-amber-200 disabled:opacity-30 text-amber-800 dark:text-amber-400 font-bold text-sm py-2 rounded border border-amber-300 dark:border-amber-800">
                   🟰 Draw
                 </button>
               </div>
@@ -318,7 +318,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             <div className="flex flex-wrap gap-2">
               <button disabled={busy || state.phase !== 'round_result'}
                 onClick={() => dispatch({ type: 'next_round' })}
-                className="border border-gray-300 hover:bg-gray-50 disabled:opacity-30 text-sm font-bold px-3 py-1.5 rounded">
+                className="border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-30 text-sm font-bold px-3 py-1.5 rounded dark:text-zinc-300">
                 → Next round
               </button>
               <button disabled={busy}
@@ -329,15 +329,15 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
             </div>
 
             {/* Fouls */}
-            <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-100">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Foul:</span>
+            <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-100 dark:border-zinc-800">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400">Foul:</span>
               <button disabled={busy} onClick={() => dispatch({ type: 'foul', side: 'red' })}
-                className="border border-red-300 hover:bg-red-50 text-red-700 text-xs font-bold px-2 py-1 rounded">
+                className="border border-red-300 dark:border-red-800 hover:bg-red-50 dark:bg-red-950/30 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400 text-xs font-bold px-2 py-1 rounded">
                 🔴 Red foul ({state.fouls_red})
               </button>
               <button disabled={busy} onClick={() => dispatch({ type: 'foul', side: 'white' })}
-                className="border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold px-2 py-1 rounded">
-                ⚪ White foul ({state.fouls_white})
+                className="border border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:bg-blue-950/30 dark:hover:bg-blue-950/20 text-blue-700 dark:text-blue-400 text-xs font-bold px-2 py-1 rounded">
+                🔵 Blue foul ({state.fouls_white})
               </button>
             </div>
           </>
@@ -350,7 +350,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
 function btn(active: boolean) {
   return `text-sm font-bold py-2 rounded border-2 transition-colors ${
     active
-      ? 'bg-amber-100 border-amber-500 text-amber-800'
-      : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+      ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-500 dark:border-amber-600 text-amber-800 dark:text-amber-200'
+      : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300'
   }`
 }

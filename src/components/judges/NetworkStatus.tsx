@@ -63,13 +63,13 @@ export function NetworkStatus() {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs">
         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-        <span className="text-gray-400">Online</span>
+        <span className="text-gray-400 dark:text-zinc-400">Online</span>
       </span>
     )
   }
 
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded ${online ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded ${online ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400' : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400'}`}>
       <span className={`w-2 h-2 rounded-full ${online ? 'bg-amber-500' : 'bg-red-500 animate-pulse'}`}></span>
       <span className="font-bold">{online ? 'Syncing' : 'Offline'}</span>
       {queuedCount > 0 && <span className="font-mono">· {queuedCount} queued</span>}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import type { Team } from '@/types/database'
+import { ThemeToggle } from '@/components/judges/ThemeToggle'
 
 type Cat = 'a' | 'b' | 'c' | 'd'
 const CATEGORIES: Cat[] = ['a', 'b', 'c', 'd']
@@ -93,51 +94,52 @@ export default function TeamsAdminPage() {
   }, {} as Record<Cat, number>)
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 h-16 flex items-center px-10 justify-between">
+    <div className="min-h-screen bg-gray-100 dark:bg-zinc-950">
+      <header className="bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-700 h-16 flex items-center px-10 justify-between">
         <div className="flex items-center gap-3">
-          <a href="/judges/dashboard" className="text-sm text-gray-500 hover:text-gray-900">← Dashboard</a>
-          <span className="text-gray-300">|</span>
+          <a href="/judges/dashboard" className="text-sm text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50">← Dashboard</a>
+          <span className="text-gray-300 dark:text-zinc-400">|</span>
           <span className="text-sm font-bold">Teams Management</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <a href="/judges/admin/users" className="text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Judges</a>
+          <a href="/judges/admin/users" className="text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 px-2.5 py-1.5 rounded border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800">Judges</a>
+          <ThemeToggle />
         </div>
       </header>
 
       <div className="px-10 py-10 max-w-5xl">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Teams</h1>
-        <p className="text-sm text-gray-500 mb-8">Add and manage competition teams. Each team belongs to one category.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100 mb-1">Teams</h1>
+        <p className="text-sm text-gray-500 dark:text-zinc-400 mb-8">Add and manage competition teams. Each team belongs to one category.</p>
 
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-zinc-700">
           {CATEGORIES.map(c => (
             <button key={c} onClick={() => setActiveCat(c)}
               className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
                 activeCat === c
-                  ? 'border-amber-600 text-amber-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-900'
+                  ? 'border-amber-600 text-amber-700 dark:text-amber-400'
+                  : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50'
               }`}>
-              {CAT_LABELS[c]} <span className="text-xs text-gray-400 ml-1">({counts[c]})</span>
+              {CAT_LABELS[c]} <span className="text-xs text-gray-400 dark:text-zinc-400 ml-1">({counts[c]})</span>
             </button>
           ))}
         </div>
 
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900 mb-4">Add Team to {CAT_LABELS[activeCat]}</h2>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm p-5 border border-gray-100 dark:border-zinc-800">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-100 mb-4">Add Team to {CAT_LABELS[activeCat]}</h2>
               <form onSubmit={handleCreate} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Team name</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5">Team name</label>
                   <input value={name} onChange={e => setName(e.target.value)}
                     placeholder="e.g. Rocket Robotics"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">School / Mentor</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-zinc-300 mb-1.5">School / Mentor</label>
                   <input value={school} onChange={e => setSchool(e.target.value)}
                     placeholder="Optional"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                 </div>
                 <button type="submit" disabled={loading}
                   className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-md hover:bg-gray-800 disabled:opacity-50">
@@ -145,18 +147,18 @@ export default function TeamsAdminPage() {
                 </button>
               </form>
 
-              <div className="mt-5 pt-5 border-t border-gray-100">
+              <div className="mt-5 pt-5 border-t border-gray-100 dark:border-zinc-800">
                 <button onClick={() => setBulkOpen(!bulkOpen)}
-                  className="text-xs text-gray-500 hover:text-gray-900 font-semibold">
+                  className="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-50 font-semibold">
                   {bulkOpen ? '× Close bulk import' : '+ Bulk import (CSV)'}
                 </button>
                 {bulkOpen && (
                   <div className="mt-3 space-y-2">
-                    <p className="text-[11px] text-gray-500">Format: <code className="bg-gray-100 px-1">name,school</code> — one team per line</p>
+                    <p className="text-[11px] text-gray-500 dark:text-zinc-400">Format: <code className="bg-gray-100 dark:bg-zinc-800 px-1">name,school</code> — one team per line</p>
                     <textarea value={bulkText} onChange={e => setBulkText(e.target.value)}
                       placeholder={`Rocket Robotics,School #1\nLaser Bots,School #2`}
                       rows={5}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:outline-none focus:border-amber-500" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:outline-none focus:border-amber-500 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-500" />
                     <button onClick={handleBulkImport} disabled={loading || !bulkText.trim()}
                       className="w-full bg-amber-600 text-white text-xs font-semibold py-2 rounded-md hover:bg-amber-700 disabled:opacity-50">
                       {loading ? 'Importing...' : `Import to ${activeCat.toUpperCase()}`}
@@ -168,19 +170,19 @@ export default function TeamsAdminPage() {
           </div>
 
           <div className="col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-900">
+            <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-gray-900 dark:text-zinc-100">
                   {filteredTeams.length} team{filteredTeams.length === 1 ? '' : 's'} in {CAT_LABELS[activeCat]}
                 </h2>
               </div>
               {filteredTeams.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-400">
+                <div className="px-5 py-12 text-center text-sm text-gray-400 dark:text-zinc-400">
                   No teams yet. Add one using the form on the left.
                 </div>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500 font-semibold">
+                  <thead className="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 font-semibold">
                     <tr>
                       <th className="text-left px-5 py-2.5 w-12">#</th>
                       <th className="text-left px-5 py-2.5">Team</th>
@@ -190,13 +192,13 @@ export default function TeamsAdminPage() {
                   </thead>
                   <tbody>
                     {filteredTeams.map((t, i) => (
-                      <tr key={t.id} className="border-t border-gray-100 hover:bg-gray-50">
-                        <td className="px-5 py-3 text-gray-400">{i + 1}</td>
-                        <td className="px-5 py-3 font-semibold text-gray-900">{t.name}</td>
-                        <td className="px-5 py-3 text-gray-600">{t.school || <span className="text-gray-300">—</span>}</td>
+                      <tr key={t.id} className="border-t border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800">
+                        <td className="px-5 py-3 text-gray-400 dark:text-zinc-400">{i + 1}</td>
+                        <td className="px-5 py-3 font-semibold text-gray-900 dark:text-zinc-100">{t.name}</td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-zinc-400">{t.school || <span className="text-gray-300 dark:text-zinc-400">—</span>}</td>
                         <td className="px-5 py-3 text-right">
                           <button onClick={() => handleDelete(t.id, t.name)}
-                            className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50">
+                            className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-semibold px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 dark:bg-red-950/30">
                             Delete
                           </button>
                         </td>

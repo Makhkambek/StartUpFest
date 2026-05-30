@@ -299,6 +299,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
     goals2: state.wins_white,
     match_phase: match_phase as 'group' | 'extra' | 'penalties',
     notes: null,
+    scheduled_match_id: sched.id,
   })
   markComplete(sched.id, created.id, null)
   return null

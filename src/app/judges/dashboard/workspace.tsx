@@ -25,12 +25,12 @@ function del(url: string, body: unknown) {
 function StandingRow({ rank, name, score, status }: { rank: number; name: string; score: string; status?: string }) {
   const medal = rank === 1 ? 'bg-amber-400' : rank === 2 ? 'bg-gray-300' : rank === 3 ? 'bg-amber-700' : 'bg-gray-100 text-gray-400'
   return (
-    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg ${rank <= 3 ? 'bg-amber-50' : 'hover:bg-gray-50'}`}>
+    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg ${rank <= 3 ? 'bg-amber-50 dark:bg-amber-950/30' : 'hover:bg-gray-50'}`}>
       <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 ${medal}`}>{rank}</span>
       <span className="flex-1 text-sm font-medium truncate">{name}</span>
       <span className="text-xs font-mono text-gray-500 shrink-0">{score}</span>
-      {status === 'dnf' && <span className="text-[9px] font-bold text-orange-500">DNF</span>}
-      {status === 'disq' && <span className="text-[9px] font-bold text-red-500">DQ</span>}
+      {status === 'dnf' && <span className="text-[9px] font-bold text-orange-500 dark:text-orange-400">DNF</span>}
+      {status === 'disq' && <span className="text-[9px] font-bold text-red-500 dark:text-red-400">DQ</span>}
     </div>
   )
 }
@@ -138,7 +138,7 @@ function TeamsPanel({ category, teams, onReload }: { category: string; teams: Te
                 <div className="text-[10px] text-gray-400 truncate">{t.school}</div>
               </div>
               <button onClick={() => remove(t.id)}
-                className="text-[10px] text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                className="text-[10px] text-red-300 hover:text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
             </div>
           ))}
       </div>
@@ -412,7 +412,7 @@ function SaveBar({ saving, msg, disabled, onSave }: { saving: boolean; msg: stri
         className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-gray-700 transition-colors">
         {saving ? 'Saving…' : 'Save'}
       </button>
-      {msg && <span className={`text-sm font-medium ${msg.includes('!') ? 'text-green-600' : 'text-red-500'}`}>{msg}</span>}
+      {msg && <span className={`text-sm font-medium ${msg.includes('!') ? 'text-green-600' : 'text-red-500 dark:text-red-400'}`}>{msg}</span>}
     </div>
   )
 }
@@ -431,7 +431,7 @@ function HistoryA({ teams, results }: { teams: Team[]; results: ResultA[] }) {
             <span className="font-medium flex-1 truncate">{name(r.team_id)}</span>
             <span className="text-gray-400">{r.run_phase === 'final' ? 'F' : 'Q'}</span>
             <span className="font-mono text-gray-500">{r.run1 ?? '—'} / {r.run2 ?? '—'}</span>
-            {r.penalty !== '0' && <span className="text-orange-500 font-bold">{r.penalty.toUpperCase()}</span>}
+            {r.penalty !== '0' && <span className="text-orange-500 dark:text-orange-400 font-bold">{r.penalty.toUpperCase()}</span>}
             <span className="font-mono font-bold text-gray-800 w-14 text-right">{r.total !== null ? r.total.toFixed(2) + 's' : '—'}</span>
           </div>
         ))}
@@ -545,7 +545,7 @@ export default function JudgeWorkspace({ username, role, categories }: Props) {
       <header className="bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-3 shrink-0 sticky top-0 z-10">
         <div className="w-8 h-8 border-2 border-gray-900 rounded flex items-center justify-center font-black text-[9px] shrink-0">SFRC</div>
         <span className="font-black text-sm tracking-wide text-gray-900">STARTUP FEST</span>
-        <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full">JUDGES PANEL</span>
+        <span className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 border border-amber-200 dark:border-amber-900 text-[10px] font-bold px-2.5 py-0.5 rounded-full">JUDGES PANEL</span>
 
         {/* Category tabs (always visible, switches workspace) */}
         <div className="flex gap-1 ml-4">
@@ -572,7 +572,7 @@ export default function JudgeWorkspace({ username, role, categories }: Props) {
           <a href="/display" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Display ↗</a>
           <a href="/a" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Public ↗</a>
           <form action="/api/auth/logout" method="post" className="inline">
-            <button type="submit" className="text-xs text-red-600 hover:text-red-700 px-2.5 py-1.5 rounded border border-red-200 hover:bg-red-50">Log Out</button>
+            <button type="submit" className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2.5 py-1.5 rounded border border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/30 dark:bg-red-950/30">Log Out</button>
           </form>
         </div>
       </header>

@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import type { LiveStateB } from '@/types/database'
@@ -107,7 +106,6 @@ function formatMMSS(s: number): string {
 }
 
 export default function FieldCClient() {
-  const t = useTranslations('field.c')
   const [data, setData] = useState<FieldStateC | null>(null)
   const lastFetchAt = useRef(Date.now())
   const [stale, setStale] = useState(false)
@@ -161,7 +159,7 @@ export default function FieldCClient() {
     }
   }, [refetch])
 
-  if (!data) return <Boot label={t('title')} />
+  if (!data) return <Boot label={'MiniRoboWar'} />
   return (
     <>
       <FightingView data={data} />
@@ -191,9 +189,7 @@ function Boot({ label }: { label: string }) {
 }
 
 function FightingView({ data }: { data: FieldStateC }) {
-  const t = useTranslations('field.c')
-  const locale = useLocale() as 'en' | 'ru' | 'uz'
-  const { settings: eventSettings, watermark: eventWatermark } = useEventSettings(locale)
+  const { settings: eventSettings, watermark: eventWatermark } = useEventSettings('en')
   const { state, match, red, white, nextMatch } = data
 
   const isRunning = state.phase === 'fighting'
@@ -219,7 +215,7 @@ function FightingView({ data }: { data: FieldStateC }) {
 
   // Idle / next preview state
   if (!hasMatch) {
-    return <ArenaIdle next={nextMatch} t={t} />
+    return <ArenaIdle next={nextMatch} />
   }
 
   // Final method (KO / IMM / JD) read from starting_position hack at end.
@@ -282,7 +278,7 @@ function FightingView({ data }: { data: FieldStateC }) {
       <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-center px-6">
         {/* Round indicator */}
         <div className="text-rose-300/80 text-xs sm:text-sm font-black tracking-[0.45em] uppercase mb-3">
-          ▌ {t('bout')} · {match!.match_id} ▐
+          ▌ {'Bout'} · {match!.match_id} ▐
         </div>
 
         {/* Big central timer or alert */}
@@ -302,7 +298,7 @@ function FightingView({ data }: { data: FieldStateC }) {
             </div>
             <div className="mt-3 text-rose-400 font-black tracking-[0.5em] text-sm sm:text-base"
               style={{ animation: 'sfrcLive 1s ease-in-out infinite' }}>
-              ● {matchSeconds < MATCH_DURATION_SEC - 1.2 ? t('phaseFighting') : t('go')} ●
+              ● {matchSeconds < MATCH_DURATION_SEC - 1.2 ? 'FIGHTING' : 'GO!'} ●
             </div>
           </div>
         ) : isCountdown ? (
@@ -312,15 +308,15 @@ function FightingView({ data }: { data: FieldStateC }) {
               : String(Math.ceil(cdRemaining))
             }
             color="text-amber-300"
-            small={t('getReady')}
+            small={'GET READY'}
           />
         ) : inSuspense ? (
-          <SuspenseStage t={t} />
+          <SuspenseStage />
         ) : suspenseDone ? (
-          <ResultStage method={method} winnerSide={winnerSide} red={red!} white={white!} t={t} />
+          <ResultStage method={method} winnerSide={winnerSide} red={red!} white={white!} />
         ) : (
           // waiting / positioning
-          <CenterText text={t('phasePositioning')} color="text-rose-200" />
+          <CenterText text={'ROBOTS IN ARENA'} color="text-rose-200" />
         )}
       </main>
 
@@ -328,14 +324,14 @@ function FightingView({ data }: { data: FieldStateC }) {
       <footer className="relative z-20 border-t-2 border-rose-700/50 bg-black/70 backdrop-blur-sm px-6 sm:px-10 py-3">
         <div className="grid grid-cols-3 items-center">
           <div className="text-xs font-black tracking-[0.3em] uppercase text-rose-300">
-            ▌ {t('scoreboard')} ▐
+            ▌ {'JUDGES SCORECARD'} ▐
           </div>
           <div className="text-center text-rose-200/70 text-xs font-bold tracking-widest uppercase">
             {suspenseDone ? (
               <>
                 <span className="text-rose-400 font-black">{state.wins_red}</span>
                 <span className="mx-2 text-rose-600/50">·</span>
-                {t('judgeScore')}
+                {'Judge Score'}
                 <span className="mx-2 text-rose-600/50">·</span>
                 <span className="text-cyan-300 font-black">{state.wins_white}</span>
               </>
@@ -359,8 +355,8 @@ function FightingView({ data }: { data: FieldStateC }) {
             accent={winnerSide === 'red' ? 'red' : 'cyan'}
             serial={match!.match_id}
             watermark={eventWatermark}
-            caption={`${t('title')} · SFRC`}
-            label={`${t('winner')}${method ? ` · ${method === 'KO' ? t('ko') : method === 'IMM' ? t('imm') : t('jd')}` : ''}`}
+            caption={`${'MiniRoboWar'} · SFRC`}
+            label={`${'WINNER'}${method ? ` · ${method === 'KO' ? 'K.O.!' : method === 'IMM' ? 'IMMOBILIZED!' : "JUDGES' DECISION"}` : ''}`}
             winnerName={(winnerSide === 'red' ? red! : white!).name ?? '—'}
           >
             <TrophyCrest accent="red" code={teamCode(red!.name)} />
@@ -501,11 +497,11 @@ function CenterText({ text, color, small }: { text: string; color: string; small
 
 // ── Suspense "calculating result" stage before the real reveal ──
 // FTC-style build-up: indeterminate loading bar + animated dots, ~2.2s.
-function SuspenseStage({ t }: { t: ReturnType<typeof useTranslations> }) {
+function SuspenseStage() {
   return (
     <div className="text-center">
       <div className="text-amber-300/80 text-xs sm:text-sm font-black tracking-[0.5em] uppercase mb-6">
-        ▌ {t('judgesDecision')} ▐
+        ▌ {"JUDGES' DECISION"} ▐
       </div>
       <div
         className="font-black uppercase tracking-tight text-white/80"
@@ -541,22 +537,21 @@ function SuspenseStage({ t }: { t: ReturnType<typeof useTranslations> }) {
 
 // ── Big result alert (K.O., IMM, JD) ──
 function ResultStage({
-  method, winnerSide, red, white, t,
+  method, winnerSide, red, white,
 }: {
   method: 'KO' | 'IMM' | 'JD' | null
   winnerSide: 'red' | 'white' | 'draw' | null
   red: TeamLite
   white: TeamLite
-  t: ReturnType<typeof useTranslations>
 }) {
   if (winnerSide === 'draw') {
     return (
       <div className="text-center">
         <div className="font-black text-amber-300 tracking-tight" style={{ fontSize: 'clamp(5rem, 12vw, 10rem)', animation: 'sfrcKOSlam 0.55s ease-out' }}>
-          {t('draw')}
+          {'DRAW'}
         </div>
         <div className="mt-2 text-amber-200/80 text-lg sm:text-2xl font-bold uppercase tracking-widest">
-          {t('jd')}
+          {"JUDGES' DECISION"}
         </div>
       </div>
     )
@@ -564,9 +559,9 @@ function ResultStage({
 
   const winnerName = winnerSide === 'red' ? red.name : white.name
   const headline =
-    method === 'KO' ? t('ko')
-    : method === 'IMM' ? t('imm')
-    : t('jd')
+    method === 'KO' ? 'K.O.!'
+    : method === 'IMM' ? 'IMMOBILIZED!'
+    : "JUDGES' DECISION"
   // Color KO/IMM in the winner's side color; JD stays neutral cyan.
   const headlineColor =
     method === 'JD' ? 'text-cyan-200'
@@ -594,14 +589,14 @@ function ResultStage({
       <div className="mt-4 inline-flex items-center gap-3 bg-amber-400 text-black px-6 py-2"
         style={{ animation: 'sfrcKOSlam 0.7s ease-out 0.15s both' }}>
         <span className="text-2xl">🏆</span>
-        <span className="font-black tracking-[0.3em] text-sm sm:text-base">{t('winner')}: {winnerName}</span>
+        <span className="font-black tracking-[0.3em] text-sm sm:text-base">{'WINNER'}: {winnerName}</span>
       </div>
     </div>
   )
 }
 
 // ── Idle / On-deck preview ──
-function ArenaIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof useTranslations> }) {
+function ArenaIdle({ next }: { next: NextMatch | null }) {
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center bg-black text-white relative overflow-hidden px-6 sm:px-12 py-10"
       style={{ fontFamily: '"Anton", "Impact", "Arial Black", sans-serif' }}>
@@ -613,7 +608,7 @@ function ArenaIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
           fontSize: 'clamp(1.5rem, 4vw, 3.5rem)',
           animation: 'sfrcMagentaPulse 3s ease-in-out infinite',
         }}>
-        ▌ {t('title')} ▐
+        ▌ {'MiniRoboWar'} ▐
       </div>
 
       {next && next.red && next.white ? (
@@ -625,27 +620,27 @@ function ArenaIdle({ next, t }: { next: NextMatch | null; t: ReturnType<typeof u
           >
             <div className="text-amber-300 font-black tracking-[0.4em] uppercase text-center"
               style={{ fontSize: 'clamp(1rem, 2.4vw, 2rem)' }}>
-              ⚡ {t('nextBout')} <span className="text-white/40 mx-2">·</span> <span className="font-mono">#{next.match_id}</span>
+              ⚡ {'NEXT BOUT'} <span className="text-white/40 mx-2">·</span> <span className="font-mono">#{next.match_id}</span>
             </div>
           </div>
 
           {/* Equal-width 3-col layout: player1 | VS | player2 (each player 5fr, VS 2fr — both names centered in their cell) */}
           <div className="relative z-10 grid grid-cols-[5fr_2fr_5fr] gap-4 sm:gap-8 items-center w-full max-w-7xl mx-auto">
-            <PlayerCell side="red"   label={t('player1')} name={next.red.name ?? '—'}   school={next.red.school} />
+            <PlayerCell side="red"   label={'Player 1'} name={next.red.name ?? '—'}   school={next.red.school} />
             <div className="text-rose-500 font-black text-center"
               style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)', animation: 'sfrcArcadeFlicker 2s linear infinite' }}>
               VS
             </div>
-            <PlayerCell side="white" label={t('player2')} name={next.white.name ?? '—'} school={next.white.school} />
+            <PlayerCell side="white" label={'Player 2'} name={next.white.name ?? '—'} school={next.white.school} />
           </div>
         </>
       ) : (
         <>
           <div className="relative z-10 text-rose-200 font-black uppercase tracking-tight text-center mb-3"
             style={{ fontSize: 'clamp(2.5rem, 6vw, 5.5rem)' }}>
-            {t('noMatchActive')}
+            {'Awaiting next bout'}
           </div>
-          <div className="relative z-10 text-white/40 text-base sm:text-xl uppercase tracking-widest text-center">{t('noMatchHint')}</div>
+          <div className="relative z-10 text-white/40 text-base sm:text-xl uppercase tracking-widest text-center">{'Arena clear · standby'}</div>
         </>
       )}
     </div>
