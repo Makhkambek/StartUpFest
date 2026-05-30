@@ -61,9 +61,11 @@ export default function JudgeDPage() {
   }, [load])
 
   const handleGenerate = async () => {
+    const n = parseInt(genN)
+    if (!n || n < 1 || n > 20) { setGenError('Enter a number between 1 and 20'); return }
     if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
     setGenerating(true); setGenError('')
-    const res = await fetch('/api/judges/schedule/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', n: parseInt(genN) || 2 }) })
+    const res = await fetch('/api/judges/schedule/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', n }) })
     if (!res.ok) { const e = await res.json(); setGenError(e.error ?? 'Failed'); setGenerating(false); return }
     await load(); setGenerating(false)
   }

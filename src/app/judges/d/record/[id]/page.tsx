@@ -215,13 +215,13 @@ export default function RecordDPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Goals — {teamName(match.team1_id)}</label>
-              <input type="number" min="0" step="1" value={goals1} onChange={e => setGoals1(e.target.value)}
+              <input type="number" inputMode="numeric" min="0" step="1" value={goals1} onChange={e => setGoals1(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-green-300" />
             </div>
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide block mb-2">Goals — {match.team2_id ? teamName(match.team2_id) : 'Team 2'}</label>
-              <input type="number" min="0" step="1" value={goals2} onChange={e => setGoals2(e.target.value)}
+              <input type="number" inputMode="numeric" min="0" step="1" value={goals2} onChange={e => setGoals2(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-green-300" />
             </div>

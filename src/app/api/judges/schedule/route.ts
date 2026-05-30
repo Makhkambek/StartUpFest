@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSession, requireAdmin } from '@/lib/session'
+import { requireSession, requireAdmin, requireCategory } from '@/lib/session'
 import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -30,9 +30,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authz = await requireAdmin()
-  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
-
   const body = await req.json() as {
     category: string
     match_id: string
@@ -42,6 +39,10 @@ export async function POST(req: NextRequest) {
   if (!body.category || !body.match_id || !body.team1_id) {
     return NextResponse.json({ error: 'category, match_id, team1_id required' }, { status: 400 })
   }
+
+  const authz = await requireCategory(body.category)
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
   // Cat A allows solo (team2_id = null). Others require team2 to differ.
   if (body.team2_id && body.team1_id === body.team2_id) {
     return NextResponse.json({ error: 'Teams must differ' }, { status: 400 })
