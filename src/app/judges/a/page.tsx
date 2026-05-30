@@ -111,6 +111,12 @@ export default function JudgeAPage() {
     await load()
   }
 
+  const replayMatch = async (id: string, matchId: string) => {
+    if (!confirm(`Reset ${matchId} and delete its result? The match will go back to PENDING.`)) return
+    await fetch(`/api/judges/schedule/${id}/replay`, { method: 'POST' })
+    await load()
+  }
+
   const setStatus = async (id: string, status: ScheduledMatch['status']) => {
     await fetch(`/api/judges/schedule/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     setSchedule(prev => prev.map(m => m.id === id ? { ...m, status } : m))
@@ -314,6 +320,12 @@ export default function JudgeAPage() {
                                     className="px-2.5 py-1.5 rounded text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
                                     {done ? 'Edit' : 'Record'}
                                   </button>
+                                  {done && isAdmin && (
+                                    <button onClick={() => replayMatch(m.id, m.match_id)}
+                                      className="px-2.5 py-1.5 rounded text-xs font-bold border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors">
+                                      ↩
+                                    </button>
+                                  )}
                                   {r && (
                                     <button onClick={() => setActiveMatch(isOpen ? null : m)}
                                       className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${isOpen ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
