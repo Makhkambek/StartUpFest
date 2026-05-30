@@ -264,14 +264,14 @@ export default function JudgeAPage() {
                   ? <p className="text-center text-sm text-gray-300 py-10">No matches scheduled yet</p>
                   : (
                     <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-sm">
+                    <table className="w-full min-w-[300px] text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wide">
-                          <th className="text-left px-4 py-3 w-20">Match</th>
-                          <th className="text-left px-4 py-3">Team</th>
-                          <th className="text-center px-3 py-3 w-20">Status</th>
-                          <th className="text-center px-3 py-3 w-20">Result</th>
-                          <th className="px-4 py-3 w-32"></th>
+                          <th className="text-left px-3 py-3 w-16">Match</th>
+                          <th className="text-left px-3 py-3">Team</th>
+                          <th className="hidden sm:table-cell text-center px-3 py-3 w-20">Status</th>
+                          <th className="text-center px-2 py-3 w-16">Result</th>
+                          <th className="px-2 py-3 w-28"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -294,7 +294,7 @@ export default function JudgeAPage() {
                                 <div className={`font-medium truncate ${isNext ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{teamName(m.team1_id)}</div>
                                 {m.team2_id && <div className="text-xs text-gray-400">ref: {teamName(m.team2_id)}</div>}
                               </td>
-                              <td className="px-3 py-3 text-center">
+                              <td className="hidden sm:table-cell px-3 py-3 text-center">
                                 {done ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">DONE</span>
                                 ) : m.status === 'active' ? (
@@ -305,35 +305,35 @@ export default function JudgeAPage() {
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PENDING</span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 text-center font-mono font-bold text-gray-700 text-xs">
+                              <td className="px-2 py-3 text-center font-mono font-bold text-gray-700 text-xs">
                                 {r ? resultLabel(r) : <span className="text-gray-300">—</span>}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-2 py-3">
                                 <div className="flex items-center justify-end gap-1">
                                   {!done && (
                                     <button onClick={() => setStatus(m.id, m.status === 'waiting' ? 'pending' : 'waiting')}
-                                      className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${m.status === 'waiting' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'border-gray-200 text-gray-400 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}>
+                                      className={`hidden sm:inline-flex px-2.5 py-2 rounded text-xs font-bold border transition-colors min-h-[36px] items-center ${m.status === 'waiting' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'border-gray-200 text-gray-400 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50'}`}>
                                       {m.status === 'waiting' ? '⏳' : 'Wait'}
                                     </button>
                                   )}
                                   <button onClick={() => router.push('/judges/a/record/' + m.id)}
-                                    className="px-2.5 py-1.5 rounded text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors">
+                                    className="px-3 py-2 rounded text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]">
                                     {done ? 'Edit' : 'Record'}
                                   </button>
                                   {done && isAdmin && (
                                     <button onClick={() => replayMatch(m.id, m.match_id)}
-                                      className="px-2.5 py-1.5 rounded text-xs font-bold border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors">
+                                      className="px-2.5 py-2 rounded text-xs font-bold border border-orange-200 text-orange-500 hover:bg-orange-50 transition-colors min-h-[36px]">
                                       ↩
                                     </button>
                                   )}
                                   {r && (
                                     <button onClick={() => setActiveMatch(isOpen ? null : m)}
-                                      className={`px-2.5 py-1.5 rounded text-xs font-bold border transition-colors ${isOpen ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                                      className={`hidden sm:inline-flex px-2.5 py-2 rounded text-xs font-bold border transition-colors min-h-[36px] items-center ${isOpen ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
                                       See
                                     </button>
                                   )}
                                   <button onClick={() => { if (confirm(`Delete ${m.match_id}?`)) deleteMatch(m.id) }}
-                                    className="px-2 py-1.5 rounded text-xs text-red-300 hover:text-red-500 border border-transparent hover:border-red-200 transition-colors">✕</button>
+                                    className="px-2 py-2 rounded text-xs text-red-300 hover:text-red-500 border border-transparent hover:border-red-200 transition-colors min-h-[36px]">✕</button>
                                 </div>
                               </td>
                             </tr>

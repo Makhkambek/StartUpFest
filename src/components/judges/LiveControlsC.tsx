@@ -169,7 +169,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
   const sortedEligible = [...eligible].sort((a, b) =>
     a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
   )
-  const activeMatch = schedule.find((m) => m.id === state.active_match_id) ?? null
+  const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
   const isMatchOver = state.phase === 'match_result' || (state.phase === 'round_result' && state.match_winner !== null)
   const nextPending = sortedEligible.find((m) => m.id !== state.active_match_id) ?? null
 

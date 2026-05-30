@@ -260,7 +260,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   }
 
   const eligible = schedule.filter((m) => m.status !== 'completed' && m.team2_id)
-  const activeMatch = schedule.find((m) => m.id === state.active_match_id) ?? null
+  const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
   const isMatchOver = state.phase === 'match_result'
   const isHalftime = state.phase === 'round_result'
   const isLive = state.phase === 'fighting'

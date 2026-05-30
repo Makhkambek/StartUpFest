@@ -117,7 +117,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
     </div>
   )
 
-  const activeMatch = schedule.find((m) => m.id === state.active_match_id) ?? null
+  const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
 
   return (
     <div className="bg-white rounded-lg border-2 border-amber-300 shadow-sm">
