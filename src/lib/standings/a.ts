@@ -34,22 +34,30 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
         status: 'elim',
       }
     }
+    // Each scheduled match = one run stored as run1 in its own result row.
+    // Sort by updated_at to get chronological order, then treat each row's
+    // run1 as the N-th run for display purposes.
+    const sorted = [...teamResults].sort((a, b) => a.updated_at.localeCompare(b.updated_at))
+    const run1 = sorted[0]?.run1 ?? null
+    const run2 = sorted[1]?.run1 ?? null
+
+    // Best result row for ranking (lowest total, ignoring DNF/DISQ).
     const completed = teamResults.filter(r => r.penalty !== 'dnf' && r.penalty !== 'disq' && r.total !== null)
-    const r = completed.length
+    const best = completed.length
       ? completed.reduce((a, b) => (a.total! <= b.total! ? a : b))
       : teamResults[teamResults.length - 1]
-    const isDnf = r.penalty === 'dnf'
-    const isDisq = r.penalty === 'disq'
-    const runs = [r.run1, r.run2].filter((v): v is number => v !== null)
-    const bestRun = runs.length ? Math.min(...runs) : null
+    const isDnf = completed.length === 0 && best.penalty === 'dnf'
+    const isDisq = completed.length === 0 && best.penalty === 'disq'
+    const allTimes = sorted.map(r => r.run1).filter((v): v is number => v !== null)
+    const bestRun = allTimes.length ? Math.min(...allTimes) : null
     return {
       team,
-      run1: r.run1,
-      run2: r.run2,
-      penalty: r.penalty,
+      run1,
+      run2,
+      penalty: best.penalty,
       bestRun,
-      total: isDnf ? TOTAL_DNF : isDisq ? TOTAL_DISQ : (r.total ?? TOTAL_NO_RESULT),
-      displayTotal: isDnf || isDisq ? null : r.total,
+      total: isDnf ? TOTAL_DNF : isDisq ? TOTAL_DISQ : (best.total ?? TOTAL_NO_RESULT),
+      displayTotal: isDnf || isDisq ? null : best.total,
       status: isDnf ? 'dnf' : isDisq ? 'disq' : null,
     }
   })
