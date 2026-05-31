@@ -87,8 +87,60 @@ function buildPairings(teamIds: string[], n: number): { team1_id: string; team2_
   return pairs
 }
 
-function alliancesPossible(teamCount: number): number {
-  return Math.floor(teamCount / 4)
+// Category D (Robo Football) — global slot-based scheduler.
+// Every team plays exactly n matches. If (teams * n) is not divisible by 4,
+// we add surrogate slots so the total is divisible. Surrogate teams play an
+// extra match but their result does NOT count toward their standings.
+// This mirrors the FTC surrogate system.
+function buildAlliancesGlobal(teamIds: string[], n: number): {
+  team1_id: string; team1b_id: string; team2_id: string; team2b_id: string
+  surrogate_team_ids: string[]
+}[] {
+  type Entry = { id: string; isSurrogate: boolean }
+
+  // Each team gets n normal slots
+  const pool: Entry[] = teamIds.flatMap(id =>
+    Array.from({ length: n }, () => ({ id, isSurrogate: false }))
+  )
+
+  // Pad to next multiple of 4 with surrogate entries
+  const rem = pool.length % 4
+  const surrogateCount = rem === 0 ? 0 : 4 - rem
+  shuffle(teamIds).slice(0, surrogateCount).forEach(id =>
+    pool.push({ id, isSurrogate: true })
+  )
+
+  const entries = shuffle(pool)
+
+  const matches: { team1_id: string; team1b_id: string; team2_id: string; team2b_id: string; surrogate_team_ids: string[] }[] = []
+
+  for (let i = 0; i < entries.length; i += 4) {
+    const batch = entries.slice(i, i + 4)
+
+    // Resolve duplicate teams within the batch by swapping with a later entry
+    const seen = new Set<string>()
+    for (let j = 0; j < 4; j++) {
+      if (seen.has(batch[j].id)) {
+        for (let k = i + 4; k < entries.length; k++) {
+          if (!seen.has(entries[k].id)) {
+            const tmp = batch[j]; batch[j] = entries[k]; entries[k] = tmp
+            break
+          }
+        }
+      }
+      seen.add(batch[j].id)
+    }
+
+    matches.push({
+      team1_id: batch[0].id,
+      team1b_id: batch[1].id,
+      team2_id: batch[2].id,
+      team2b_id: batch[3].id,
+      surrogate_team_ids: batch.filter(e => e.isSurrogate).map(e => e.id),
+    })
+  }
+
+  return matches
 }
 
 // Bug #19 helpers — count and clear qualification matches before regenerating.
@@ -126,48 +178,6 @@ async function clearQualificationMatches(category: string, cityCode: string) {
   }
 }
 
-// Category D (Robo Football) — alliance pairings: 4 teams per match (2 vs 2).
-// Each match: red alliance = team1+team1b, blue alliance = team2+team2b.
-// At round boundaries, swaps the first match to avoid repeating teams from
-// the previous round's last match.
-function buildAlliances(teamIds: string[], n: number): {
-  team1_id: string; team1b_id: string; team2_id: string; team2b_id: string
-}[] {
-  const out: { team1_id: string; team1b_id: string; team2_id: string; team2b_id: string }[] = []
-
-  for (let round = 0; round < n; round++) {
-    const order = shuffle(teamIds)
-    const roundMatches: { team1_id: string; team1b_id: string; team2_id: string; team2b_id: string }[] = []
-    for (let i = 0; i + 3 < order.length; i += 4) {
-      roundMatches.push({
-        team1_id: order[i],
-        team1b_id: order[i + 1],
-        team2_id: order[i + 2],
-        team2b_id: order[i + 3],
-      })
-    }
-
-    // Fix round boundary: swap first match to avoid repeating teams from last match.
-    if (out.length > 0 && roundMatches.length > 1) {
-      const prev = out[out.length - 1]
-      const prevTeams = new Set([prev.team1_id, prev.team1b_id, prev.team2_id, prev.team2b_id])
-      const first = roundMatches[0]
-      const firstTeams = [first.team1_id, first.team1b_id, first.team2_id, first.team2b_id]
-      if (firstTeams.some(t => prevTeams.has(t))) {
-        const swapIdx = roundMatches.findIndex(m =>
-          ![m.team1_id, m.team1b_id, m.team2_id, m.team2b_id].some(t => prevTeams.has(t))
-        )
-        if (swapIdx > 0) {
-          [roundMatches[0], roundMatches[swapIdx]] = [roundMatches[swapIdx], roundMatches[0]]
-        }
-      }
-    }
-
-    out.push(...roundMatches)
-  }
-
-  return out
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json() as { category: string; n: number; replace?: boolean }
@@ -238,10 +248,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.category === 'd') {
-    if (alliancesPossible(teams.length) === 0) {
+    if (teams.length < 4) {
       return NextResponse.json({ error: `Need at least 4 teams for alliance matches (you have ${teams.length})` }, { status: 400 })
     }
-    const alliances = buildAlliances(teams.map((t) => t.id), body.n)
+    const alliances = buildAlliancesGlobal(teams.map((t) => t.id), body.n)
+    const surrogateCount = alliances.reduce((s, a) => s + a.surrogate_team_ids.length, 0)
     if (hasSupabase) {
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
@@ -253,21 +264,22 @@ export async function POST(req: NextRequest) {
         team1b_id: a.team1b_id,
         team2_id: a.team2_id,
         team2b_id: a.team2b_id,
+        surrogate_team_ids: a.surrogate_team_ids,
         city_code: cityCode,
         created_at: new Date(now + i).toISOString(),
       }))
       const { error } = await supabase.from('scheduled_matches').insert(rows)
       if (error) {
-        const isMissingCol = /team1b_id|team2b_id|schema cache/i.test(error.message)
+        const isMissingCol = /team1b_id|team2b_id|surrogate|schema cache/i.test(error.message)
         if (isMissingCol) {
           return NextResponse.json({
-            error: `Migration 015 not applied. Run in Supabase SQL Editor: ALTER TABLE scheduled_matches ADD COLUMN team1b_id UUID REFERENCES teams(id), ADD COLUMN team2b_id UUID REFERENCES teams(id);`,
-            needsMigration: '015_alliance_partners',
+            error: `Missing column — run migrations 015 and 026 in Supabase SQL Editor.`,
+            needsMigration: '026_surrogate_teams',
           }, { status: 500 })
         }
         return NextResponse.json({ error: `Generate failed: ${error.message}` }, { status: 500 })
       }
-      return NextResponse.json({ count: rows.length, format: 'alliance-4' })
+      return NextResponse.json({ count: rows.length, surrogates: surrogateCount, format: 'alliance-4' })
     }
     const { addScheduledMatch } = await import('@/lib/schedule-store')
     alliances.forEach((a, i) => addScheduledMatch({
@@ -277,8 +289,9 @@ export async function POST(req: NextRequest) {
       team1b_id: a.team1b_id,
       team2_id: a.team2_id,
       team2b_id: a.team2b_id,
+      surrogate_team_ids: a.surrogate_team_ids,
     }))
-    return NextResponse.json({ count: alliances.length, format: 'alliance-4' })
+    return NextResponse.json({ count: alliances.length, surrogates: surrogateCount, format: 'alliance-4' })
   }
 
   // B / C — head-to-head pairs

@@ -16,6 +16,8 @@ export interface ScheduledMatch {
   // NULL for categories A/B/C which use 1-vs-1 or solo formats.
   team1b_id?: string | null
   team2b_id?: string | null
+  // Team IDs that are playing surrogate in this match — their result does not count for standings.
+  surrogate_team_ids?: string[]
   status: 'pending' | 'waiting' | 'active' | 'completed'
   phase: MatchPhase
   round: MatchRound | null
@@ -40,6 +42,7 @@ export function addScheduledMatch(data: {
   team2_id: string | null
   team1b_id?: string | null
   team2b_id?: string | null
+  surrogate_team_ids?: string[]
   phase?: MatchPhase
   round?: MatchRound | null
 }): ScheduledMatch {
@@ -51,6 +54,7 @@ export function addScheduledMatch(data: {
     team2_id: data.team2_id,
     team1b_id: data.team1b_id ?? null,
     team2b_id: data.team2b_id ?? null,
+    surrogate_team_ids: data.surrogate_team_ids ?? [],
     phase: data.phase ?? 'qualification',
     round: data.round ?? null,
     status: 'pending',

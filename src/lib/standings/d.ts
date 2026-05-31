@@ -1,6 +1,12 @@
 import type { Team, MatchD, StandingD } from '@/types/database'
 
-export function computeStandingsD(teams: Team[], matches: MatchD[]): StandingD[] {
+// surrogateMap: scheduled_match_id → set of team IDs playing surrogate.
+// Surrogate teams play the match normally but their result is excluded from standings.
+export function computeStandingsD(
+  teams: Team[],
+  matches: MatchD[],
+  surrogateMap?: Map<string, Set<string>>,
+): StandingD[] {
   const stats: Record<string, { wins: number; draws: number; losses: number; points: number; goals_for: number; goals_against: number }> = {}
   teams.forEach((t) => { stats[t.id] = { wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0 } })
 
@@ -11,6 +17,9 @@ export function computeStandingsD(teams: Team[], matches: MatchD[]): StandingD[]
       console.warn('[standings/d] skipping match with unknown team', { match_id: m.id, team1_id: m.team1_id, team2_id: m.team2_id })
       return
     }
+    const surrogates = m.scheduled_match_id && surrogateMap
+      ? (surrogateMap.get(m.scheduled_match_id) ?? new Set<string>())
+      : new Set<string>()
     // Clamp goals to ≥ 0 — canonical validation lives at the POST endpoint;
     // this defends standings math from any bad legacy/test data.
     const g1 = Math.max(0, m.goals1)
@@ -35,10 +44,14 @@ export function computeStandingsD(teams: Team[], matches: MatchD[]): StandingD[]
       else              { s.draws++; s.points++ }
     }
 
-    m.team1_forfeit  ? applyForfeit(s1)  : applyAlliance1(s1)
-    if (s1b) m.team1b_forfeit ? applyForfeit(s1b) : applyAlliance1(s1b)
-    m.team2_forfeit  ? applyForfeit(s2)  : applyAlliance2(s2)
-    if (s2b) m.team2b_forfeit ? applyForfeit(s2b) : applyAlliance2(s2b)
+    if (!surrogates.has(m.team1_id))
+      m.team1_forfeit  ? applyForfeit(s1)  : applyAlliance1(s1)
+    if (s1b && !surrogates.has(m.team1b_id!))
+      m.team1b_forfeit ? applyForfeit(s1b) : applyAlliance1(s1b)
+    if (!surrogates.has(m.team2_id))
+      m.team2_forfeit  ? applyForfeit(s2)  : applyAlliance2(s2)
+    if (s2b && !surrogates.has(m.team2b_id!))
+      m.team2b_forfeit ? applyForfeit(s2b) : applyAlliance2(s2b)
   })
 
   const rows = teams.map((team) => ({

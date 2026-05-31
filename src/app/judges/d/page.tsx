@@ -363,9 +363,15 @@ export default function JudgeDPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-medium text-rose-700 dark:text-rose-400">{teamName(m.team1_id)}{m.team1b_id ? ` + ${teamName(m.team1b_id)}` : ''}</span>
+                                <span className="font-medium text-rose-700 dark:text-rose-400">
+                                  {teamName(m.team1_id)}{m.surrogate_team_ids?.includes(m.team1_id) && <sup className="ml-0.5 text-[9px] font-black text-amber-500">S</sup>}
+                                  {m.team1b_id && <>{' + '}{teamName(m.team1b_id)}{m.surrogate_team_ids?.includes(m.team1b_id) && <sup className="ml-0.5 text-[9px] font-black text-amber-500">S</sup>}</>}
+                                </span>
                                 <span className="text-gray-400 dark:text-zinc-400 mx-1.5">vs</span>
-                                <span className="font-medium text-blue-700 dark:text-blue-400">{teamName(m.team2_id!)}{m.team2b_id ? ` + ${teamName(m.team2b_id)}` : ''}</span>
+                                <span className="font-medium text-blue-700 dark:text-blue-400">
+                                  {teamName(m.team2_id!)}{m.surrogate_team_ids?.includes(m.team2_id!) && <sup className="ml-0.5 text-[9px] font-black text-amber-500">S</sup>}
+                                  {m.team2b_id && <>{' + '}{teamName(m.team2b_id)}{m.surrogate_team_ids?.includes(m.team2b_id) && <sup className="ml-0.5 text-[9px] font-black text-amber-500">S</sup>}</>}
+                                </span>
                               </td>
                               <td className="hidden sm:table-cell px-3 py-3 text-center">
                                 {done ? (

@@ -79,11 +79,17 @@ const standingsD = unstable_cache(
   async () => {
     const cityCode = await getActiveCityCode()
     const supabase = db()
-    const [{ data: teams }, { data: matches }] = await Promise.all([
+    const [{ data: teams }, { data: matches }, { data: scheduled }] = await Promise.all([
       supabase.from('teams').select('*').eq('category', 'd').eq('city_code', cityCode).order('created_at'),
       supabase.from('matches_d').select('*').eq('city_code', cityCode).order('created_at'),
+      supabase.from('scheduled_matches').select('id, surrogate_team_ids').eq('category', 'd').eq('city_code', cityCode),
     ])
-    return computeStandingsD((teams ?? []) as Team[], (matches ?? []) as MatchD[])
+    const surrogateMap = new Map<string, Set<string>>(
+      (scheduled ?? [])
+        .filter((s: { id: string; surrogate_team_ids: string[] | null }) => s.surrogate_team_ids?.length)
+        .map((s: { id: string; surrogate_team_ids: string[] }) => [s.id, new Set(s.surrogate_team_ids)])
+    )
+    return computeStandingsD((teams ?? []) as Team[], (matches ?? []) as MatchD[], surrogateMap)
   },
   ['standings-d'],
   { revalidate: REVALIDATE_SECONDS, tags: ['standings', 'standings-d'] },
