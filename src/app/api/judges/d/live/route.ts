@@ -269,7 +269,9 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
       const { data: created, error: insErr } = await supabase.from('matches_d').insert({
         scheduled_match_id: sched.id,
         team1_id: sched.team1_id,
+        team1b_id: sched.team1b_id ?? null,
         team2_id: sched.team2_id,
+        team2b_id: sched.team2b_id ?? null,
         goals1: state.wins_red,
         goals2: state.wins_white,
         city_code: cityCode,
@@ -294,7 +296,9 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
   const { addMatchD } = await import('@/lib/mock-store')
   const created = addMatchD({
     team1_id: sched.team1_id,
+    team1b_id: sched.team1b_id ?? null,
     team2_id: sched.team2_id,
+    team2b_id: sched.team2b_id ?? null,
     goals1: state.wins_red,
     goals2: state.wins_white,
     match_phase: match_phase as 'group' | 'extra' | 'penalties',

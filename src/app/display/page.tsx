@@ -19,7 +19,9 @@ interface ActiveBundle {
   category: Cat
   match: ScheduledMatch
   team1Name: string
+  team1bName: string | null
   team2Name: string | null
+  team2bName: string | null
   status: 'active' | 'waiting'
 }
 
@@ -27,7 +29,9 @@ interface NextBundle {
   category: Cat
   match: ScheduledMatch
   team1Name: string
+  team1bName: string | null
   team2Name: string | null
+  team2bName: string | null
 }
 
 function Clock() {
@@ -207,9 +211,13 @@ function MatchCard({ b }: { b: ActiveBundle }) {
       <div className="flex items-center gap-2 px-3 py-2.5">
         {b.team2Name ? (
           <>
-            <span className="font-black text-sm text-gray-900 truncate flex-1 text-right">{b.team1Name}</span>
+            <span className="font-black text-sm text-gray-900 truncate flex-1 text-right">
+              {b.team1Name}{b.team1bName ? <span className="text-gray-400"> + {b.team1bName}</span> : ''}
+            </span>
             <span className="text-[11px] font-black text-gray-400 shrink-0 bg-gray-100 px-2 py-0.5 rounded">VS</span>
-            <span className="font-black text-sm text-gray-900 truncate flex-1">{b.team2Name}</span>
+            <span className="font-black text-sm text-gray-900 truncate flex-1">
+              {b.team2Name}{b.team2bName ? <span className="text-gray-400"> + {b.team2bName}</span> : ''}
+            </span>
           </>
         ) : (
           <span className="font-black text-sm text-gray-900 truncate">{b.team1Name}</span>
@@ -251,12 +259,12 @@ export default function DisplayPage() {
       const name = (id: string | null) => id ? teams.find(t => t.id === id)?.name ?? '—' : null
       for (const m of sched) {
         if (m.status === 'active' || m.status === 'waiting') {
-          bundles.push({ category: cats[i], match: m, team1Name: name(m.team1_id) ?? '—', team2Name: name(m.team2_id), status: m.status })
+          bundles.push({ category: cats[i], match: m, team1Name: name(m.team1_id) ?? '—', team1bName: name(m.team1b_id ?? null), team2Name: name(m.team2_id), team2bName: name(m.team2b_id ?? null), status: m.status })
         }
       }
       const nextPending = sched.find(m => m.status === 'pending')
       if (nextPending) {
-        nexts.push({ category: cats[i], match: nextPending, team1Name: name(nextPending.team1_id) ?? '—', team2Name: name(nextPending.team2_id) })
+        nexts.push({ category: cats[i], match: nextPending, team1Name: name(nextPending.team1_id) ?? '—', team1bName: name(nextPending.team1b_id ?? null), team2Name: name(nextPending.team2_id), team2bName: name(nextPending.team2b_id ?? null) })
       }
     }
     setActive(bundles)
@@ -378,10 +386,14 @@ export default function DisplayPage() {
                       <div className="px-2 py-1.5 flex items-center gap-1.5">
                         <span className={`font-mono text-xs font-black ${m.text}`}>#{b.match.match_id}</span>
                         <span className="text-gray-300">·</span>
-                        <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">{b.team1Name}</span>
+                        <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">
+                          {b.team1Name}{b.team1bName ? ` + ${b.team1bName}` : ''}
+                        </span>
                         {b.team2Name && <>
                           <span className="text-[10px] font-bold text-gray-300">vs</span>
-                          <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">{b.team2Name}</span>
+                          <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">
+                            {b.team2Name}{b.team2bName ? ` + ${b.team2bName}` : ''}
+                          </span>
                         </>}
                       </div>
                     </div>
