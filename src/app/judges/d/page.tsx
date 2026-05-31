@@ -469,8 +469,8 @@ export default function JudgeDPage() {
                   <tbody>
                     {teams.map((t, i) => {
                       const goalsScored = matches.reduce((sum, m) => {
-                        if (m.team1_id === t.id) return sum + m.goals1
-                        if (m.team2_id === t.id) return sum + m.goals2
+                        if (m.team1_id === t.id || m.team1b_id === t.id) return sum + m.goals1
+                        if (m.team2_id === t.id || m.team2b_id === t.id) return sum + m.goals2
                         return sum
                       }, 0)
                       return (
