@@ -570,7 +570,7 @@ export default function JudgeWorkspace({ username, role, categories }: Props) {
             </>
           )}
           <a href="/display" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Display ↗</a>
-          <a href="/a" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Public ↗</a>
+          <a href="/" target="_blank" className="text-xs text-gray-500 hover:text-gray-900 px-2.5 py-1.5 rounded border border-gray-200 hover:bg-gray-50">Public ↗</a>
           <form action="/api/auth/logout" method="post" className="inline">
             <button type="submit" className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 px-2.5 py-1.5 rounded border border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/30 dark:bg-red-950/30">Log Out</button>
           </form>

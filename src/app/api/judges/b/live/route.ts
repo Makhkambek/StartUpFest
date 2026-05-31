@@ -75,6 +75,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
     }
     if (action.type === 'end_match') await persistMatchSupabase(next)
+    if (action.type === 'reset') {
+      const cityCode = await getActiveCityCode()
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const supabase = createAdminClient()
+      await supabase.from('matches_b').delete().eq('city_code', cityCode)
+      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'b').eq('city_code', cityCode)
+    }
     return NextResponse.json(next)
   }
 
@@ -84,6 +91,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
   }
   if (action.type === 'end_match') await persistMatchMock(next)
+  if (action.type === 'reset') {
+    const { clearResultsForCategory } = await import('@/lib/mock-store')
+    clearResultsForCategory('b')
+    const { resetScheduleStatuses } = await import('@/lib/schedule-store')
+    resetScheduleStatuses('b')
+  }
   return NextResponse.json(next)
 }
 

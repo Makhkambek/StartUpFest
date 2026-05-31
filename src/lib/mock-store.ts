@@ -236,6 +236,17 @@ export function addMatchD(data: {
 
 export function deleteMatchD(id: string) { matchesD.delete(id) }
 
+// ── Category-wide result clearing (admin reset) ───────────────────────────
+
+export function clearResultsForCategory(category: string) {
+  switch (category) {
+    case 'a': resultsA.clear(); break
+    case 'b': matchesB.clear(); break
+    case 'c': fightsC.clear(); break
+    case 'd': matchesD.clear(); break
+  }
+}
+
 // ── Live state B (field display for Mini Sumo) ────────────────────────────
 
 const initialLiveB: LiveStateB = {

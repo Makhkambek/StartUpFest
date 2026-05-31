@@ -179,38 +179,37 @@
       "label": "Line Follower",
       "catLabel": "Category A",
       "type": "Fast Line Following Robot",
-      "tagline": "Autonomous chase on an elevated track with laser timing.",
+      "tagline": "Autonomous lap on a closed track with Arduino laser-gate timing.",
       "unique": [
-        { "title": "Elevated platform with RGB underglow", "body": "The 5490 × 2745 mm track sits on a ~30 cm raised platform with a WS2812B LED strip running underglow around the perimeter and flashing white on finish." },
-        { "title": "Arduino laser-gate timing", "body": "Custom laser gates measure start and finish using Arduino micros(). The result shows on a 7-segment display and triggers an RGB flash and Wi-Fi update to the website." },
-        { "title": "Drag Race finals on mirrored tracks", "body": "Top-4 qualifiers race head-to-head on identical mirrored tracks in a Double Elimination format. One run per match, finish determined visually by judges. Places 1–4 awarded." },
-        { "title": "Real track features", "body": "Crossroads (diamond shape), a diagonal bridge crossing, and 4–5 U-turn serpentines along the full track. White line 19–25 mm on a black background." },
-        { "title": "10-second self-recovery rule", "body": "If a robot leaves the track, it has 10 seconds to return on its own with no penalty. Fail to recover → manually placed behind the line with +20s penalty (one time per attempt). Second slip → attempt disqualified." }
+        { "title": "DIY principle — only self-built robots", "body": "Ready-made platforms are banned: Makeblock, Kakarobot, JSumo, mBot and similar. The chassis, electronics and code must be original work. Individual components (ESP32, Arduino, sensors) are allowed." },
+        { "title": "Inverted track: 20 mm white line on black", "body": "Closed-loop track with straight segments, gentle and sharp turns, and intersections. Line width is exactly 20 mm. 2 minutes allowed for sensor calibration before inspection." },
+        { "title": "Arduino laser gates — timing", "body": "Final time = laser timer + penalty seconds. 1st beam break = START, 2nd = FINISH. Result shown on a 7-segment display." },
+        { "title": "Two attempts, best time counts", "body": "Each team gets 2 attempts — the best result counts. Tiebreaker: compare penalty seconds, then a deciding golden run." },
+        { "title": "Winner earns FGC quota — Korea", "body": "The Cat A winner receives a direct quota to the FGC Central Asia regional → World Final in Korea." }
       ],
       "format": [
-        "Level 1 (Qualification): Loop Track, 2 attempts per team, ranked by average time. Top-4 advance.",
-        "Level 2 (Finals): Face-to-Face Drag Race on mirrored tracks, Double Elimination, places 1–4 awarded.",
-        "Per attempt: maximum 2 minutes, 5-minute window to reach the judge after being called.",
-        "Tiebreaker: equal time → compare penalty seconds → extra run."
+        "2 attempts per team; best time counts.",
+        "If the laser beam is not crossed within 30 seconds — attempt closes with +40s penalty.",
+        "Maximum attempt duration — 2 minutes. DNF (did not finish) = 120s + penalties.",
+        "Tiebreaker: compare penalty seconds → extra golden run.",
+        "After being called, team must reach the judge's table within 5 minutes. Late → attempt cancelled."
       ],
       "specs": [
         { "k": "Format", "v": "Fully autonomous · No remote allowed" },
-        { "k": "Robot size", "v": "25 × 20 × 20 cm" },
+        { "k": "Robot size", "v": "25 × 20 × 20 cm (H × L × W)" },
         { "k": "Max weight", "v": "1.5 kg with battery" },
         { "k": "Power", "v": "Internal battery, up to 12V DC" },
         { "k": "Controllers", "v": "Arduino · ESP32 · STM32 · RPi Pico" },
         { "k": "Sensors", "v": "IR · ToF · photodiode (≤8 ch) · encoders · IMU" },
-        { "k": "Penalties", "v": "+20s (slip), +40s (no start in 30s), DNF = 120s + penalties" },
-        { "k": "Banned", "v": "Cameras · Wi-Fi/BT · magnets · glue · suction · fans" }
+        { "k": "Penalties", "v": "+40s (beam not crossed in 30s) · +10s (off-track >3s) · +10s (robot touched) · DNF = 120s + penalties" },
+        { "k": "Banned", "v": "Cameras · Wi-Fi/BT at inspection · magnets · glue · suction · fans" }
       ],
       "arena": [
-        { "k": "Track", "v": "5490 × 2745 mm, white line 19–25 mm on black" },
-        { "k": "Platform", "v": "~30 cm elevated, ~6590 × 3845 mm total" },
-        { "k": "Green zone", "v": "50 cm border around track" },
-        { "k": "Safety border", "v": "~8 cm rail around platform" },
-        { "k": "RGB", "v": "WS2812B underglow (rainbow cycle), white flash on finish" },
-        { "k": "Timing", "v": "Arduino laser gates with micros() resolution, 7-segment display" },
-        { "k": "Access", "v": "2 wooden staircases, 3 steps × ~10 cm" }
+        { "k": "Track", "v": "Closed-loop, 20 mm white line on black (inverted)" },
+        { "k": "Elements", "v": "Straight segments, gentle and sharp turns, intersections" },
+        { "k": "Timing", "v": "Arduino laser gates: 1st break = START, 2nd = FINISH" },
+        { "k": "Calibration", "v": "2 minutes before inspection for sensor tuning" },
+        { "k": "Green zone", "v": "Participant moves to the Green Zone after start and stays there until run ends" }
       ]
     },
     "catB": {
@@ -255,78 +254,71 @@
     "catC": {
       "label": "MiniRoboWar",
       "catLabel": "Category C",
-      "type": "Robot Combat",
-      "tagline": "Three fights. Three ways to win. No finals.",
+      "type": "Robot Combat · Heavy Edition",
+      "tagline": "Single Elimination · RC control · 1.8×1.8 m arena.",
       "firstBadge": "First MiniRoboWar event in Uzbekistan",
       "unique": [
-        { "title": "No final stage — every fight counts", "body": "Each robot fights 3 separate matches against random opponents. There is no playoff bracket — the podium is decided by accumulated points across all three fights." },
-        { "title": "Three ways to win", "body": "KO — push opponent fully out of arena, fight ends immediately. Immobilization — opponent unable to move for 10 seconds. Judges decision — if neither happens within 2 minutes." },
-        { "title": "5-criteria judge scoring (100 pts)", "body": "Aggression (20), Control & maneuverability (20), Technical superiority (20), Structural durability (20), Damage on opponent (20). Used when no KO or immobilization occurs." },
-        { "title": "Structurally expandable robots", "body": "Start size is locked at 20 × 20 × 20 cm, but robots may expand structurally once the fight begins. Weapons, ramps and flippers are allowed up to the 2 kg limit." },
-        { "title": "Circular arena with polycarbonate walls", "body": "⌀ 2000 mm battle floor with 1300 mm transparent polycarbonate walls forming a cylinder, on a ~50 cm elevated platform with green zone and 8 cm safety border." }
+        { "title": "Single Elimination — every bout is knockout", "body": "Direct elimination format. The loser exits the tournament. No groups, no second chance — every bout is decisive." },
+        { "title": "Two ways to win", "body": "Immobilization — opponent makes no controlled movement for 10 seconds. Judges' decision — if no winner is determined within 3 minutes, scored on 5 criteria (max 100 points)." },
+        { "title": "5-criteria judge scoring (100 pts)", "body": "Aggression (20) · Control & maneuver (20) · Technical superiority (20) · Stability (20) · Impact degree (20). Applied if no winner after 3 minutes." },
+        { "title": "Heavy Edition: up to 2.5 kg, 250×250 mm", "body": "Max weight 2.5 kg, size — strictly 250×250 mm (L × W), height unlimited. RC control only. A clear power cut-off system is mandatory." },
+        { "title": "1800×1800 mm arena with 1300 mm transparent walls", "body": "Battle zone 1800×1800 mm, MDF surface — flat and smooth. Transparent protective wall 1300 mm high. Robot stuck at wall for more than 10 seconds → considered immobilized." }
       ],
       "format": [
-        "Each team fights 3 separate matches against random opponents.",
-        "Points: Win = 3, Draw = 1, Loss = 0. Top-3 by total points → podium.",
-        "Tiebreaker: more wins → total judge scores across 3 fights → extra deciding fight.",
-        "Match length: 2 minutes. Both stand 15 seconds → draw. Stuck at wall 10 seconds → considered immobilized."
+        "Format: Single Elimination — direct knockout.",
+        "Bout duration: 3 minutes.",
+        "Win: immobilize opponent (10s no movement) or judges' decision after 3 minutes.",
+        "Both robots motionless for 15s simultaneously → draw declared.",
+        "After being called: 60 seconds to reach the control zone. Late → technical defeat."
       ],
       "specs": [
-        { "k": "Format", "v": "RC · Manual control only" },
-        { "k": "Start size", "v": "20 × 20 × 20 cm (may expand structurally during fight)" },
-        { "k": "Max weight", "v": "2 kg (all components)" },
-        { "k": "Required", "v": "Clear ON/OFF switch for emergency stop" },
-        { "k": "Match time", "v": "2 minutes maximum" },
-        { "k": "Banned", "v": "Explosives · flammables · liquid systems · radio jammers · open HV" }
+        { "k": "Format", "v": "RC · remote control only" },
+        { "k": "Robot size", "v": "250 × 250 mm (L × W), height unlimited" },
+        { "k": "Max weight", "v": "2.5 kg (all components and battery)" },
+        { "k": "Required", "v": "Clear power cut-off system (ON/OFF)" },
+        { "k": "Bout time", "v": "3 minutes maximum" },
+        { "k": "Banned", "v": "Chemicals · liquids · glue · radio jammers · throwing weapons · broken glass · smoke devices" }
       ],
       "arena": [
-        { "k": "Battle floor", "v": "⌀ 2000 mm circle, MDF/plywood 18 mm grey" },
-        { "k": "Safety walls", "v": "1300 mm polycarbonate cylinder, 6–8 mm thickness" },
-        { "k": "Platform", "v": "~50 cm elevated, ~3200 × 3200 mm square" },
-        { "k": "Green zone", "v": "50 cm border around arena" },
-        { "k": "Safety border", "v": "~8 cm rail around platform" },
-        { "k": "RGB", "v": "WS2812B underglow + red flash on KO" },
-        { "k": "Access", "v": "2 staircases, 3 steps × ~17 cm" }
+        { "k": "Battle zone", "v": "1800 × 1800 mm (inner combat area)" },
+        { "k": "Protective walls", "v": "1300 mm — transparent protective wall" },
+        { "k": "Surface", "v": "MDF — flat and smooth" }
       ]
     },
     "catD": {
       "label": "Robo Football",
       "catLabel": "Category D",
-      "type": "Robot Football",
-      "tagline": "Stadium with auto-scored goals and real match flow.",
+      "type": "Robo Football · Alliance 2+2",
+      "tagline": "Random alliances, team strategy, real match flow.",
       "firstBadge": "First qualification-based Robo Football tournament in Uzbekistan",
       "unique": [
-        { "title": "First proper qualification tournament in Uzbekistan", "body": "Other local events are exhibition demos — two robots from one team playing each other. SFRC runs a full championship between independent teams." },
-        { "title": "2 robots + 2 drivers per team", "body": "Each team fields 2 robots controlled by 2 drivers, plus 1 trainer/coach (18+). Drivers may swap controllers between robots during the match. Coaches cannot intervene during play." },
-        { "title": "IR-beam auto-scoring", "body": "When the ball crosses the goal line it falls into a collector under the goal where a TCRT5000 / E18-D80NK IR sensor triggers an ESP32. The score posts to the website over Wi-Fi automatically." },
-        { "title": "Goal effects: white flash + sound", "body": "Each detected goal fires a WS2812B white flash on the platform underglow, a 1000 Hz tone on a PAM8403 speaker, and the score animates on the public display." },
-        { "title": "Real match flow: 2 halves, ET, penalties", "body": "2 halves × 2 minutes with a 1-minute break. Tie at full time → 2 minutes of Extra Time with the golden-goal rule. Still tied → penalty shootout." }
+        { "title": "Random alliance system — inspired by FIRST Tech Challenge", "body": "Each team arrives with one robot. Before each qualification match, teams are randomly assigned into alliances of 2. Every match — a new partner, a new strategy." },
+        { "title": "Roster: 2 participants + 1 mentor. 1 driver on field", "body": "Each team = 2 participants + 1 mentor (18+), 1 robot. On field: 1 driver per alliance team. Controller switching is FORBIDDEN — each driver operates only their own robot with their own controller." },
+        { "title": "Qualification → Alliance Selection → 3-Alliance Finals", "body": "Top-3 teams by qualification ranking choose partners from teams 4–10. Three final alliances are formed. Finals — round-robin: each alliance plays 2 matches against each other." },
+        { "title": "Real match flow: 2 halves, ET, penalties", "body": "2 halves × 2 minutes, 1-minute break. Tie → 2 minutes Extra Time (golden goal). Still tied → penalty shootout. Own goal counts for the opponent." },
+        { "title": "Winner (alliance captain) earns FGC quota — Korea", "body": "Only the alliance captain of the Championship Alliance (ranked #1 in qualification) receives the FGC quota. The partner team receives prizes but not the FGC quota." }
       ],
       "format": [
-        "Pre-match: all robots weighed and measured, placed in quarantine.",
-        "Match: 2 halves × 2 minutes, 1-minute break.",
-        "Tie at full time → 2 minutes Extra Time (golden goal).",
-        "Still tied → Penalty shootout.",
-        "No-show: 3 announcements over 2 minutes → team is removed from match."
+        "Phase 1 — Qualification: random alliances, equal number of matches. Alliance win = 3 pts, draw = 1, loss = 0. Tiebreaker: goal difference → goals scored. Top-3 advance to finals.",
+        "Phase 2 — Alliance Selection: teams ranked 1, 2, 3 choose partners from teams 4–10. Three final alliances formed.",
+        "Phase 3 — Finals: round-robin (A1 vs A2, A1 vs A3, A2 vs A3). Winner by number of wins. Tiebreaker: golden goal.",
+        "Match: 2 halves × 2 min, 1 min break. Tie → ET 2 min (golden goal) → penalties.",
+        "Violations: touching ball/robot by hand → free kick; 3 violations → penalty. No-show on 3 calls in 2 min → removed from match."
       ],
       "specs": [
-        { "k": "Format", "v": "RC · 2 robots + 2 drivers + 1 coach per team" },
-        { "k": "Robot size", "v": "25 × 25 × 25 cm" },
+        { "k": "Format", "v": "RC · 1 robot per team · 1 driver on field" },
+        { "k": "Robot size", "v": "25 × 25 × 25 cm (H × L × W)" },
         { "k": "Max weight", "v": "1.5 kg (all components)" },
         { "k": "Control", "v": "Any wireless channel · controller off-field" },
-        { "k": "Required", "v": "Clearly visible team affiliation on robots" },
+        { "k": "Controller switching", "v": "FORBIDDEN — each driver controls only their own robot" },
         { "k": "Ball contact", "v": "Less than 50% of ball surface · no full capture" },
-        { "k": "Banned", "v": "Sharp edges · full ball capture · ball-inside-shell designs" }
+        { "k": "Banned", "v": "Sharp edges · full ball capture" }
       ],
       "arena": [
-        { "k": "Field", "v": "120 × 90 cm green surface, 12 mm plywood base" },
-        { "k": "Walls", "v": "30 cm clear acrylic / polycarbonate (4–6 mm)" },
-        { "k": "Goals", "v": "56 × 40 cm with net, aluminium frame" },
-        { "k": "Ball", "v": "Foam ⌀ 6–8 cm" },
-        { "k": "Platform", "v": "~50 cm elevated, ~130 × 100 cm table" },
-        { "k": "Goal sensor", "v": "IR beam (TCRT5000/E18-D80NK) → ESP32 → Wi-Fi → website" },
-        { "k": "Effects", "v": "WS2812B underglow + white flash + PAM8403 speaker beep" },
-        { "k": "Access", "v": "2 staircases, 3 steps × ~17 cm" }
+        { "k": "Field", "v": "1800 × 2750 mm (width 1.8 m · length 2.75 m)" },
+        { "k": "Walls", "v": "Transparent acrylic / polycarbonate" },
+        { "k": "Violations", "v": "Touching ball/robot by hand → free kick; 3 violations → penalty" },
+        { "k": "Own goal", "v": "Counts for opponent, play resumes from centre" }
       ]
     }
   },

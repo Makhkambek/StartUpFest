@@ -5,10 +5,19 @@ import { UZ_CITIES } from '@/lib/cities'
 import type { EventSettings } from '@/types/database'
 import { ThemeToggle } from '@/components/judges/ThemeToggle'
 
+type Cat = 'a' | 'b' | 'c' | 'd'
+const CAT_LABELS: Record<Cat, string> = {
+  a: 'A · Line Follower',
+  b: 'B · Mini Sumo',
+  c: 'C · MiniRoboWar',
+  d: 'D · Robo Football',
+}
+
 export default function EventSettingsPage() {
   const [settings, setSettings] = useState<EventSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [clearing, setClearing] = useState<Cat | null>(null)
 
   // editable form state
   const [cityCode, setCityCode] = useState('TSH')
@@ -59,6 +68,25 @@ export default function EventSettingsPage() {
     }
   }
 
+  async function clearResults(cat: Cat) {
+    if (!confirm(`Clear ALL match results for Category ${cat.toUpperCase()}? This cannot be undone.`)) return
+    setClearing(cat)
+    try {
+      const res = await fetch('/api/admin/reset-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) { toast.error(json?.error ?? `HTTP ${res.status}`); return }
+      toast.success(`Category ${cat.toUpperCase()} results cleared`)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setClearing(null)
+    }
+  }
+
   const dirty =
     settings != null &&
     (settings.city_code !== cityCode ||
@@ -83,6 +111,7 @@ export default function EventSettingsPage() {
       {loading ? (
         <div className="text-gray-500 dark:text-zinc-400">Loading…</div>
       ) : (
+        <div className="space-y-8">
         <div className="space-y-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6 shadow-sm">
 
           {/* CITY SELECT */}
@@ -165,6 +194,31 @@ export default function EventSettingsPage() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* DANGER ZONE */}
+        <div className="bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900 rounded-lg p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-red-700 dark:text-red-400 uppercase tracking-widest mb-1">Danger Zone</h2>
+          <p className="text-xs text-gray-500 dark:text-zinc-400 mb-5">
+            Clear all match results for a category. Scores, standings, and match history will be wiped. The live state and schedule will also reset. <strong className="text-red-600 dark:text-red-400">Cannot be undone.</strong>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {(['a', 'b', 'c', 'd'] as Cat[]).map((cat) => (
+              <button
+                key={cat}
+                disabled={clearing !== null}
+                onClick={() => clearResults(cat)}
+                className="flex items-center justify-between px-4 py-3 border border-red-200 dark:border-red-900 rounded-lg text-sm font-semibold text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <span>{CAT_LABELS[cat]}</span>
+                <span className="text-xs font-bold">
+                  {clearing === cat ? 'Clearing…' : 'Clear Results'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         </div>
       )}
     </div>

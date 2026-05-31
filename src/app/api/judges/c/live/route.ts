@@ -88,6 +88,21 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  if (action.type === 'reset') {
+    if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const supabase = createAdminClient()
+      await supabase.from('fights_c').delete().eq('city_code', cityCode)
+      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'c').eq('city_code', cityCode)
+    } else {
+      const { clearResultsForCategory } = await import('@/lib/mock-store')
+      clearResultsForCategory('c')
+      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
+      resetScheduleStatuses('c')
+    }
+  }
+
   // Persist to fights_c when match_winner is set.
   if (next.match_winner !== null && next.active_match_id) {
     await persistFightResult(next).catch(() => null)

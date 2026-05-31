@@ -74,10 +74,18 @@ export default function JudgeBPage() {
   }
 
   const handleReset = async () => {
-    if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
+    if (!await confirm('Delete all scheduled matches AND clear all match results for this category? This cannot be undone.')) return
     setResetting(true)
-    await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b', all: true }) })
-    await load(); setResetting(false)
+    try {
+      const resR = await fetch('/api/admin/reset-results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
+      if (!resR.ok) { const err = await resR.json().catch(() => null); alert(`Reset results failed (${resR.status}): ${err?.error ?? 'unknown'}`); return }
+      const resS = await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b', all: true }) })
+      if (!resS.ok) { const err = await resS.json().catch(() => null); alert(`Reset schedule failed (${resS.status}): ${err?.error ?? 'unknown'}`); return }
+      setMatches([]); setSchedule([])
+      await load()
+    } finally {
+      setResetting(false)
+    }
   }
 
   const [genFinalsErr, setGenFinalsErr] = useState('')
@@ -174,7 +182,7 @@ export default function JudgeBPage() {
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
           </button>
-          <a href="/judges/view/b" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
+          <a href="/b" target="_blank" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
           <ThemeToggle />
         </div>
       </header>
@@ -464,7 +472,8 @@ export default function JudgeBPage() {
                     <th className="text-left px-5 py-3 w-8">#</th>
                     <th className="text-left px-4 py-3">Team</th>
                     <th className="text-left px-4 py-3">School</th>
-                    <th className="text-center px-4 py-3">Wins</th>
+                    <th className="text-center px-4 py-3">Pts</th>
+                    <th className="text-center px-4 py-3 hidden sm:table-cell">W/D/L</th>
                     <th className="px-4 py-3"></th>
                   </tr></thead>
                   <tbody>
@@ -472,12 +481,20 @@ export default function JudgeBPage() {
                       const wins = matches.filter(m =>
                         (m.team1_id === t.id && m.winner === 1) || (m.team2_id === t.id && m.winner === 2)
                       ).length
+                      const draws = matches.filter(m =>
+                        (m.team1_id === t.id || m.team2_id === t.id) && m.winner === 0
+                      ).length
+                      const losses = matches.filter(m =>
+                        (m.team1_id === t.id || m.team2_id === t.id)
+                      ).length - wins - draws
+                      const pts = wins * 3 + draws
                       return (
                         <tr key={t.id} className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800">
                           <td className="px-5 py-3 text-gray-400 dark:text-zinc-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3 font-medium dark:text-zinc-200">{t.name}</td>
                           <td className="px-4 py-3 text-gray-400 dark:text-zinc-400">{t.school || '—'}</td>
-                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{wins}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{pts}</td>
+                          <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-zinc-500 hidden sm:table-cell"><span className="text-green-600">{wins}</span>/<span className="text-amber-500">{draws}</span>/<span className="text-red-500">{losses}</span></td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => deleteTeam(t.id)} className="text-xs text-red-300 hover:text-red-500 dark:text-red-400">Del</button>
                           </td>

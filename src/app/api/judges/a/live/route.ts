@@ -100,6 +100,21 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  if (action.type === 'reset') {
+    if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const supabase = createAdminClient()
+      await supabase.from('results_a').delete().eq('city_code', cityCode)
+      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'a').eq('city_code', cityCode)
+    } else {
+      const { clearResultsForCategory } = await import('@/lib/mock-store')
+      clearResultsForCategory('a')
+      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
+      resetScheduleStatuses('a')
+    }
+  }
+
   // Persist to results_a once the match is actually decided (both attempts done OR judge
   // explicitly ended it). Triggered when match_winner is set — phase may be round_result
   // (showing the final-attempt time) or match_result.

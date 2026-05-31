@@ -92,10 +92,31 @@ export default function JudgeDPage() {
   }
 
   const handleReset = async () => {
-    if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
+    if (!await confirm('Delete all scheduled matches AND clear all match results for this category? This cannot be undone.')) return
     setResetting(true)
-    await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', all: true }) })
-    await load(); setResetting(false)
+    try {
+      const resR = await fetch('/api/admin/reset-results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd' }) })
+      if (!resR.ok) {
+        const err = await resR.json().catch(() => null)
+        alert(`Reset results failed (${resR.status}): ${err?.error ?? 'unknown'}`)
+        setResetting(false)
+        return
+      }
+      const resS = await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', all: true }) })
+      if (!resS.ok) {
+        const err = await resS.json().catch(() => null)
+        alert(`Reset schedule failed (${resS.status}): ${err?.error ?? 'unknown'}`)
+        setResetting(false)
+        return
+      }
+      // Optimistically clear local state so Teams tab shows 0 goals immediately,
+      // even if load() races with a stale poll.
+      setMatches([])
+      setSchedule([])
+      await load()
+    } finally {
+      setResetting(false)
+    }
   }
 
   const resultFor = (m: ScheduledMatch) =>
@@ -171,7 +192,7 @@ export default function JudgeDPage() {
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
           </button>
-          <a href="/judges/view/d" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
+          <a href="/d" target="_blank" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
           <ThemeToggle />
         </div>
       </header>
@@ -201,7 +222,7 @@ export default function JudgeDPage() {
               return {
                 matchId: m.match_id,
                 scheduleId: m.id,
-                team: `${teamName(m.team1_id)} vs ${teamName(m.team2_id!)}`,
+                team: `${teamName(m.team1_id)}${m.team1b_id ? ` + ${teamName(m.team1b_id)}` : ''} vs ${teamName(m.team2_id!)}${m.team2b_id ? ` + ${teamName(m.team2b_id)}` : ''}`,
                 result: scoreLabel(r),
                 ts: r.created_at,
               }
@@ -409,7 +430,7 @@ export default function JudgeDPage() {
                       <button onClick={() => setActiveMatch(null)} className="text-gray-300 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 text-sm leading-none">✕</button>
                     </div>
                     <div className="text-sm font-medium text-gray-800 dark:text-zinc-200">
-                      {teamName(activeMatch.team1_id)} <span className="text-gray-400 dark:text-zinc-400">vs</span> {teamName(activeMatch.team2_id!)}
+                      {teamName(activeMatch.team1_id)}{activeMatch.team1b_id ? ` + ${teamName(activeMatch.team1b_id)}` : ''} <span className="text-gray-400 dark:text-zinc-400">vs</span> {teamName(activeMatch.team2_id!)}{activeMatch.team2b_id ? ` + ${teamName(activeMatch.team2b_id)}` : ''}
                     </div>
                     <div className="space-y-2">
                       <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg px-3 py-2 text-xs">
@@ -463,11 +484,20 @@ export default function JudgeDPage() {
                     <th className="text-left px-5 py-3 w-8">#</th>
                     <th className="text-left px-4 py-3">Team</th>
                     <th className="text-left px-4 py-3">School</th>
-                    <th className="text-center px-4 py-3">Goals</th>
+                    <th className="text-center px-4 py-3">Pts</th>
+                    <th className="text-center px-4 py-3 hidden sm:table-cell">Goals</th>
                     <th className="px-4 py-3"></th>
                   </tr></thead>
                   <tbody>
                     {teams.map((t, i) => {
+                      const pts = matches.reduce((sum, m) => {
+                        const inA1 = m.team1_id === t.id || m.team1b_id === t.id
+                        const inA2 = m.team2_id === t.id || m.team2b_id === t.id
+                        if (!inA1 && !inA2) return sum
+                        const won = inA1 ? m.goals1 > m.goals2 : m.goals2 > m.goals1
+                        const drew = m.goals1 === m.goals2
+                        return sum + (won ? 3 : drew ? 1 : 0)
+                      }, 0)
                       const goalsScored = matches.reduce((sum, m) => {
                         if (m.team1_id === t.id || m.team1b_id === t.id) return sum + m.goals1
                         if (m.team2_id === t.id || m.team2b_id === t.id) return sum + m.goals2
@@ -478,7 +508,8 @@ export default function JudgeDPage() {
                           <td className="px-5 py-3 text-gray-400 dark:text-zinc-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3 font-medium dark:text-zinc-200">{t.name}</td>
                           <td className="px-4 py-3 text-gray-400 dark:text-zinc-400">{t.school || '—'}</td>
-                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{goalsScored}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{pts}</td>
+                          <td className="px-4 py-3 text-center text-gray-400 dark:text-zinc-500 hidden sm:table-cell">{goalsScored}</td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => deleteTeam(t.id)} className="text-xs text-red-300 hover:text-red-500 dark:text-red-400">Del</button>
                           </td>

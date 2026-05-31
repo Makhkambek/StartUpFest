@@ -179,38 +179,37 @@
       "label": "Line Follower",
       "catLabel": "Kategoriya A",
       "type": "Fast Line Following Robot",
-      "tagline": "Koʻtarilgan trassada lazer vaqt oʻlchovi bilan avtonom poyga.",
+      "tagline": "Arduino lazer vaqt oʻlchovi bilan yopiq trassada avtonom poyga.",
       "unique": [
-        { "title": "RGB yoritishli koʻtarilgan platforma", "body": "5490 × 2745 mm trassasi ~30 sm balandlikdagi platformada joylashgan, periferiya boʻylab WS2812B lentasi — siklik kamalak, finishda oq chaqnash." },
-        { "title": "Arduino lazer darvozalari orqali vaqt oʻlchovi", "body": "Start va finishda lazer darvozalari Arduino micros() orqali vaqtni oʻlchaydi. Natija 7-segmentli indikatorda koʻrsatiladi va Wi-Fi orqali RGB chaqnash bilan saytda yangilanadi." },
-        { "title": "Koʻzgu trassalarda Drag Race finallari", "body": "Saralashdan oʻtgan top-4 bir xil koʻzgu trassalarda Double Elimination formatida yuzma-yuz raqobat qiladi. Har bir oʻyinda bitta yugurish, finish hakamlar tomonidan vizual aniqlanadi. 1–4 oʻrinlar mukofotlanadi." },
-        { "title": "Haqiqiy trassa elementlari", "body": "Kesishma (rombsimon), diagonal koʻprik kesishmasi, va trassa boʻylab 4–5 U-burilish serpantinlari. Qora fonda 19–25 mm oq chiziq." },
-        { "title": "10 soniyalik oʻz-oʻzini tiklash qoidasi", "body": "Agar robot trassadan chiqib ketsa — 10 soniya ichida jarimasiz oʻzi qaytishi kerak. Qaytmasa → +20 s jarima bilan qoʻlda chiziq orqasiga qoʻyiladi (urinish davomida bir marta). Ikkinchi chiqib ketish → urinish bekor qilinadi." }
+        { "title": "DIY tamoyili — faqat oʻz qoʻli bilan yaratilgan robotlar", "body": "Tayyor platformalar taqiqlangan: Makeblock, Kakarobot, JSumo, mBot va shunga oʻxshashlar. Korpus, elektronika va kod — ishtirokchining oʻziga xos asl ishlanmasi. Alohida komponentlar (ESP32, Arduino, sensorlar) ruxsat etiladi." },
+        { "title": "Inversiyalangan trassa: qora fonda 20 mm oq chiziq", "body": "Toʻgʻri, yumshoq va keskin burilishlar hamda kesishmalar bilan yopiq trassa. Chiziq kengligi — aynan 20 mm. Texnik koʻrikdan oldin sensorlarni sozlash uchun 2 daqiqa beriladi." },
+        { "title": "Arduino lazer darvozalari — vaqt oʻlchovi", "body": "Yakuniy vaqt = lazer taymer + jarima soniyalari. 1-nurni kesish = START, 2-si = FINISH. Natija 7-segmentli indikatorda koʻrsatiladi." },
+        { "title": "Ikki urinish, eng yaxshi vaqt hisobga olinadi", "body": "Har bir jamoa 2 urinish oladi — eng yaxshi natija hisobga olinadi. Tay-breyk: jarima soniyalarini taqqoslash, soʻng qoʻshimcha «oltin' yugurish»." },
+        { "title": "Gʻolib FGC kvotasini oladi — Koreya", "body": "A kategoriyasi gʻolibi FGC Markaziy Osiyo regional bosqichiga → Koreyadagi Jahon finaliga toʻgʻridan-toʻgʻri kvota oladi." }
       ],
       "format": [
-        "1-bosqich (Saralash): Loop Track, har bir jamoa uchun 2 urinish, oʻrtacha vaqt boʻyicha tartiblash. Top-4 keyingi bosqichga oʻtadi.",
-        "2-bosqich (Finallar): Koʻzgu trassalarda yuzma-yuz Drag Race, Double Elimination, 1–4 oʻrinlar mukofotlanadi.",
-        "Urinish boshiga: maksimal 2 daqiqa, chaqirilgandan keyin hakamga yetib borish uchun 5 daqiqalik oyna.",
-        "Tay-breyk: teng vaqt → jarima soniyalarini taqqoslash → qoʻshimcha yugurish."
+        "Har bir jamoa uchun 2 urinish; eng yaxshi vaqt hisobga olinadi.",
+        "Agar lazer nuri 30 soniya ichida kesib oʻtilmasa — urinish +40 s jarima bilan yopiladi.",
+        "Urinishning maksimal davomiyligi — 2 daqiqa. DNF (finishga yetmagan) = 120 s + jarimalar.",
+        "Tay-breyk: jarima soniyalarini taqqoslash → qoʻshimcha oltin yugurish.",
+        "Chaqirilgandan keyin jamoa 5 daqiqa ichida hakamlik stoliga yetib borishi kerak. Kechikish = urinish bekor qilinadi."
       ],
       "specs": [
         { "k": "Format", "v": "Toʻliq avtonom · Pult taqiqlangan" },
-        { "k": "Robot oʻlchami", "v": "25 × 20 × 20 sm" },
+        { "k": "Robot oʻlchami", "v": "25 × 20 × 20 sm (B × U × K)" },
         { "k": "Maks. vazn", "v": "Batareya bilan 1,5 kg" },
         { "k": "Quvvat", "v": "Ichki batareya, 12 V DC gacha" },
         { "k": "Kontroller", "v": "Arduino · ESP32 · STM32 · RPi Pico" },
         { "k": "Sensorlar", "v": "IR · ToF · fotodiod (≤8 kan.) · enkoderlar · IMU" },
-        { "k": "Jarimalar", "v": "+20 s (chiqib ketish), +40 s (30 s ichida start yoʻq), DNF = 120 s + jarimalar" },
-        { "k": "Taqiqlangan", "v": "Kameralar · Wi-Fi/BT · magnitlar · yelim · soʻrgich · ventilyatorlar" }
+        { "k": "Jarimalar", "v": "+40 s (30 s da nur kesib oʻtilmagan) · +10 s (trassadan chiqish >3s) · +10 s (robotga tegish) · DNF = 120 s + jarimalar" },
+        { "k": "Taqiqlangan", "v": "Kameralar · tekshiruvda Wi-Fi/BT · magnitlar · yelim · soʻrgich · ventilyatorlar" }
       ],
       "arena": [
-        { "k": "Trassa", "v": "5490 × 2745 mm, qorada oq chiziq 19–25 mm" },
-        { "k": "Platforma", "v": "~30 sm balandlik, jami ~6590 × 3845 mm" },
-        { "k": "Yashil zona", "v": "Trassa atrofida 50 sm" },
-        { "k": "Xavfsizlik chegarasi", "v": "Platforma atrofida ~8 sm reyling" },
-        { "k": "RGB", "v": "WS2812B yoritish (siklik kamalak), finishda oq chaqnash" },
-        { "k": "Vaqt oʻlchovi", "v": "Arduino lazer darvozalari micros() aniqligi, 7-segmentli indikator" },
-        { "k": "Kirish", "v": "2 yogʻoch zinapoya, 3 zina × ~10 sm" }
+        { "k": "Trassa", "v": "Yopiq, qora fonda 20 mm oq chiziq (inversiya)" },
+        { "k": "Elementlar", "v": "Toʻgʻri qismlar, yumshoq va keskin burilishlar, kesishmalar" },
+        { "k": "Vaqt oʻlchovi", "v": "Arduino lazer darvozalari: 1-kesish = START, 2-si = FINISH" },
+        { "k": "Kalibrovka", "v": "Tekshiruvdan oldin sensorlarni sozlash uchun 2 daqiqa" },
+        { "k": "Yashil zona", "v": "Ishtirokchi startdan keyin Yashil zonaga oʻtadi va yugurish oxirigacha u yerda qoladi" }
       ]
     },
     "catB": {
@@ -255,78 +254,71 @@
     "catC": {
       "label": "MiniRoboWar",
       "catLabel": "Kategoriya C",
-      "type": "Jang robototexnikasi",
-      "tagline": "Uchta jang. Uchta gʻalaba yoʻli. Finalsiz.",
+      "type": "Jang robototexnikasi · Heavy Edition",
+      "tagline": "Single Elimination · RC boshqaruv · 1,8×1,8 m arena.",
       "firstBadge": "Oʻzbekistonda birinchi MiniRoboWar tadbiri",
       "unique": [
-        { "title": "Final bosqichi yoʻq — har bir jang muhim", "body": "Har bir robot tasodifiy raqiblarga qarshi 3 ta alohida oʻyin oʻtkazadi. Pleyoff toʻri yoʻq — podium uchta jang davomida toʻplangan ochkolar boʻyicha aniqlanadi." },
-        { "title": "Uchta gʻalaba yoʻli", "body": "KO — raqibni arenadan toʻliq itarib chiqarish, jang darhol tugaydi. Immobilizatsiya — raqib 10 soniya harakatlana olmaydi. Hakam qarori — agar 2 daqiqada hech narsa boʻlmasa." },
-        { "title": "5 mezon boʻyicha hakam bahosi (100 ball)", "body": "Tajovuzkorlik (20), Boshqaruv va manyovrlik (20), Texnik ustunlik (20), Konstruksiyaning mustahkamligi (20), Raqibga zarar (20). KO yoki immobilizatsiya yoʻq boʻlganda ishlatiladi." },
-        { "title": "Strukturaviy kengayadigan robotlar", "body": "Boshlangʻich oʻlcham 20 × 20 × 20 sm da qulflangan, lekin jang boshlangach robotlar strukturaviy kengayishi mumkin. 2 kg chegaragacha qurollar, ramplar va flipperlar ruxsat etiladi." },
-        { "title": "Polikarbonat devorli aylanma arena", "body": "⌀ 2000 mm jang maydoni 1300 mm shaffof polikarbonat tsilindr bilan, ~50 sm koʻtarilgan platformada yashil zona va 8 sm xavfsizlik chegarasi bilan." }
+        { "title": "Single Elimination — har bir jang nokaut", "body": "Toʻgʻridan-toʻgʻri chiqib ketish formati. Yutqazgan turnirni tark etadi. Guruhlar yoʻq, ikkinchi imkon yoʻq — har bir jang hal qiluvchi." },
+        { "title": "Ikki gʻalaba yoʻli", "body": "Immobilizatsiya — raqib 10 soniya boshqariladigan harakatlar qilmaydi. Hakamlar qarori — 3 daqiqa ichida gʻolib aniqlanmasa, 5 mezon boʻyicha (maks. 100 ball) baholanadi." },
+        { "title": "5 mezon boʻyicha hakam bahosi (100 ball)", "body": "Tajovuzkorlik (20) · Boshqaruv va manyovr (20) · Texnik ustunlik (20) · Barqarorlik (20) · Zarba darajasi (20). 3 daqiqadan keyin gʻolib aniqlanmasa qoʻllaniladi." },
+        { "title": "Heavy Edition: 2,5 kg gacha, 250×250 mm", "body": "Maksimal vazn 2,5 kg, oʻlchami — aynan 250×250 mm (U × K), balandlik cheklanmagan. Faqat RC boshqaruv. Aniq quvvat oʻchirish tizimi majburiy." },
+        { "title": "1800×1800 mm arena 1300 mm shaffof devorlar bilan", "body": "Jang hududi 1800×1800 mm, MDF yuzasi — tekis va silliq. Shaffof himoya devori balandligi 1300 mm. Robot 10 soniyadan koʻproq devorda qotib qolsa → immobilizatsiya hisoblanadi." }
       ],
       "format": [
-        "Har bir jamoa tasodifiy raqiblarga qarshi 3 ta alohida oʻyin oʻtkazadi.",
-        "Ochkolar: Gʻalaba = 3, Duranglik = 1, Magʻlubiyat = 0. Umumiy ochkolar boʻyicha top-3 → podium.",
-        "Tay-breyk: koʻproq gʻalaba → 3 jang davomidagi hakam ballari yigʻindisi → qoʻshimcha hal qiluvchi jang.",
-        "Oʻyin davomiyligi: 2 daqiqa. Ikkalasi 15 soniya turishi → duranglik. Devorda 10 soniya qotib qolish → immobilizatsiya hisoblanadi."
+        "Format: Single Elimination — toʻgʻridan-toʻgʻri nokaut.",
+        "Jang davomiyligi: 3 daqiqa.",
+        "Gʻalaba: raqibni immobilizatsiya qilish (10 s harakatsiz) yoki 3 daqiqadan keyin hakamlar qarori.",
+        "Ikala robot ham bir vaqtda 15 s harakatsiz → jang durang deb eʼlon qilinadi.",
+        "Chaqirilgandan keyin: boshqaruv zonasiga yetish uchun 60 soniya. Kechikish → texnik magʻlubiyat."
       ],
       "specs": [
-        { "k": "Format", "v": "RC · faqat qoʻlda boshqarish" },
-        { "k": "Start oʻlchami", "v": "20 × 20 × 20 sm (jang davomida strukturaviy kengayishi mumkin)" },
-        { "k": "Maks. vazn", "v": "2 kg (barcha komponentlar)" },
-        { "k": "Majburiy", "v": "Favqulodda toʻxtatish uchun aniq ON/OFF tumblerli" },
-        { "k": "Oʻyin vaqti", "v": "Maksimal 2 daqiqa" },
-        { "k": "Taqiqlangan", "v": "Portlovchi · yonuvchi · suyuq tizimlar · radio glushiteller · ochiq YuK" }
+        { "k": "Format", "v": "RC · faqat masofaviy boshqaruv" },
+        { "k": "Robot oʻlchami", "v": "250 × 250 mm (U × K), balandlik cheklanmagan" },
+        { "k": "Maks. vazn", "v": "2,5 kg (barcha komponentlar va batareya)" },
+        { "k": "Majburiy", "v": "Aniq quvvat oʻchirish tizimi (ON/OFF)" },
+        { "k": "Jang vaqti", "v": "Maksimal 3 daqiqa" },
+        { "k": "Taqiqlangan", "v": "Kimyoviy moddalar · suyuqliklar · yelim · radio glushitellar · otish qurollari · siniq shisha · tutun qurilmalari" }
       ],
       "arena": [
-        { "k": "Jang maydoni", "v": "⌀ 2000 mm doira, MDF/fanera 18 mm kulrang" },
-        { "k": "Xavfsizlik devorlari", "v": "Polikarbonat tsilindr 1300 mm, qalinligi 6–8 mm" },
-        { "k": "Platforma", "v": "~50 sm balandlik, ~3200 × 3200 mm kvadrat" },
-        { "k": "Yashil zona", "v": "Arena atrofida 50 sm" },
-        { "k": "Xavfsizlik chegarasi", "v": "Platforma atrofida ~8 sm reyling" },
-        { "k": "RGB", "v": "WS2812B yoritish + KO da qizil chaqnash" },
-        { "k": "Kirish", "v": "2 zinapoya, 3 zina × ~17 sm" }
+        { "k": "Jang hududi", "v": "1800 × 1800 mm (ichki jang zonasi)" },
+        { "k": "Himoya devorlari", "v": "1300 mm — shaffof himoya devori" },
+        { "k": "Yuza", "v": "MDF — tekis va silliq" }
       ]
     },
     "catD": {
       "label": "Robo Football",
       "catLabel": "Kategoriya D",
-      "type": "Robot futboli",
-      "tagline": "Avtomatik gol hisobi va haqiqiy oʻyin oqimi bilan stadion.",
+      "type": "Robo futbol · Alyans 2+2",
+      "tagline": "Tasodifiy alyanslar, jamoa strategiyasi, haqiqiy oʻyin oqimi.",
       "firstBadge": "Oʻzbekistonda birinchi saralash asosidagi Robo Football turniri",
       "unique": [
-        { "title": "Oʻzbekistonda birinchi haqiqiy saralash turniri", "body": "Boshqa mahalliy tadbirlar — bu namoyish demolar: bitta jamoaning ikkita roboti bir-biri bilan oʻynaydi. SFRC mustaqil jamoalar oʻrtasida toʻliq chempionat oʻtkazadi." },
-        { "title": "Jamoa uchun 2 robot + 2 haydovchi", "body": "Har bir jamoa 2 haydovchi tomonidan boshqariladigan 2 ta robotni qoʻyadi, plyus 1 murabbiy/instruktor (18+). Haydovchilar oʻyin davomida robotlar oʻrtasida pultlarni almashtirishi mumkin. Murabbiylar oʻyin davomida aralasha olmaydi." },
-        { "title": "Infraqizil nur orqali avto-gol hisobi", "body": "Toʻp darvoza chizigʻini kesib oʻtganda u darvoza ostidagi kollektorga tushadi, u yerda TCRT5000 / E18-D80NK infraqizil sensori ESP32 ni ishga tushiradi. Hisob avtomatik ravishda Wi-Fi orqali saytga yuboriladi." },
-        { "title": "Gol effektlari: oq chaqnash + tovush", "body": "Har bir aniqlangan gol platforma yoritishida WS2812B oq chaqnashini, PAM8403 dinamigida 1000 Gts tonni va ommaviy ekranda hisob animatsiyasini ishga tushiradi." },
-        { "title": "Haqiqiy oʻyin oqimi: 2 tayim, ET, penalti", "body": "2 tayim × 2 daqiqa, 1 daqiqa tanaffus bilan. Asosiy vaqtda duranglik → «oltin gol» qoidasi bilan 2 daqiqa qoʻshimcha vaqt. Yana duranglik → penalti seriyasi." }
+        { "title": "Tasodifiy alyans tizimi — FIRST Tech Challenge dan ilhomlangan", "body": "Har bir jamoa bitta robot bilan keladi. Har bir saralash oʻyinidan oldin jamoalar 2 ta jamoa alyanslariga tasodifiy taqsimlanadi. Har bir oʻyin — yangi hamkor, yangi strategiya." },
+        { "title": "Tarkib: 2 ishtirokchi + 1 mentor. Maydonda 1 haydovchi", "body": "Har bir jamoa = 2 ishtirokchi + 1 mentor (18+), 1 robot. Maydonda: alyans jamoasidan 1 haydovchi. Boshqaruvni almashtirish TAQIQLANGAN — har bir haydovchi faqat oʻz roboti va oʻz pulti bilan boshqaradi." },
+        { "title": "Saralash → Hamkor tanlash → 3 Alyans finali", "body": "Saralash reytingi boʻyicha top-3 jamoalar 4–10 jamoalardan hamkorlarini tanlaydi. 3 ta final alyans tuziladi. Final — krugovoy turnir: har bir alyans boshqa har biriga qarshi 2 ta oʻyin oʻynaydi." },
+        { "title": "Haqiqiy oʻyin oqimi: 2 tayim, ET, penalti", "body": "2 tayim × 2 daqiqa, 1 daqiqa tanaffus. Duranglik → 2 daqiqa ET (oltin gol). Yana duranglik → penalti seriyasi. Oʻz darvozasiga ur raqibga hisoblanadi." },
+        { "title": "Gʻolib (alyans kapitani) FGC kvotasini oladi — Koreya", "body": "Kvotani faqat Chempion alyansining alyans kapitani (saralashda №1) oladi. Hamkor jamoa mukofotlar oladi, lekin FGC kvotasini olmaydi." }
       ],
       "format": [
-        "Oʻyin oldidan: barcha robotlar tortiladi va oʻlchanadi, karantinaga joylashtiriladi.",
-        "Oʻyin: 2 tayim × 2 daqiqa, 1 daqiqa tanaffus.",
-        "Asosiy vaqtda duranglik → 2 daqiqa ET (oltin gol).",
-        "Yana duranglik → Penalti seriyasi.",
-        "Kelmaslik: 2 daqiqada 3 e'lon → jamoa oʻyindan chiqariladi."
+        "1-bosqich — Saralash: tasodifiy alyanslar, teng miqdorda oʻyinlar. Alyans gʻalabasi = 3 ball, durang = 1, magʻlubiyat = 0. Tay-breyk: gol farqi → zarb qilingan gollar. Top-3 finalga oʻtadi.",
+        "2-bosqich — Hamkor tanlash: reytingda 1, 2, 3-jamoalar 4–10 jamoalardan hamkorlarini tanlaydi. 3 ta final alyans tuziladi.",
+        "3-bosqich — Final: krugovoy turnir (A1 vs A2, A1 vs A3, A2 vs A3). Gʻolib gʻalabalar soni boʻyicha. Tay-breyk: oltin gol.",
+        "Oʻyin: 2 tayim × 2 daq, 1 daq tanaffus. Durang → ET 2 daq (oltin gol) → penalti.",
+        "Qoidabuzarliklar: toʻpga/robotga qoʻl bilan tegish → erkin zarba; 3 qoidabuzarlik → penalti. 2 daqiqada 3 chaqiruvga kelmaslik → oʻyindan chiqarish."
       ],
       "specs": [
-        { "k": "Format", "v": "RC · jamoa uchun 2 robot + 2 haydovchi + 1 murabbiy" },
-        { "k": "Robot oʻlchami", "v": "25 × 25 × 25 sm" },
+        { "k": "Format", "v": "RC · jamoadan 1 robot · maydonda 1 haydovchi" },
+        { "k": "Robot oʻlchami", "v": "25 × 25 × 25 sm (B × U × K)" },
         { "k": "Maks. vazn", "v": "1,5 kg (barcha komponentlar)" },
         { "k": "Boshqaruv", "v": "Har qanday simsiz kanal · pult maydondan tashqarida" },
-        { "k": "Majburiy", "v": "Robotlarda aniq koʻrinadigan jamoa belgisi" },
+        { "k": "Boshqaruvni almashtirish", "v": "TAQIQLANGAN — har bir haydovchi faqat oʻz roboti bilan boshqaradi" },
         { "k": "Toʻp bilan kontakt", "v": "Toʻp sirtining 50% dan kam · toʻliq tutib olish mumkin emas" },
-        { "k": "Taqiqlangan", "v": "Oʻtkir qirralar · toʻpni toʻliq tutib olish · toʻp ichida joylashgan konstruksiyalar" }
+        { "k": "Taqiqlangan", "v": "Oʻtkir qirralar · toʻpni toʻliq tutib olish" }
       ],
       "arena": [
-        { "k": "Maydon", "v": "120 × 90 sm yashil yuza, 12 mm fanera asos" },
-        { "k": "Devorlar", "v": "30 sm shaffof akril / polikarbonat (4–6 mm)" },
-        { "k": "Darvozalar", "v": "56 × 40 sm toʻri bilan, alyuminiy ramka" },
-        { "k": "Toʻp", "v": "Poroloon ⌀ 6–8 sm" },
-        { "k": "Platforma", "v": "~50 sm balandlik, ~130 × 100 sm stol" },
-        { "k": "Gol sensori", "v": "Infraqizil nur (TCRT5000/E18-D80NK) → ESP32 → Wi-Fi → sayt" },
-        { "k": "Effektlar", "v": "WS2812B yoritish + oq chaqnash + PAM8403 dinamik signali" },
-        { "k": "Kirish", "v": "2 zinapoya, 3 zina × ~17 sm" }
+        { "k": "Maydon", "v": "1800 × 2750 mm (eni 1,8 m · uzunligi 2,75 m)" },
+        { "k": "Devorlar", "v": "Shaffof akril / polikarbonat" },
+        { "k": "Qoidabuzarliklar", "v": "Toʻpga/robotga qoʻl bilan tegish → erkin zarba; 3 qoidabuzarlik → penalti" },
+        { "k": "Oʻz darvozasiga ur", "v": "Raqibga hisoblanadi, oʻyin markazdan boshlanadi" }
       ]
     }
   },

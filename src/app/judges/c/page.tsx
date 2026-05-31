@@ -74,10 +74,18 @@ export default function JudgeCPage() {
   }
 
   const handleReset = async () => {
-    if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
+    if (!await confirm('Delete all scheduled matches AND clear all match results for this category? This cannot be undone.')) return
     setResetting(true)
-    await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', all: true }) })
-    await load(); setResetting(false)
+    try {
+      const resR = await fetch('/api/admin/reset-results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c' }) })
+      if (!resR.ok) { const err = await resR.json().catch(() => null); alert(`Reset results failed (${resR.status}): ${err?.error ?? 'unknown'}`); return }
+      const resS = await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', all: true }) })
+      if (!resS.ok) { const err = await resS.json().catch(() => null); alert(`Reset schedule failed (${resS.status}): ${err?.error ?? 'unknown'}`); return }
+      setFights([]); setSchedule([])
+      await load()
+    } finally {
+      setResetting(false)
+    }
   }
 
   const resultFor = (m: ScheduledMatch) =>
@@ -150,7 +158,7 @@ export default function JudgeCPage() {
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
           </button>
-          <a href="/judges/view/c" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
+          <a href="/c" target="_blank" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
           <ThemeToggle />
         </div>
       </header>
@@ -407,7 +415,8 @@ export default function JudgeCPage() {
                     <th className="text-left px-5 py-3 w-8">#</th>
                     <th className="text-left px-4 py-3">Team</th>
                     <th className="text-left px-4 py-3">School</th>
-                    <th className="text-center px-4 py-3">Wins</th>
+                    <th className="text-center px-4 py-3">Pts</th>
+                    <th className="text-center px-4 py-3 hidden sm:table-cell">Wins</th>
                     <th className="px-4 py-3"></th>
                   </tr></thead>
                   <tbody>
@@ -415,12 +424,14 @@ export default function JudgeCPage() {
                       const wins = fights.filter(f =>
                         (f.team1_id === t.id && f.winner === 1) || (f.team2_id === t.id && f.winner === 2)
                       ).length
+                      const pts = wins * 3
                       return (
                         <tr key={t.id} className="border-b border-gray-50 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800">
                           <td className="px-5 py-3 text-gray-400 dark:text-zinc-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3 font-medium text-gray-900 dark:text-zinc-100">{t.name}</td>
                           <td className="px-4 py-3 text-gray-400 dark:text-zinc-400">{t.school || '—'}</td>
-                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{wins}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{pts}</td>
+                          <td className="px-4 py-3 text-center text-gray-400 dark:text-zinc-500 hidden sm:table-cell">{wins}</td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => deleteTeam(t.id)} className="text-xs text-red-300 hover:text-red-500 dark:text-red-400">Del</button>
                           </td>

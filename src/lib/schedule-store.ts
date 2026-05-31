@@ -91,3 +91,11 @@ export function clearSchedule(category: string) {
 export function getMatchById(id: string): ScheduledMatch | null {
   return store.get(id) ?? null
 }
+
+export function resetScheduleStatuses(category: string) {
+  for (const [id, m] of store) {
+    if (m.category === category) {
+      store.set(id, { ...m, status: 'pending', result_id: null })
+    }
+  }
+}

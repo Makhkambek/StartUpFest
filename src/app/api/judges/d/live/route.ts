@@ -99,6 +99,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: upstreamError ?? 'Invalid action', action: action.type }, { status: 400 })
   }
 
+  if (action.type === 'reset') {
+    if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const supabase = createAdminClient()
+      await supabase.from('matches_d').delete().eq('city_code', cityCode)
+      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'd').eq('city_code', cityCode)
+    } else {
+      const { clearResultsForCategory } = await import('@/lib/mock-store')
+      clearResultsForCategory('d')
+      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
+      resetScheduleStatuses('d')
+    }
+  }
+
   if (next.match_winner !== null && next.active_match_id) {
     const persistError = await persistMatchResult(next).catch((e) => `persist: ${(e as Error).message}`)
     return NextResponse.json({ ...next, persistError })

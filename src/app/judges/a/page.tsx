@@ -74,10 +74,18 @@ export default function JudgeAPage() {
   }
 
   const handleReset = async () => {
-    if (!await confirm('Delete all scheduled matches for this category? This cannot be undone.')) return
+    if (!await confirm('Delete all scheduled matches AND clear all match results for this category? This cannot be undone.')) return
     setResetting(true)
-    await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a', all: true }) })
-    await load(); setResetting(false)
+    try {
+      const resR = await fetch('/api/admin/reset-results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a' }) })
+      if (!resR.ok) { const err = await resR.json().catch(() => null); alert(`Reset results failed (${resR.status}): ${err?.error ?? 'unknown'}`); return }
+      const resS = await fetch('/api/judges/schedule', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a', all: true }) })
+      if (!resS.ok) { const err = await resS.json().catch(() => null); alert(`Reset schedule failed (${resS.status}): ${err?.error ?? 'unknown'}`); return }
+      setResults([]); setSchedule([])
+      await load()
+    } finally {
+      setResetting(false)
+    }
   }
 
   const [genFinalsErr, setGenFinalsErr] = useState('')
@@ -161,7 +169,7 @@ export default function JudgeAPage() {
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
           </button>
-          <a href="/judges/view/a" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
+          <a href="/a" target="_blank" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
           <ThemeToggle />
         </div>
       </header>

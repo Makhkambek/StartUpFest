@@ -59,7 +59,7 @@ function statLine(s: AnyStanding): string {
   }
   if ('goals_for' in s) {
     const d = s as StandingD
-    return `${d.wins}W ${d.draws}D ${d.losses}L`
+    return `${d.wins}W ${d.draws}D ${d.losses}L · ${d.points}pt`
   }
   if ('knockouts' in s) {
     const c = s as StandingC
@@ -239,10 +239,10 @@ export default function DisplayPage() {
   const refresh = useCallback(async () => {
     const cats: Cat[] = ['a', 'b', 'c', 'd']
     const [a, b, c, d, ...catData] = await Promise.all([
-      fetch('/api/standings/a').then(r => r.json()),
-      fetch('/api/standings/b').then(r => r.json()),
-      fetch('/api/standings/c').then(r => r.json()),
-      fetch('/api/standings/d').then(r => r.json()),
+      fetch('/api/standings/a', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/standings/b', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/standings/c', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/standings/d', { cache: 'no-store' }).then(r => r.json()),
       ...cats.flatMap(cat => [
         fetch(`/api/judges/schedule?category=${cat}`, { cache: 'no-store' }).then(r => r.json()),
         fetch(`/api/judges/${cat}/teams`, { cache: 'no-store' }).then(r => r.json()),

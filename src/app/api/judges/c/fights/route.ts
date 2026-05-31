@@ -73,12 +73,12 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase.from('fights_c').insert(row).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    revalidateTag('standings-c', {})
+    revalidateTag('standings-c')
     return NextResponse.json(data)
   }
 
   const { addFightC } = await import('@/lib/mock-store')
-  revalidateTag('standings-c', {})
+  revalidateTag('standings-c')
   return NextResponse.json(addFightC({ ...body, scheduled_match_id: body.scheduled_match_id ?? null }))
 }
 
@@ -93,12 +93,12 @@ export async function DELETE(req: NextRequest) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     await supabase.from('fights_c').delete().eq('id', id)
-    revalidateTag('standings-c', {})
+    revalidateTag('standings-c')
     return NextResponse.json({ ok: true })
   }
 
   const { deleteFightC } = await import('@/lib/mock-store')
-  revalidateTag('standings-c', {})
+  revalidateTag('standings-c')
   deleteFightC(id)
   return NextResponse.json({ ok: true })
 }
