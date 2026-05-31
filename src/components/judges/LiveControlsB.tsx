@@ -200,7 +200,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
               End / reset
             </button>
           </div>
-        ) : !activeMatch ? (
+        ) : (!activeMatch && !isMatchOver) ? (
           <div className="space-y-2">
             {/* Hero: auto-suggested next match — one-click start */}
             {nextPending && (

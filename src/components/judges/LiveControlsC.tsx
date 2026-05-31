@@ -260,7 +260,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
               {' · '}🔴 {state.wins_red}/100 — {state.wins_white}/100 🔵
             </div>
           </div>
-        ) : !activeMatch ? (
+        ) : (!activeMatch && !isMatchOver) ? (
           <div className="space-y-2">
             {nextPending && (
               <div className="rounded-md bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-300 dark:border-rose-800 p-3">
