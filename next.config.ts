@@ -40,6 +40,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },
+  async redirects() {
+    return [
+      { source: '/a', destination: '/field/a', permanent: false },
+      { source: '/b', destination: '/field/b', permanent: false },
+      { source: '/c', destination: '/field/c', permanent: false },
+      { source: '/d', destination: '/field/d', permanent: false },
+    ]
+  },
 };
 
 const hasSentry = !!(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN)

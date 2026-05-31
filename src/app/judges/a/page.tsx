@@ -44,7 +44,6 @@ export default function JudgeAPage() {
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
 
   const load = useCallback(async () => {
-    setLoading(true)
     const [tr, sc, re] = await Promise.all([
       fetch('/api/judges/a/teams', { cache: 'no-store' }).then(r => r.json()),
       fetch('/api/judges/schedule?category=a', { cache: 'no-store' }).then(r => r.json()),

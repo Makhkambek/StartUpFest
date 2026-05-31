@@ -211,23 +211,26 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
       })
       break
     case 'round_result': {
-      const winCol = action.outcome === 'red' ? 'wins_red' : 'wins_white'
-      const { data: winRow, error: winErr } = await supabase.rpc('inc_live_counter', {
-        p_category: 'b',
-        p_column: winCol,
-        p_delta: 1,
-        p_city_code: cityCode,
-      })
-      if (winErr) throw winErr
-      const wr = winRow as LiveStateB | null
       const hist = [...(cur?.round_history ?? []), action.outcome]
       Object.assign(patch, {
         phase: 'round_result',
         last_round_winner: action.outcome,
         round_history: hist,
       })
-      if (action.outcome === 'red') patch.wins_red = wr?.wins_red ?? (cur?.wins_red ?? 0) + 1
-      else patch.wins_white = wr?.wins_white ?? (cur?.wins_white ?? 0) + 1
+      // Draw: neither side scores — skip the DB counter increment entirely.
+      if (action.outcome !== 'draw') {
+        const winCol = action.outcome === 'red' ? 'wins_red' : 'wins_white'
+        const { data: winRow, error: winErr } = await supabase.rpc('inc_live_counter', {
+          p_category: 'b',
+          p_column: winCol,
+          p_delta: 1,
+          p_city_code: cityCode,
+        })
+        if (winErr) throw winErr
+        const wr = winRow as LiveStateB | null
+        if (action.outcome === 'red') patch.wins_red = wr?.wins_red ?? (cur?.wins_red ?? 0) + 1
+        else patch.wins_white = wr?.wins_white ?? (cur?.wins_white ?? 0) + 1
+      }
       break
     }
     case 'next_round':

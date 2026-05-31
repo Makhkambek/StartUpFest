@@ -113,7 +113,7 @@ function useAutoScroll(ref: React.RefObject<HTMLDivElement | null>, dataLength: 
     // Measure after layout settles, then kick off animation
     const initTimer = setTimeout(() => {
       halfH = el.scrollHeight / 2
-      if (halfH <= el.clientHeight) return  // all teams fit — no scroll needed
+      if (halfH === 0) return
       animId = requestAnimationFrame(animate)
     }, 150)
 

@@ -39,8 +39,12 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
   const autoGoFightRef = useRef(false)
+  const pendingDelta = useRef<{ red: number; white: number }>({ red: 0, white: 0 })
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refetch = useCallback(async () => {
+    // Skip while score flush is pending — don't overwrite optimistic state.
+    if (flushTimer.current !== null) return
     try {
       const res = await fetch('/api/judges/c/live', { cache: 'no-store' })
       if (res.ok) {
@@ -53,9 +57,10 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
 
   useEffect(() => { refetch() }, [refetch])
 
-  // Light polling so judge UI stays in sync even if a dispatch slips. 1.5s is plenty.
+  // Polling fallback (5s) — state updates arrive via dispatch responses; this just
+  // catches anything that slips through (e.g. another tab, page reload).
   useEffect(() => {
-    const id = setInterval(refetch, 1500)
+    const id = setInterval(refetch, 5000)
     return () => clearInterval(id)
   }, [refetch])
   useEffect(() => { if (state?.active_match_id) setPicked(state.active_match_id) }, [state?.active_match_id])
@@ -86,33 +91,35 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
     }
   }, [onChange])
 
-  // ── Fast score updates: optimistic + non-blocking. Judge can mash +/− buttons.
+  // ── Fast score updates: optimistic UI + debounced server flush.
+  // Judge can mash +/− freely — state updates instantly, one request fires
+  // 600ms after the last tap instead of one per tap.
   const addScore = useCallback((side: 'red' | 'white', delta: number) => {
-    // Capture previous state so we can roll back if the server rejects.
-    let snapshot: typeof state = null
     setState((prev) => {
-      snapshot = prev
-      const clamp = (n: number) => Math.max(0, Math.min(100, n))
       if (!prev) return prev
+      const clamp = (n: number) => Math.max(0, Math.min(100, n))
       return side === 'red'
         ? { ...prev, wins_red: clamp(prev.wins_red + delta) }
         : { ...prev, wins_white: clamp(prev.wins_white + delta) }
     })
-    fetch('/api/judges/c/live', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'add_score', side, delta }),
-    }).then(async (res) => {
-      if (res.ok) {
-        try { setState(await res.json()) } catch {}
+
+    if (side === 'red') pendingDelta.current.red += delta
+    else pendingDelta.current.white += delta
+
+    if (flushTimer.current) clearTimeout(flushTimer.current)
+    flushTimer.current = setTimeout(async () => {
+      const { red, white } = pendingDelta.current
+      pendingDelta.current = { red: 0, white: 0 }
+      const sends: Promise<Response>[] = []
+      if (red !== 0) sends.push(fetch('/api/judges/c/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'add_score', side: 'red', delta: red }) }))
+      if (white !== 0) sends.push(fetch('/api/judges/c/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'add_score', side: 'white', delta: white }) }))
+      const results = await Promise.all(sends)
+      const last = results[results.length - 1]
+      if (last?.ok) {
+        try { setState(await last.json()) } catch {}
         onChange?.()
-      } else {
-        // Roll back optimistic update so the UI matches the server.
-        setState(snapshot)
       }
-    }).catch(() => {
-      setState(snapshot)
-    })
+    }, 600)
   }, [onChange])
 
   // Keyboard shortcuts for fast score input (only while a match is active and not over).
@@ -143,6 +150,16 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [state?.phase, addScore])
+
+  // Auto judges' decision when 2-minute fight timer expires
+  useEffect(() => {
+    if (state?.phase !== 'fighting' || !state.countdown_started_at) return
+    const elapsed = (Date.now() - Date.parse(state.countdown_started_at)) / 1000
+    const remaining = 120 - elapsed
+    if (remaining <= 0) { dispatch({ type: 'win_jd' }); return }
+    const id = setTimeout(() => dispatch({ type: 'win_jd' }), remaining * 1000)
+    return () => clearTimeout(id)
+  }, [state?.phase, state?.countdown_started_at, dispatch])
 
   // Auto-go-fight after 5s countdown
   useEffect(() => {
