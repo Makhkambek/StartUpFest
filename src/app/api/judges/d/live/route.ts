@@ -114,7 +114,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (next.match_winner !== null && next.active_match_id) {
+  // Only persist when the match is truly over:
+  // - Non-tie winner at any round, OR
+  // - Tied after round 4 (penalties — always final).
+  // A tied end of round 2 (half 2) means ET follows; tied end of round 3 (ET) means penalties follow.
+  // Don't persist early — it marks the scheduled match completed and breaks activeMatch lookup.
+  const isTrulyDone = next.match_winner !== null && next.active_match_id &&
+    (action.type === 'end_match') &&
+    (next.match_winner !== 0 || (next.round_number ?? 1) >= 4)
+  if (isTrulyDone) {
     const persistError = await persistMatchResult(next).catch((e) => `persist: ${(e as Error).message}`)
     return NextResponse.json({ ...next, persistError })
   }
@@ -198,9 +206,9 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
     case 'start_second_half':
       return { phase: 'fighting', round_number: 2, countdown_started_at: new Date().toISOString() }
     case 'start_extra_time':
-      return { phase: 'fighting', round_number: 3, countdown_started_at: new Date().toISOString() }
+      return { phase: 'fighting', round_number: 3, countdown_started_at: new Date().toISOString(), match_winner: null }
     case 'start_penalties':
-      return { phase: 'fighting', round_number: 4, countdown_started_at: new Date().toISOString() }
+      return { phase: 'fighting', round_number: 4, countdown_started_at: new Date().toISOString(), match_winner: null }
     case 'end_match': {
       const winner = c.wins_red > c.wins_white ? 1 : c.wins_white > c.wins_red ? 2 : 0
       return { phase: 'match_result', match_winner: winner }
