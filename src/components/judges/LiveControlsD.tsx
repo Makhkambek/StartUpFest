@@ -24,6 +24,7 @@ type ActionBody =
   | { type: 'end_match' }
   | { type: 'retry_persist' }
   | { type: 'reset' }
+  | { type: 'no_show'; active_match_id: string; no_show_side: Side }
 
 const PHASE_LABEL: Record<LivePhaseB, string> = {
   idle: 'Idle',
@@ -41,6 +42,8 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   const [state, setState] = useState<LiveStateB | null>(null)
   const [picked, setPicked] = useState<string>('')
   const [busy, setBusy] = useState(false)
+  const [noShowOpen, setNoShowOpen] = useState(false)
+  const [noShowAbsent, setNoShowAbsent] = useState<Record<'t1' | 't1b' | 't2' | 't2b', boolean>>({ t1: false, t1b: false, t2: false, t2b: false })
   const [error, setError] = useState<string | null>(null)
   // Sticky banner: result was written to live state but the DB write (matches_d)
   // failed. Stays until a retry succeeds — not tied to the polled state, so a 4s
@@ -424,11 +427,80 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                     🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
                   </div>
                 </div>
-                <button disabled={busy}
-                  onClick={() => dispatch({ type: 'start_match', active_match_id: nextSuggested.id })}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
-                  ▶ Start #{nextSuggested.match_id}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button disabled={busy}
+                    onClick={() => dispatch({ type: 'start_match', active_match_id: nextSuggested.id })}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
+                    ▶ Start #{nextSuggested.match_id}
+                  </button>
+                  <button disabled={busy} onClick={() => {
+                    setNoShowOpen(o => !o)
+                    setNoShowAbsent({ t1: false, t1b: false, t2: false, t2b: false })
+                  }}
+                    className="text-xs font-bold text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30 px-3 py-2 rounded">
+                    ⚠ No-show
+                  </button>
+                </div>
+                {noShowOpen && (() => {
+                  const hasT1b = !!nextSuggested.team1b_id
+                  const hasT2b = !!nextSuggested.team2b_id
+                  const toggle = (k: 't1' | 't1b' | 't2' | 't2b') =>
+                    setNoShowAbsent(prev => ({ ...prev, [k]: !prev[k] }))
+                  const redAllAbsent = noShowAbsent.t1 && (!hasT1b || noShowAbsent.t1b)
+                  const blueAllAbsent = noShowAbsent.t2 && (!hasT2b || noShowAbsent.t2b)
+                  const anyAbsent = noShowAbsent.t1 || noShowAbsent.t1b || noShowAbsent.t2 || noShowAbsent.t2b
+                  const isPartialMix = anyAbsent && !redAllAbsent && !blueAllAbsent
+                  return (
+                    <div className="mt-2 rounded-md bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 p-3 space-y-2">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-orange-700 dark:text-orange-400">Отметь кто не явился</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {([
+                          { key: 't1', label: teamName(nextSuggested.team1_id), color: 'rose', show: true },
+                          { key: 't1b', label: nextSuggested.team1b_id ? teamName(nextSuggested.team1b_id) : '', color: 'rose', show: hasT1b },
+                          { key: 't2', label: nextSuggested.team2_id ? teamName(nextSuggested.team2_id) : '', color: 'blue', show: true },
+                          { key: 't2b', label: nextSuggested.team2b_id ? teamName(nextSuggested.team2b_id) : '', color: 'blue', show: hasT2b },
+                        ] as const).filter(x => x.show).map(({ key, label, color }) => {
+                          const checked = noShowAbsent[key]
+                          return (
+                            <label key={key} className={`flex items-center gap-2 px-2.5 py-2 rounded border-2 cursor-pointer transition-colors text-xs font-bold ${
+                              checked
+                                ? color === 'rose' ? 'bg-rose-100 dark:bg-rose-950/30 border-rose-400 dark:border-rose-700 text-rose-800 dark:text-rose-300'
+                                  : 'bg-blue-100 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700 text-blue-800 dark:text-blue-300'
+                                : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:border-gray-300'
+                            }`}>
+                              <input type="checkbox" checked={checked} onChange={() => toggle(key)} className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{color === 'rose' ? '🔴 ' : '🔵 '}{label}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      {redAllAbsent && (
+                        <button disabled={busy}
+                          onClick={() => { dispatch({ type: 'no_show', active_match_id: nextSuggested.id, no_show_side: 'red' }); setNoShowOpen(false) }}
+                          className="w-full bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-xs font-black py-2 rounded">
+                          Записать форфейт — 🔵 Blue wins 3-0
+                        </button>
+                      )}
+                      {blueAllAbsent && (
+                        <button disabled={busy}
+                          onClick={() => { dispatch({ type: 'no_show', active_match_id: nextSuggested.id, no_show_side: 'white' }); setNoShowOpen(false) }}
+                          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-black py-2 rounded">
+                          Записать форфейт — 🔴 Red wins 3-0
+                        </button>
+                      )}
+                      {isPartialMix && (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] text-orange-700 dark:text-orange-400">Неполный состав с обеих сторон — матч всё равно идёт. Запусти матч, после окончания отметь форфейт в Edit.</p>
+                          <button disabled={busy}
+                            onClick={() => { dispatch({ type: 'start_match', active_match_id: nextSuggested.id }); setNoShowOpen(false) }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-black py-2 rounded">
+                            ▶ Начать матч (неполный состав)
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
             )}
 

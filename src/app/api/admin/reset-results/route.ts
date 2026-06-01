@@ -31,9 +31,9 @@ export async function POST(req: NextRequest) {
     const supabase = createAdminClient()
 
     const table = CATEGORY_TABLE[category]
-    // Delete results for this city. Use `.select('id')` to actually count deleted rows
-    // so we can surface "0 rows" silent failures (RLS misconfig, wrong city, etc.).
-    const { data: deleted, error: delErr } = await supabase.from(table).delete().eq('city_code', cityCode).select('id')
+    // results_a uses team_id as PK (no `id` column); all other tables use `id`.
+    const pkCol = category === 'a' ? 'team_id' : 'id'
+    const { data: deleted, error: delErr } = await supabase.from(table).delete().eq('city_code', cityCode).select(pkCol)
     if (delErr) return NextResponse.json({ error: `delete ${table}: ${delErr.message}` }, { status: 500 })
 
     const { data: schedUpd, error: schedErr } = await supabase

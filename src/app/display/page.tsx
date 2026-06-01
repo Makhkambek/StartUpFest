@@ -258,7 +258,7 @@ export default function DisplayPage() {
       const teams: Team[] = Array.isArray(catData[i * 2 + 1]) ? catData[i * 2 + 1] : []
       const name = (id: string | null) => id ? teams.find(t => t.id === id)?.name ?? '—' : null
       for (const m of sched) {
-        if (m.status === 'active' || m.status === 'waiting') {
+        if (m.status === 'active') {
           bundles.push({ category: cats[i], match: m, team1Name: name(m.team1_id) ?? '—', team1bName: name(m.team1b_id ?? null), team2Name: name(m.team2_id), team2bName: name(m.team2b_id ?? null), status: m.status })
         }
       }
@@ -369,37 +369,31 @@ export default function DisplayPage() {
 
           {/* UP NEXT */}
           {nextUp.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-gray-400 text-xs">⏭</span>
-                <span className="text-xs font-black uppercase tracking-widest text-gray-400">Up Next</span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {nextUp.map(b => {
-                  const m = CAT[b.category]
-                  return (
-                    <div key={b.match.id} className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                      <div className={`${m.bg} px-2 py-2 flex items-center gap-1 self-stretch`}>
-                        <span className="text-sm leading-none">{m.icon}</span>
-                        <span className="text-white font-black text-[10px] uppercase hidden sm:block">{m.short}</span>
-                      </div>
-                      <div className="px-2 py-1.5 flex items-center gap-1.5">
-                        <span className={`font-mono text-xs font-black ${m.text}`}>#{b.match.match_id}</span>
-                        <span className="text-gray-300">·</span>
-                        <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">
-                          {b.team1Name}{b.team1bName ? ` + ${b.team1bName}` : ''}
-                        </span>
-                        {b.team2Name && <>
-                          <span className="text-[10px] font-bold text-gray-300">vs</span>
-                          <span className="text-xs font-semibold text-gray-700 max-w-[90px] truncate">
-                            {b.team2Name}{b.team2bName ? ` + ${b.team2bName}` : ''}
-                          </span>
-                        </>}
-                      </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-black uppercase tracking-widest text-gray-400 shrink-0">Up Next</span>
+              {nextUp.map(b => {
+                const m = CAT[b.category]
+                return (
+                  <div key={b.match.id} className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                    <div className={`${m.bg} px-2.5 py-2 self-stretch flex items-center shrink-0`}>
+                      <span className="text-white font-black text-[10px] uppercase tracking-wide whitespace-nowrap">{m.label}</span>
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="px-2.5 py-1.5 flex items-center gap-1.5 min-w-0">
+                      <span className={`font-mono text-[11px] font-black ${m.text} shrink-0`}>#{b.match.match_id}</span>
+                      <span className="text-gray-300 shrink-0">·</span>
+                      <span className="text-xs font-semibold text-gray-800 truncate max-w-[100px]">
+                        {b.team1Name}{b.team1bName ? ` + ${b.team1bName}` : ''}
+                      </span>
+                      {b.team2Name && <>
+                        <span className="text-[10px] font-black text-gray-400 shrink-0 px-0.5">vs</span>
+                        <span className="text-xs font-semibold text-gray-800 truncate max-w-[100px]">
+                          {b.team2Name}{b.team2bName ? ` + ${b.team2bName}` : ''}
+                        </span>
+                      </>}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -11,6 +11,7 @@ type Action =
   | { type: 'start_countdown' }
   | { type: 'go_fight' }
   | { type: 'finish_run'; time_sec: number | null }
+  | { type: 'correct_time'; time_sec: number }
   | { type: 'add_penalty' }
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
@@ -195,12 +196,13 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     }
     case 'finish_run': {
-      // Elapsed computed server-side from fight_started_at — no browser clock skew.
       const serverElapsed = c.fight_started_at
         ? Math.max(0, (Date.now() - Date.parse(c.fight_started_at)) / 1000)
         : null
+      // Use manual time when judge provides it; fall back to server-computed elapsed.
+      const elapsed = (action.time_sec !== null && action.time_sec !== undefined) ? action.time_sec : serverElapsed
       const history = readHistory(c)
-      history.push({ time: serverElapsed })
+      history.push({ time: elapsed })
       // Each scheduled match = exactly one run. match_winner is always set here
       // so the match completes immediately — no second attempt within the same match.
       return {
@@ -234,6 +236,13 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     case 'end_match':
       return { phase: 'match_result', match_winner: 1 }
+    case 'correct_time': {
+      // Overwrite the last run's time in history, then re-persist.
+      const history = readHistory(c)
+      if (history.length > 0) history[history.length - 1] = { time: action.time_sec }
+      else history.push({ time: action.time_sec })
+      return { round_history: history as unknown as LiveStateB['round_history'] }
+    }
     case 'retry_persist':
       // Handled in POST before reaching here; no state mutation.
       return {}

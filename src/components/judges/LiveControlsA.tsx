@@ -15,6 +15,7 @@ type ActionBody =
   | { type: 'start_countdown' }
   | { type: 'go_fight' }
   | { type: 'finish_run'; time_sec: number | null }
+  | { type: 'correct_time'; time_sec: number }
   | { type: 'add_penalty' }
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
@@ -41,6 +42,8 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   // failed. Stays until a retry succeeds — not tied to the polled state.
   const [persistError, setPersistError] = useState<string | null>(null)
   const [migrationMissing, setMigrationMissing] = useState(false)
+  const [manualTime, setManualTime] = useState('')
+  const [correctionMatchId, setCorrectionMatchId] = useState<string | null>(null)
   const autoGoFightRef = useRef(false)
 
   const refetch = useCallback(async () => {
@@ -102,6 +105,12 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
   // Match is "over" when phase is match_result OR round_result with a final winner (attempt 2 done).
   const isMatchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
+  const inCorrectionMode = isMatchOver && correctionMatchId !== null && state?.active_match_id === correctionMatchId
+  const lastRecordedTime = (() => {
+    const history = state?.round_history as Array<{ time: number | null }> | null | undefined
+    if (!Array.isArray(history) || history.length === 0) return null
+    return history[history.length - 1]?.time ?? null
+  })()
 
   // Auto-dispatch go_fight when 5s countdown finishes.
   useEffect(() => {
@@ -125,6 +134,8 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   )
 
   const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
+  // In correction mode the match is already marked completed, so look it up without the status filter.
+  const displayMatch = activeMatch ?? (inCorrectionMode ? (schedule.find((m) => m.id === state.active_match_id) ?? null) : null)
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-lg border-2 border-cyan-300 dark:border-cyan-800 shadow-sm dark:shadow-lg dark:shadow-cyan-950/20">
@@ -168,8 +179,8 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
           </div>
         )}
 
-        {/* Match-over banner */}
-        {isMatchOver && (
+        {/* Match-over banner — hidden while judge is in correction mode */}
+        {isMatchOver && !inCorrectionMode && (
           <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 p-3">
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="text-xs font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">
@@ -208,12 +219,12 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
         )}
 
         {/* Active match indicator */}
-        {activeMatch && !isMatchOver ? (
+        {displayMatch && (!isMatchOver || inCorrectionMode) ? (
           <div className="rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 p-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-0.5">Active runner</div>
               <div className="font-mono text-sm text-gray-800 dark:text-zinc-200 truncate">
-                #{activeMatch.match_id} · 🏎️ {teamName(activeMatch.team1_id)}
+                #{displayMatch.match_id} · 🏎️ {teamName(displayMatch.team1_id)}
               </div>
               <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
                 Phase: <span className="font-semibold text-gray-700 dark:text-zinc-300">{PHASE_LABEL[state.phase]}</span>
@@ -225,7 +236,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               Reset
             </button>
           </div>
-        ) : !activeMatch && !isMatchOver ? (
+        ) : (!displayMatch && !isMatchOver) ? (
           <div className="space-y-2">
             {nextPending && (
               <div className="rounded-md bg-cyan-50 dark:bg-cyan-950/30 border-2 border-cyan-300 dark:border-cyan-800 p-3">
@@ -277,7 +288,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
           </div>
         ) : null}
 
-        {activeMatch && !isMatchOver && (
+        {displayMatch && (!isMatchOver || inCorrectionMode) && (
           <>
             {/* Stage controls — different from B because we have no two sides */}
             <div className="flex flex-wrap gap-2">
@@ -301,36 +312,90 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
             {/* Run result */}
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-1">Run result</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button disabled={busy || state.phase !== 'fighting'}
-                  onClick={() => dispatch({ type: 'finish_run', time_sec: null })}
-                  className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-30 text-white font-bold text-sm py-2 rounded">
-                  🏁 Finish (record time)
+              {inCorrectionMode ? (
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                    ✓ Записано: {lastRecordedTime !== null ? `${lastRecordedTime.toFixed(2)}s` : 'DNF'}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min="0" step="0.01" placeholder="Поправить время (сек)"
+                      value={manualTime}
+                      onChange={e => setManualTime(e.target.value)}
+                      disabled={busy}
+                      className="flex-1 border border-gray-300 dark:border-zinc-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                    <button
+                      disabled={busy || !manualTime}
+                      onClick={async () => {
+                        await dispatch({ type: 'correct_time', time_sec: parseFloat(manualTime) })
+                        setManualTime('')
+                      }}
+                      className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white font-bold text-sm px-3 py-1.5 rounded whitespace-nowrap">
+                      Сохранить
+                    </button>
+                  </div>
+                  <button
+                    disabled={busy}
+                    onClick={() => setCorrectionMatchId(null)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm py-2 rounded">
+                    Завершить цикл →
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="number" min="0" step="0.01" placeholder="Manual time (sec)"
+                      value={manualTime}
+                      onChange={e => setManualTime(e.target.value)}
+                      disabled={busy || state.phase !== 'fighting'}
+                      className="flex-1 border border-gray-300 dark:border-zinc-600 rounded px-2 py-1.5 text-sm bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button disabled={busy || state.phase !== 'fighting'}
+                      onClick={async () => {
+                        const t = manualTime ? parseFloat(manualTime) : null
+                        const matchId = state.active_match_id
+                        setManualTime('')
+                        await dispatch({ type: 'finish_run', time_sec: t })
+                        if (matchId) setCorrectionMatchId(matchId)
+                      }}
+                      className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-30 text-white font-bold text-sm py-2 rounded">
+                      {manualTime ? `🏁 Finish (${parseFloat(manualTime).toFixed(2)}s)` : '🏁 Finish (auto)'}
+                    </button>
+                    <button disabled={busy || state.phase !== 'fighting'}
+                      onClick={() => dispatch({ type: 'mark_dnf' })}
+                      className="bg-gray-700 hover:bg-gray-800 disabled:opacity-30 text-white font-bold text-sm py-2 rounded flex flex-col items-center leading-tight">
+                      <span>✕ DNF</span>
+                      <span className="text-[10px] font-normal opacity-70">Did Not Finish</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Penalty + end match — hidden in correction mode */}
+            {!inCorrectionMode && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <button disabled={busy} onClick={() => dispatch({ type: 'add_penalty' })}
+                  className="border border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:bg-amber-950/30 dark:hover:bg-amber-950/20 text-amber-700 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded">
+                  ⚠ Add penalty ({state.fouls_red === 0 ? '+20s' : state.fouls_red === 1 ? '+40s' : 'DSQ'})
                 </button>
-                <button disabled={busy || state.phase !== 'fighting'}
-                  onClick={() => dispatch({ type: 'mark_dnf' })}
-                  className="bg-gray-700 hover:bg-gray-800 disabled:opacity-30 text-white font-bold text-sm py-2 rounded">
-                  ✕ DNF
+                <button disabled={busy} onClick={() => dispatch({ type: 'end_match' })}
+                  className="bg-gray-900 hover:bg-black text-white text-sm font-bold px-3 py-1.5 rounded ml-auto">
+                  🏆 End match
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* Penalty + end match */}
-            <div className="flex flex-wrap gap-2 items-center">
-              <button disabled={busy} onClick={() => dispatch({ type: 'add_penalty' })}
-                className="border border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:bg-amber-950/30 dark:hover:bg-amber-950/20 text-amber-700 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded">
-                ⚠ Add penalty ({state.fouls_red === 0 ? '+20s' : state.fouls_red === 1 ? '+40s' : 'DSQ'})
-              </button>
-              <button disabled={busy} onClick={() => dispatch({ type: 'end_match' })}
-                className="bg-gray-900 hover:bg-black text-white text-sm font-bold px-3 py-1.5 rounded ml-auto">
-                🏆 End match
-              </button>
-            </div>
-
-            <div className="text-[10px] text-gray-400 dark:text-zinc-400 italic mt-2">
-              After {`"Finish"`} the run is recorded and the match completes.
-              Use End match only if the team withdraws or is DSQ.
-            </div>
+            {!inCorrectionMode && (
+              <div className="text-[10px] text-gray-400 dark:text-zinc-400 italic mt-2">
+                After {`"Finish"`} the run is recorded and the match completes.
+                Use End match only if the team withdraws or is DSQ.
+              </div>
+            )}
           </>
         )}
       </div>

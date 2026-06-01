@@ -457,7 +457,7 @@ export default function JudgeCPage() {
                           const isNext = m.id === nextUpId
                           const isOpen = activeMatch?.id === m.id
                           return (
-                            <tr key={m.id} className={`hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors ${isNext ? 'bg-blue-50/60 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : isOpen ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                            <tr key={m.id} onClick={() => { if (!done) router.push('/judges/c/record/' + m.id) }} className={`transition-colors ${!done ? 'cursor-pointer' : ''} hover:bg-gray-50 dark:hover:bg-zinc-800 ${isNext ? 'bg-blue-50/60 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : isOpen ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   <span className={`font-mono ${isNext ? 'text-blue-900 font-black text-base' : 'font-black text-gray-900 dark:text-zinc-100'}`}>{m.match_id}</span>
@@ -488,17 +488,19 @@ export default function JudgeCPage() {
                               <td className="px-2 py-3">
                                 <div className="flex items-center justify-end gap-1">
                                   {!done && (
-                                    <button onClick={() => setStatus(m.id, m.status === 'waiting' ? 'pending' : 'waiting')}
+                                    <button onClick={e => { e.stopPropagation(); setStatus(m.id, m.status === 'waiting' ? 'pending' : 'waiting') }}
                                       className={`hidden sm:inline-flex px-2.5 py-2 rounded text-xs font-bold border transition-colors min-h-[36px] items-center ${m.status === 'waiting' ? 'bg-orange-100 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900' : 'border-gray-200 dark:border-zinc-700 text-gray-400 dark:text-zinc-400 hover:text-orange-600 hover:border-orange-200 dark:hover:border-orange-900 dark:border-orange-900 hover:bg-orange-50 dark:hover:bg-orange-950/30 dark:bg-orange-950/30'}`}>
                                       {m.status === 'waiting' ? '⏳' : 'Wait'}
                                     </button>
                                   )}
-                                  <button onClick={() => router.push('/judges/c/record/' + m.id)}
-                                    className="px-3 py-2 rounded text-xs font-bold border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors min-h-[36px]">
-                                    {done ? 'Edit' : 'Record'}
-                                  </button>
+                                  {done && (
+                                    <button onClick={e => { e.stopPropagation(); router.push('/judges/c/record/' + m.id) }}
+                                      className="px-3 py-2 rounded text-xs font-bold border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors min-h-[36px]">
+                                      Edit
+                                    </button>
+                                  )}
                                   {done && isAdmin && (
-                                    <button onClick={() => replayMatch(m.id, m.match_id)}
+                                    <button onClick={e => { e.stopPropagation(); replayMatch(m.id, m.match_id) }}
                                       className="px-2.5 py-2 rounded text-xs font-bold border border-orange-200 dark:border-orange-900 text-orange-500 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 dark:bg-orange-950/30 transition-colors min-h-[36px]">
                                       ↩
                                     </button>
@@ -509,7 +511,7 @@ export default function JudgeCPage() {
                                       See
                                     </button>
                                   )}
-                                  <button onClick={async () => { if (await confirm(`Delete ${m.match_id}?`)) deleteScheduledMatch(m.id) }}
+                                  <button onClick={async e => { e.stopPropagation(); if (await confirm(`Delete ${m.match_id}?`)) deleteScheduledMatch(m.id) }}
                                     className="px-2 py-2 rounded text-xs text-red-300 hover:text-red-500 dark:text-red-400 border border-transparent hover:border-red-200 dark:hover:border-red-900 dark:border-red-900 transition-colors min-h-[36px]">✕</button>
                                 </div>
                               </td>

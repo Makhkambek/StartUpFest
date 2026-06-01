@@ -29,8 +29,10 @@ export function computeStandingsD(
     const s2b = m.team2b_id ? (stats[m.team2b_id] ?? null) : null
 
     type Stat = typeof s1
-    // Forfeit: team gets L+1, GF=0, GA=0 regardless of alliance score.
+    // Forfeit: team gets a loss with 0 goals (they didn't play).
     const applyForfeit = (s: Stat) => { s.losses++ }
+    // Forfeit win: entire opposing alliance no-showed → 3 pts, no goals (match not played).
+    const applyForfeitWin = (s: Stat) => { s.wins++; s.points += 3 }
     const applyAlliance1 = (s: Stat) => {
       s.goals_for += g1; s.goals_against += g2
       if (g1 > g2)      { s.wins++; s.points += 3 }
@@ -44,14 +46,18 @@ export function computeStandingsD(
       else              { s.draws++; s.points++ }
     }
 
+    // Entire alliance forfeited = every member of that side has a forfeit flag.
+    const redAllForfeited = !!m.team1_forfeit && (!m.team1b_id || !!m.team1b_forfeit)
+    const blueAllForfeited = !!m.team2_forfeit && (!m.team2b_id || !!m.team2b_forfeit)
+
     if (!surrogates.has(m.team1_id))
-      m.team1_forfeit  ? applyForfeit(s1)  : applyAlliance1(s1)
+      m.team1_forfeit  ? applyForfeit(s1)  : (blueAllForfeited ? applyForfeitWin(s1)  : applyAlliance1(s1))
     if (s1b && !surrogates.has(m.team1b_id!))
-      m.team1b_forfeit ? applyForfeit(s1b) : applyAlliance1(s1b)
+      m.team1b_forfeit ? applyForfeit(s1b) : (blueAllForfeited ? applyForfeitWin(s1b) : applyAlliance1(s1b))
     if (!surrogates.has(m.team2_id))
-      m.team2_forfeit  ? applyForfeit(s2)  : applyAlliance2(s2)
+      m.team2_forfeit  ? applyForfeit(s2)  : (redAllForfeited  ? applyForfeitWin(s2)  : applyAlliance2(s2))
     if (s2b && !surrogates.has(m.team2b_id!))
-      m.team2b_forfeit ? applyForfeit(s2b) : applyAlliance2(s2b)
+      m.team2b_forfeit ? applyForfeit(s2b) : (redAllForfeited  ? applyForfeitWin(s2b) : applyAlliance2(s2b))
   })
 
   const rows = teams.map((team) => ({

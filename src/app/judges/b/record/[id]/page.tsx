@@ -129,6 +129,41 @@ export default function RecordBPage() {
     }
   }
 
+  const saveNoShow = async (noShowTeam: 1 | 2) => {
+    if (!match) return
+    setSaving(true); setSaveMsg('')
+    if (existingRecordId) {
+      await fetch('/api/judges/b/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: existingRecordId }) })
+      setExistingRecordId(null)
+    }
+    const res = await fetch('/api/judges/b/matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        team1_id: match.team1_id,
+        team2_id: match.team2_id,
+        winner: noShowTeam === 1 ? 2 : 1,
+        rounds1: noShowTeam === 1 ? 0 : 3,
+        rounds2: noShowTeam === 2 ? 0 : 3,
+        starting_position: startingPosition,
+        notes: `No-show: ${noShowTeam === 1 ? 'team 1' : 'team 2'}`,
+        scheduled_match_id: id,
+      }),
+    })
+    setSaving(false)
+    if (res.ok) {
+      const saved = await res.json()
+      setSavedRecordId(saved?.id ?? null)
+      setSaveMsg('Saved!')
+      setSavedJustNow(true)
+      setUndoCountdown(30)
+      void updateMatchStatus('completed')
+    } else {
+      const e = await res.json()
+      setSaveMsg(e.error ?? 'Error')
+    }
+  }
+
   if (loading) return <div className="min-h-screen bg-gray-100 dark:bg-zinc-950 flex items-center justify-center"><p className="text-gray-400 dark:text-zinc-400 text-sm">Loading…</p></div>
   if (!match) return <div className="min-h-screen bg-gray-100 dark:bg-zinc-950 flex items-center justify-center"><p className="text-red-400 text-sm">Match not found</p></div>
 
@@ -148,6 +183,24 @@ export default function RecordBPage() {
             <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Changes will overwrite the existing record. To leave it unchanged, click Back.</div>
           </div>
         )}
+
+        {/* No-show shortcut */}
+        {!savedJustNow && (
+          <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-xl px-4 py-3">
+            <div className="text-[10px] font-black uppercase tracking-wide text-orange-700 dark:text-orange-400 mb-2">⚠ Команда не явилась — быстрый форфейт</div>
+            <div className="flex gap-2">
+              <button disabled={saving} onClick={() => saveNoShow(1)}
+                className="flex-1 bg-rose-100 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-bold py-2 rounded hover:bg-rose-200 dark:hover:bg-rose-950/50">
+                {teamName(match.team1_id)} не явился
+              </button>
+              <button disabled={saving} onClick={() => saveNoShow(2)}
+                className="flex-1 bg-blue-100 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs font-bold py-2 rounded hover:bg-blue-200 dark:hover:bg-blue-950/50">
+                {match.team2_id ? teamName(match.team2_id) : 'Team 2'} не явился
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Team info */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5">
           <div className="flex items-start justify-between gap-4">

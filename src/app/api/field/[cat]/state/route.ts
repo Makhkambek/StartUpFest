@@ -133,11 +133,10 @@ async function getStateForA() {
     getResultsA(),
   ])
 
-  // Compute leaderboard from existing standings for the "top 5" panel.
+  // Compute leaderboard — all teams with a recorded time.
   const standings = computeStandingsA(teams, results)
   const leaderboard = standings
     .filter((s) => s.total !== null)
-    .slice(0, 5)
     .map((s) => ({ rank: s.rank, name: s.team.name, school: s.team.school, time: s.total, penalty: s.penalty }))
 
   let match: ScheduledMatch | null = null

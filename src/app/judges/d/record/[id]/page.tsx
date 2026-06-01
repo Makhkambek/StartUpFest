@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import type { Team, MatchD } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
-import { MatchTimer } from '@/components/judges/MatchTimer'
 
 export default function RecordDPage() {
   const { id } = useParams<{ id: string }>()
@@ -23,20 +22,10 @@ export default function RecordDPage() {
   const [savedJustNow, setSavedJustNow] = useState(false)
   const [savedRecordId, setSavedRecordId] = useState<string | null>(null)
   const [undoCountdown, setUndoCountdown] = useState(30)
-  const [matchStatus, setMatchStatus] = useState<'pending' | 'active' | 'completed'>('pending')
   const [forfeit1, setForfeit1] = useState(false)
   const [forfeit1b, setForfeit1b] = useState(false)
   const [forfeit2, setForfeit2] = useState(false)
   const [forfeit2b, setForfeit2b] = useState(false)
-
-  async function updateMatchStatus(status: 'pending' | 'active' | 'completed') {
-    setMatchStatus(status)
-    await fetch(`/api/judges/schedule/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-  }
 
   useEffect(() => {
     if (!savedJustNow) return
@@ -69,7 +58,6 @@ export default function RecordDPage() {
       fetch('/api/judges/d/matches', { cache: 'no-store' }).then(r => r.json()),
     ]).then(([m, t, results]) => {
       setMatch(m)
-      if (m?.status) setMatchStatus(m.status)
       setTeams(Array.isArray(t) ? t : [])
       const ex = Array.isArray(results)
         ? (results.find((r: MatchD) => r.scheduled_match_id === id) ??
@@ -134,7 +122,12 @@ export default function RecordDPage() {
       setSaveMsg('Saved!')
       setSavedJustNow(true)
       setUndoCountdown(30)
-      void updateMatchStatus('completed')
+      // mark the scheduled match completed
+      void fetch(`/api/judges/schedule/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      })
     } else {
       const e = await res.json()
       setSaveMsg(e.error ?? 'Error')
@@ -160,40 +153,18 @@ export default function RecordDPage() {
             <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Changes will overwrite the existing record. To leave it unchanged, click Back.</div>
           </div>
         )}
+
         {/* Team info */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="text-3xl font-black font-mono text-gray-900 dark:text-zinc-100">{match.match_id}</div>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-xl font-semibold text-gray-700 dark:text-zinc-300">{teamName(match.team1_id)}</span>
-                <span className="text-gray-300 dark:text-zinc-400 font-bold">vs</span>
-                <span className="text-xl font-semibold text-gray-700 dark:text-zinc-300">{match.team2_id ? teamName(match.team2_id) : '—'}</span>
-              </div>
-            </div>
-            <div className="shrink-0">
-              {matchStatus === 'pending' && (
-                <button onClick={() => updateMatchStatus('active')}
-                  className="bg-blue-600 text-white text-xs font-black px-3 py-2 rounded-lg hover:bg-blue-700">
-                  ▶ Start
-                </button>
-              )}
-              {matchStatus === 'active' && (
-                <span className="bg-blue-600 text-white text-xs font-black px-3 py-2 rounded-lg animate-pulse inline-block">
-                  ▶ LIVE
-                </span>
-              )}
-              {matchStatus === 'completed' && (
-                <span className="bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 text-xs font-black px-3 py-2 rounded-lg inline-block">
-                  ✓ Done
-                </span>
-              )}
-            </div>
+          <div className="text-3xl font-black font-mono text-gray-900 dark:text-zinc-100">{match.match_id}</div>
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-xl font-semibold text-gray-700 dark:text-zinc-300">{teamName(match.team1_id)}</span>
+            {match.team1b_id && <span className="text-sm text-gray-400">+ {teamName(match.team1b_id)}</span>}
+            <span className="text-gray-300 dark:text-zinc-400 font-bold">vs</span>
+            <span className="text-xl font-semibold text-gray-700 dark:text-zinc-300">{match.team2_id ? teamName(match.team2_id) : '—'}</span>
+            {match.team2b_id && <span className="text-sm text-gray-400">+ {teamName(match.team2b_id)}</span>}
           </div>
         </div>
-
-        {/* Timer (2 min half) */}
-        <MatchTimer duration={120} onStart={() => { if (matchStatus === 'pending') updateMatchStatus('active') }} />
 
         {/* Form */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5 space-y-5">
@@ -217,13 +188,17 @@ export default function RecordDPage() {
           {/* Goals */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">Goals — {teamName(match.team1_id)}</label>
+              <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">
+                {matchPhase === 'penalties' ? 'Penalty goals — ' : 'Goals — '}{teamName(match.team1_id)}
+              </label>
               <input type="number" inputMode="numeric" min="0" step="1" value={goals1} onChange={e => setGoals1(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
                 className="w-full border border-gray-200 dark:border-zinc-700 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-green-300 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500" />
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">Goals — {match.team2_id ? teamName(match.team2_id) : 'Team 2'}</label>
+              <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">
+                {matchPhase === 'penalties' ? 'Penalty goals — ' : 'Goals — '}{match.team2_id ? teamName(match.team2_id) : 'Team 2'}
+              </label>
               <input type="number" inputMode="numeric" min="0" step="1" value={goals2} onChange={e => setGoals2(e.target.value.replace(/\D/g, ''))}
                 placeholder="0"
                 className="w-full border border-gray-200 dark:border-zinc-700 rounded-lg px-4 py-3 text-base text-xl font-mono focus:outline-none focus:ring-2 focus:ring-green-300 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500" />

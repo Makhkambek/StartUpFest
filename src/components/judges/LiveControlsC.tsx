@@ -350,22 +350,26 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
               <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400 mb-1">Bout result</div>
               <div className="grid grid-cols-2 gap-2 mb-1">
                 <button disabled={busy} onClick={() => dispatch({ type: 'win_ko', side: 'red' })}
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 rounded">
-                  🥊 KO · Red
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 rounded flex flex-col items-center leading-tight">
+                  <span>🥊 KO · Red</span>
+                  <span className="text-[10px] font-normal opacity-70">Knockout</span>
                 </button>
                 <button disabled={busy} onClick={() => dispatch({ type: 'win_ko', side: 'white' })}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded">
-                  🥊 KO · Blue
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 rounded flex flex-col items-center leading-tight">
+                  <span>🥊 KO · Blue</span>
+                  <span className="text-[10px] font-normal opacity-70">Knockout</span>
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-1">
                 <button disabled={busy} onClick={() => dispatch({ type: 'win_imm', side: 'red' })}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 rounded">
-                  🧊 IMM · Red
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 rounded flex flex-col items-center leading-tight">
+                  <span>🧊 IMM · Red</span>
+                  <span className="text-[10px] font-normal opacity-70">Immobilized</span>
                 </button>
                 <button disabled={busy} onClick={() => dispatch({ type: 'win_imm', side: 'white' })}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 rounded">
-                  🧊 IMM · Blue
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2 rounded flex flex-col items-center leading-tight">
+                  <span>🧊 IMM · Blue</span>
+                  <span className="text-[10px] font-normal opacity-70">Immobilized</span>
                 </button>
               </div>
               <button disabled={busy} onClick={() => dispatch({ type: 'win_jd' })}

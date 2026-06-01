@@ -23,6 +23,7 @@ type Action =
   | { type: 'reset' }
   | { type: 'toggle_finals' }
   | { type: 'toggle_standby' }
+  | { type: 'no_show'; active_match_id: string; no_show_side: 'red' | 'white' }
 
 // Default state returned when the DB hasn't been seeded yet. `category` must
 // match the route ('d') so UI consumers don't misroute. `updated_at` uses
@@ -122,10 +123,11 @@ export async function POST(req: NextRequest) {
   // A tied end of round 2 (half 2) means ET follows; tied end of round 3 (ET) means penalties follow.
   // Don't persist early — it marks the scheduled match completed and breaks activeMatch lookup.
   const isTrulyDone = next.match_winner !== null && next.active_match_id &&
-    (action.type === 'end_match') &&
+    (action.type === 'end_match' || action.type === 'no_show') &&
     (next.match_winner !== 0 || (next.round_number ?? 1) >= 4)
   if (isTrulyDone) {
-    const persistError = await persistMatchResult(next).catch((e) => `persist: ${(e as Error).message}`)
+    const noShowSide = action.type === 'no_show' ? action.no_show_side : null
+    const persistError = await persistMatchResult(next, noShowSide).catch((e) => `persist: ${(e as Error).message}`)
     return NextResponse.json({ ...next, persistError })
   }
   return NextResponse.json(next)
@@ -237,6 +239,21 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       return { standby_mode: !(c.standby_mode ?? false) }
     case 'toggle_finals':
       return { finals_visible: !(c.finals_visible ?? false) }
+    case 'no_show':
+      return {
+        active_match_id: action.active_match_id,
+        phase: 'match_result',
+        round_number: 1,
+        wins_red: 0,
+        wins_white: 0,
+        match_winner: action.no_show_side === 'red' ? 2 : 1,
+        countdown_started_at: null,
+        fouls_red: 0,
+        fouls_white: 0,
+        round_history: [],
+        last_round_winner: null,
+        starting_position: null,
+      }
   }
 }
 
@@ -271,13 +288,19 @@ async function applySupabase(action: Action): Promise<{ state: LiveStateB | null
 // previously errors were swallowed (.catch(() => null)), so a failed write meant
 // the result silently never reached the leaderboard. Idempotent: a second call
 // (Retry) reuses the existing matches_d row instead of inserting a duplicate.
-async function persistMatchResult(state: LiveStateB): Promise<string | null> {
+async function persistMatchResult(state: LiveStateB, noShowSide?: 'red' | 'white' | null): Promise<string | null> {
   if (!state.active_match_id) return null
-  // Determine match_phase based on which half ended the match.
   const match_phase =
     state.round_number === 3 ? 'extra'
     : state.round_number === 4 ? 'penalties'
     : 'group'
+
+  const forfeitFields = {
+    team1_forfeit: noShowSide === 'red',
+    team1b_forfeit: noShowSide === 'red',
+    team2_forfeit: noShowSide === 'white',
+    team2b_forfeit: noShowSide === 'white',
+  }
 
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
@@ -286,7 +309,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
     const { data: sched, error: schedErr } = await supabase
       .from('scheduled_matches').select('*').eq('id', state.active_match_id).maybeSingle()
     if (schedErr) return `schedule lookup: ${schedErr.message}`
-    if (!sched || !sched.team2_id) return null // no opponent → nothing to record (not an error)
+    if (!sched || !sched.team2_id) return null
 
     const { data: existing } = await supabase
       .from('matches_d').select('id').eq('scheduled_match_id', sched.id).limit(1).maybeSingle()
@@ -304,6 +327,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
         city_code: cityCode,
         match_phase,
         notes: null,
+        ...forfeitFields,
       }).select('id').single()
       if (insErr) return `save result: ${insErr.message}`
       resultId = (created as { id: string } | null)?.id ?? null
@@ -331,6 +355,7 @@ async function persistMatchResult(state: LiveStateB): Promise<string | null> {
     match_phase: match_phase as 'group' | 'extra' | 'penalties',
     notes: null,
     scheduled_match_id: sched.id,
+    ...forfeitFields,
   })
   markComplete(sched.id, created.id, null)
   return null
