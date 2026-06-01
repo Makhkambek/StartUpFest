@@ -149,7 +149,7 @@ export default function FieldAClient() {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 75000), 15000)
     return () => clearInterval(id)
   }, [])
 

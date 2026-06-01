@@ -17,43 +17,69 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
     return NextResponse.json({ error: 'Only categories A, B, C, D supported yet' }, { status: 404 })
   }
 
-  const [liveState, teams] = await Promise.all([getLiveStateB(), getTeams('b')])
+  // Round 1 — all independent: live state + teams + city code in parallel
+  const [liveState, teams, cityCode] = await Promise.all([
+    getLiveStateB(),
+    getTeams('b'),
+    getActiveCityCode(),
+  ])
 
   let match: ScheduledMatch | null = null
   let recordedMatch: MatchB | null = null
-  if (liveState.active_match_id) {
-    if (hasSupabase) {
-      const { createClient } = await import('@/lib/supabase/server')
-      const supabase = await createClient()
-      const { data: m } = await supabase
-        .from('scheduled_matches')
-        .select('*')
-        .eq('id', liveState.active_match_id)
-        .maybeSingle()
-      match = (m as ScheduledMatch | null) ?? null
+  let finalsData = null
 
-      if (match && isUuid(match.team1_id) && isUuid(match.team2_id)) {
-        // Pull the recorded final result for THIS scheduled match specifically.
-        // Use scheduled_match_id for precision — avoids picking up a result from
-        // a different match between the same two teams (e.g. Q-1 result bleeding into Q-2).
-        const { data: rb } = await supabase
-          .from('matches_b')
-          .select('*')
-          .eq('scheduled_match_id', match.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        recordedMatch = (rb as MatchB | null) ?? null
-      }
-    } else {
-      const { getSchedule } = await import('@/lib/schedule-store')
-      const list = getSchedule('b')
+  if (hasSupabase) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const activeId = liveState.active_match_id
+
+    // Round 2 — parallel: active match row + active match result + finals schedule
+    const [matchRes, recordedRes, finalsScheduleRes] = await Promise.all([
+      activeId
+        ? supabase.from('scheduled_matches').select('*').eq('id', activeId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      activeId
+        ? supabase.from('matches_b').select('*').eq('scheduled_match_id', activeId)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+      liveState.finals_visible
+        ? supabase.from('scheduled_matches').select('*')
+            .eq('category', 'b').eq('city_code', cityCode).eq('phase', 'finals')
+        : Promise.resolve({ data: [] }),
+    ])
+
+    match = (matchRes.data as ScheduledMatch | null) ?? null
+    recordedMatch = (recordedRes.data as MatchB | null) ?? null
+    const finalsSchedule = (finalsScheduleRes.data as ScheduledMatch[] | null) ?? []
+
+    // Round 3 — finals results (only if finals matches exist)
+    if (finalsSchedule.length > 0) {
+      const ids = finalsSchedule.map((m) => m.id)
+      const { data: mb } = await supabase.from('matches_b').select('*').in('scheduled_match_id', ids)
+      const matchesB = (mb as MatchB[] | null) ?? []
+      const tName = (id: string | null) => id ? teams.find((t) => t.id === id)?.name ?? null : null
+      const tSchool = (id: string | null) => id ? teams.find((t) => t.id === id)?.school ?? null : null
+      finalsData = finalsSchedule.map((fm) => {
+        const result = matchesB.find((r) => r.scheduled_match_id === fm.id) ?? null
+        return {
+          match_id: fm.match_id,
+          status: fm.status,
+          red: { id: fm.team1_id, name: tName(fm.team1_id), school: tSchool(fm.team1_id) },
+          white: fm.team2_id ? { id: fm.team2_id, name: tName(fm.team2_id), school: tSchool(fm.team2_id) } : null,
+          winner: result?.winner ?? null,
+          rounds1: result?.rounds1 ?? null,
+          rounds2: result?.rounds2 ?? null,
+        }
+      })
+    }
+  } else {
+    const { getSchedule } = await import('@/lib/schedule-store')
+    const list = getSchedule('b')
+    if (liveState.active_match_id) {
       match = list.find((m) => m.id === liveState.active_match_id) ?? null
       if (match) {
         const { getMatchesB } = await import('@/lib/mock-store')
         const all = getMatchesB()
-        // Match by scheduled_match_id first to avoid picking up a result from a
-        // different match between the same two teams (e.g. Q-1 bleeding into Q-2).
         recordedMatch = all.find((r) => r.scheduled_match_id === match!.id)
           ?? all.find((r) =>
               !r.scheduled_match_id &&
@@ -62,6 +88,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
             )
           ?? null
       }
+    }
+    if (liveState.finals_visible) {
+      const finalsSchedule = list.filter((m) => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
+      const { getMatchesB } = await import('@/lib/mock-store')
+      const matchesB = getMatchesB()
+      const tName = (id: string | null) => id ? teams.find((t) => t.id === id)?.name ?? null : null
+      const tSchool = (id: string | null) => id ? teams.find((t) => t.id === id)?.school ?? null : null
+      finalsData = finalsSchedule.map((fm) => {
+        const result = matchesB.find((r) => r.scheduled_match_id === fm.id) ?? null
+        return {
+          match_id: fm.match_id,
+          status: fm.status,
+          red: { id: fm.team1_id, name: tName(fm.team1_id), school: tSchool(fm.team1_id) },
+          white: fm.team2_id ? { id: fm.team2_id, name: tName(fm.team2_id), school: tSchool(fm.team2_id) } : null,
+          winner: result?.winner ?? null,
+          rounds1: result?.rounds1 ?? null,
+          rounds2: result?.rounds2 ?? null,
+        }
+      })
     }
   }
 
@@ -74,43 +119,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
     id ? teams.find((t) => t.id === id)?.name ?? null : null
   const teamSchool = (id: string | null) =>
     id ? teams.find((t) => t.id === id)?.school ?? null : null
-
-  // ── Finals data (Cat B = SE bracket) ─────────────────────────────────
-  let finalsData = null
-  if (state.finals_visible) {
-    let finalsSchedule: ScheduledMatch[] = []
-    let matchesB: MatchB[] = []
-    if (hasSupabase) {
-      const cityCode = await getActiveCityCode()
-      const { createClient } = await import('@/lib/supabase/server')
-      const supabase = await createClient()
-      const { data: fs } = await supabase.from('scheduled_matches').select('*')
-        .eq('category', 'b').eq('city_code', cityCode).eq('phase', 'finals')
-      finalsSchedule = (fs as ScheduledMatch[] | null) ?? []
-      if (finalsSchedule.length > 0) {
-        const ids = finalsSchedule.map((m) => m.id)
-        const { data: mb } = await supabase.from('matches_b').select('*').in('scheduled_match_id', ids)
-        matchesB = (mb as MatchB[] | null) ?? []
-      }
-    } else {
-      const { getSchedule } = await import('@/lib/schedule-store')
-      finalsSchedule = getSchedule('b').filter((m) => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
-      const { getMatchesB } = await import('@/lib/mock-store')
-      matchesB = getMatchesB()
-    }
-    finalsData = finalsSchedule.map((fm) => {
-      const result = matchesB.find((r) => r.scheduled_match_id === fm.id) ?? null
-      return {
-        match_id: fm.match_id,
-        status: fm.status,
-        red: { id: fm.team1_id, name: teamName(fm.team1_id), school: teamSchool(fm.team1_id) },
-        white: fm.team2_id ? { id: fm.team2_id, name: teamName(fm.team2_id), school: teamSchool(fm.team2_id) } : null,
-        winner: result?.winner ?? null,
-        rounds1: result?.rounds1 ?? null,
-        rounds2: result?.rounds2 ?? null,
-      }
-    })
-  }
 
   return NextResponse.json({
     state,
@@ -127,10 +135,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cat
 
 // ── Category A · Line Follower ────────────────────────────────────────
 async function getStateForA() {
-  const [liveState, teams, results] = await Promise.all([
+  const [liveState, teams, results, cityCode] = await Promise.all([
     getLiveStateA(),
     getTeams('a'),
     getResultsA(),
+    getActiveCityCode(),
   ])
 
   // Compute leaderboard — all teams with a recorded time.
@@ -142,7 +151,6 @@ async function getStateForA() {
   let match: ScheduledMatch | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
-    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: all } = await supabase
@@ -230,16 +238,16 @@ async function getStateForA() {
 
 // ── Category C · MiniRoboWar ──────────────────────────────────────────
 async function getStateForC() {
-  const [liveState, teams] = await Promise.all([
+  const [liveState, teams, cityCode] = await Promise.all([
     getLiveStateC(),
     getTeams('c'),
+    getActiveCityCode(),
   ])
 
   let match: ScheduledMatch | null = null
   let recordedFight: FightC | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
-    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: all } = await supabase.from('scheduled_matches').select('*')
@@ -301,7 +309,6 @@ async function getStateForC() {
     let finalsSchedule: ScheduledMatch[] = []
     let fightsC: FightC[] = []
     if (hasSupabase) {
-      const cityCode = await getActiveCityCode()
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
       const { data: fs } = await supabase.from('scheduled_matches').select('*')
@@ -346,13 +353,12 @@ async function getStateForC() {
 
 // ── Category D · Robo Football ──────────────────────────────────────
 async function getStateForD() {
-  const [liveState, teams] = await Promise.all([getLiveStateD(), getTeams('d')])
+  const [liveState, teams, cityCode] = await Promise.all([getLiveStateD(), getTeams('d'), getActiveCityCode()])
 
   let match: ScheduledMatch | null = null
   let recordedMatchD: MatchD | null = null
   let allSchedule: ScheduledMatch[] = []
   if (hasSupabase) {
-    const cityCode = await getActiveCityCode()
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
     const { data: all } = await supabase.from('scheduled_matches').select('*')
