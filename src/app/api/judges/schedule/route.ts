@@ -100,6 +100,16 @@ export async function DELETE(req: NextRequest) {
     if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
     const authz = await requireCategory(match.category)
     if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+    // Delete result first (admin client bypasses RLS) to prevent FK SET NULL
+    // from making the orphaned result match future rescheduled pairs.
+    const resultTable = match.category === 'b' ? 'matches_b'
+      : match.category === 'd' ? 'matches_d'
+      : match.category === 'c' ? 'fights_c'
+      : null
+    if (resultTable) {
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      await createAdminClient().from(resultTable).delete().eq('scheduled_match_id', id)
+    }
     await supabase.from('scheduled_matches').delete().eq('id', id)
     return NextResponse.json({ ok: true })
   }
