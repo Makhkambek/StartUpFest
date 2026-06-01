@@ -2,7 +2,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
-import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import FinalsBracketB from '@/components/public/FinalsBracketB'
@@ -112,7 +111,7 @@ export default function FieldBClient() {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 90000), 15000)
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
     return () => clearInterval(id)
   }, [])
 
@@ -125,11 +124,10 @@ export default function FieldBClient() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refetch])
 
-  const pollMs = fieldPollMs(data?.state?.phase, hasSupabase)
   useEffect(() => {
-    const id = setInterval(refetch, pollMs)
+    const id = setInterval(refetch, hasSupabase ? 4000 : 300)
     return () => clearInterval(id)
-  }, [refetch, pollMs])
+  }, [refetch])
 
   useEffect(() => {
     if (!hasSupabase) return

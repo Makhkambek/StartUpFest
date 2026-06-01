@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard from './TrophyCard'
 import { ConfettiRain, GrandFinalAura } from './VictoryScreen'
-import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
@@ -149,19 +148,16 @@ export default function FieldAClient() {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 75000), 15000)
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
     return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
 
-  // Poll as a safety net. Cadence adapts to the live phase: fast during a run
-  // (so the timer stops promptly when the judge ends it), slow when idle.
-  const pollMs = fieldPollMs(data?.state?.phase, hasSupabase)
   useEffect(() => {
-    const id = setInterval(refetch, pollMs)
+    const id = setInterval(refetch, hasSupabase ? 4000 : 300)
     return () => clearInterval(id)
-  }, [refetch, pollMs])
+  }, [refetch])
 
   useEffect(() => {
     if (!hasSupabase) return
