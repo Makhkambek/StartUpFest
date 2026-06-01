@@ -222,13 +222,21 @@ export default function JudgeCPage() {
           </div>
         )}
 
-        {!loading && view === 'schedule' && schedule.length > 0 && (
-          <StatsBar
-            done={schedule.filter(m => resultFor(m)).length}
-            total={schedule.length}
-            label="Fights"
-          />
-        )}
+        {!loading && view === 'schedule' && schedule.length > 0 && (() => {
+          const statsSchedule = schedule.filter(m => {
+            if (matchFilter === 'qualification') return m.phase !== 'finals'
+            if (matchFilter === 'semi') return (m as {round?:string}).round === 'semi'
+            if (matchFilter === 'final') return ['final','third_place'].includes((m as {round?:string}).round ?? '')
+            return true
+          })
+          return (
+            <StatsBar
+              done={statsSchedule.filter(m => resultFor(m)).length}
+              total={statsSchedule.length}
+              label="Fights"
+            />
+          )
+        })()}
 
         {!loading && view === 'schedule' && (() => {
           const filteredSchedule = schedule.filter(m => {
@@ -300,8 +308,8 @@ export default function JudgeCPage() {
                     <div>
                       <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 1 — generate semifinals from Top-4.</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={handleGenerateSemis} disabled={!isAdmin || genSemis || !qualDone}
-                          title={!qualDone ? 'All qualification matches must be completed first' : !isAdmin ? 'Admin only' : ''}
+                        <button onClick={handleGenerateSemis} disabled={!canGenerate || genSemis || !qualDone}
+                          title={!qualDone ? 'All qualification matches must be completed first' : ''}
                           className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                           {genSemis ? 'Generating…' : 'Generate Semifinals'}
                         </button>
@@ -318,7 +326,7 @@ export default function JudgeCPage() {
                     <div>
                       <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 2 — after both semifinals played, generate final + 3rd place.</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={handleGenerateFinal} disabled={!isAdmin || genFinal}
+                        <button onClick={handleGenerateFinal} disabled={!canGenerate || genFinal}
                           className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                           {genFinal ? 'Generating…' : 'Generate Final + 3rd Place'}
                         </button>

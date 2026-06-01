@@ -242,13 +242,20 @@ export default function JudgeDPage() {
           </div>
         )}
 
-        {!loading && view === 'schedule' && schedule.length > 0 && (
-          <StatsBar
-            done={schedule.filter(m => resultFor(m)).length}
-            total={schedule.length}
-            label="Matches"
-          />
-        )}
+        {!loading && view === 'schedule' && schedule.length > 0 && (() => {
+          const statsSchedule = schedule.filter(m => {
+            if (matchFilter === 'group') return m.phase !== 'finals'
+            if (matchFilter === 'finals') return m.phase === 'finals'
+            return true
+          })
+          return (
+            <StatsBar
+              done={statsSchedule.filter(m => resultFor(m)).length}
+              total={statsSchedule.length}
+              label="Matches"
+            />
+          )
+        })()}
 
         {!loading && view === 'schedule' && (() => {
           const filteredSchedule = schedule.filter(m => {
@@ -313,8 +320,7 @@ export default function JudgeDPage() {
                 </div>
                 <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Top 3 teams by standings → each picks an alliance partner → 3 round-robin matches (A1 vs A2, A1 vs A3, A2 vs A3).</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals}
-                    title={!isAdmin ? 'Admin only' : ''}
+                  <button onClick={handleGenerateFinals} disabled={!canGenerate || genFinals}
                     className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                     {genFinals ? 'Generating…' : 'Generate Finals'}
                   </button>

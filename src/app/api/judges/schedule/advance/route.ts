@@ -60,6 +60,10 @@ async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; wa
   }
 
   // ── v1.1: SF done → Final + 3rd Place ───────────────────────────────────
+  // Guard: if SF already exists but is not done, block re-generation.
+  if (sf.length > 0 && !sf.every(m => m.status === 'completed')) {
+    return { matches: [], warning: 'Semi-finals already generated — complete all SF matches first', round: 'semi' }
+  }
   if (sf.length === 2 && sf.every(m => m.status === 'completed')) {
     const sorted = [...sf].sort((a, b) => a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
     const w1 = sorted[0].team2_id ? winnerOf(sorted[0].id, sorted[0].team1_id, sorted[0].team2_id) : null
@@ -89,6 +93,10 @@ async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; wa
   }
 
   // ── v1.0: R2 done → Final+3rd (2 winners) or Triangle (3 winners) ───────
+  // Guard: if R2 already exists but is not done, block re-generation.
+  if (r2.length > 0 && !r2.every(m => m.status === 'completed')) {
+    return { matches: [], warning: 'R2 already generated — complete all R2 matches first', round: 'r2' }
+  }
   if (r2.length > 0 && r2.every(m => m.status === 'completed')) {
     const sorted = [...r2].sort((a, b) => a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
     // Bye matches (team2_id=null, auto-completed) count as team1 advancing.
