@@ -5,21 +5,9 @@ import { toast } from 'sonner'
 import type { Team, ResultA, PenaltyA } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 
-// Penalty seconds that are valid per the rulebook:
-//   +10s — off-track return >3s OR participant touched robot (can stack twice → +20s)
-//   +40s — beam not crossed in 30s
-//   +50s — beam not crossed + one +10s event
-// dnf / disq — special statuses
-const PENALTY_SEC: Record<string, number> = {
-  '0': 0, '10': 10, '20': 20, '40': 40, '50': 50,
-}
-
 function penaltyFromSec(sec: number): PenaltyA {
-  if (sec === 10) return '10'
-  if (sec === 20) return '20'
-  if (sec === 40) return '40'
-  if (sec >= 50) return '50'
-  return '0'
+  if (sec === 0) return '0'
+  return String(sec) as PenaltyA
 }
 
 export default function RecordAPage() {
@@ -114,10 +102,10 @@ export default function RecordAPage() {
       const ex = Array.isArray(results) ? results.find((r: ResultA) => r.scheduled_match_id === id) : null
       if (ex) {
         setIsEdit(true)
-        // Restore raw time: subtract penalty from stored run1 if possible
-        const storedPenSec = ex.penalty in PENALTY_SEC ? PENALTY_SEC[ex.penalty] : 0
+        // run1 in DB is always the raw time (penalty not baked in)
+        const storedPenSec = (ex.penalty === 'dnf' || ex.penalty === 'disq') ? 0 : (parseInt(ex.penalty) || 0)
         if (ex.run1 !== null) {
-          setRawTime((ex.run1 - storedPenSec).toFixed(2))
+          setRawTime(ex.run1.toFixed(2))
           setPenSec(storedPenSec)
         }
         setPenalty(ex.penalty)

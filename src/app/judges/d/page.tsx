@@ -370,8 +370,6 @@ export default function JudgeDPage() {
               </div>
 
               {schedule.length > 0 && (() => {
-                const hasFinals = schedule.some(m => m.phase === 'finals')
-                if (!hasFinals) return null
                 const tabs: { key: typeof matchFilter; label: string; count: number }[] = [
                   { key: 'all', label: 'All', count: schedule.length },
                   { key: 'group', label: 'Qualification', count: schedule.filter(m => m.phase !== 'finals').length },
@@ -417,6 +415,9 @@ export default function JudgeDPage() {
                             return true
                           })
                           const nextUpId = filtered.find(m => !resultFor(m))?.id
+                          if (filtered.length === 0) return (
+                            <tr><td colSpan={5} className="text-center py-8 text-sm text-gray-300 dark:text-zinc-600">No matches yet</td></tr>
+                          )
                           let lastSection = ''
                           return filtered.map(m => {
                           const section = m.phase === 'finals' ? 'Finals · Round-Robin' : 'Qualification'

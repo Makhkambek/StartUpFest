@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...cur, persistError })
   }
 
+  const activeMatchIdBeforeReset = action.type === 'reset' ? (await readCurrentState())?.active_match_id ?? null : null
+
   let next: LiveStateB | null = null
   let upstreamError: string | null = null
   if (hasSupabase) {
@@ -107,13 +109,15 @@ export async function POST(req: NextRequest) {
       const cityCode = await getActiveCityCode()
       const { createAdminClient } = await import('@/lib/supabase/admin')
       const supabase = createAdminClient()
-      await supabase.from('matches_d').delete().eq('city_code', cityCode)
-      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'd').eq('city_code', cityCode)
+      if (activeMatchIdBeforeReset) {
+        await supabase.from('matches_d').delete().eq('scheduled_match_id', activeMatchIdBeforeReset).eq('city_code', cityCode)
+        await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('id', activeMatchIdBeforeReset)
+      }
     } else {
-      const { clearResultsForCategory } = await import('@/lib/mock-store')
-      clearResultsForCategory('d')
-      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
-      resetScheduleStatuses('d')
+      if (activeMatchIdBeforeReset) {
+        const { setMatchStatus } = await import('@/lib/schedule-store')
+        setMatchStatus(activeMatchIdBeforeReset, 'pending')
+      }
     }
   }
 

@@ -27,9 +27,10 @@ export function computeStandingsB(teams: Team[], matches: MatchB[]): StandingB[]
 
   rows.sort((a, b) => b.points - a.points || b.round_wins - a.round_wins || a.team.created_at.localeCompare(b.team.created_at))
 
-  // v1.1: 4 groups, top 2 per group → 8-team QF bracket.
-  // If groups are configured: top 2 in each group = finalist.
-  // If no groups yet: top 8 globally = finalist.
+  // Threshold: <20 teams → top 2 per group → 8 finalists (4 R1 → 2 R2 → Final+3rd)
+  //            20+ teams → top 3 per group → 12 finalists (6 R1 → 3 R2 → Triangle)
+  const finalistCount = teams.length >= 20 ? 12 : 8
+
   const groups = new Map<string, string[]>()
   for (const row of rows) {
     const g = row.team.group_letter ?? ''
@@ -40,12 +41,14 @@ export function computeStandingsB(teams: Team[], matches: MatchB[]): StandingB[]
   const finalistIds = new Set<string>()
   const hasGroups = groups.size > 1 || (groups.size === 1 && !groups.has(''))
   if (hasGroups) {
+    const realGroupCount = [...groups.keys()].filter(g => g !== '').length
+    const perGroup = Math.floor(finalistCount / Math.max(realGroupCount, 1))
     for (const [g, ids] of groups) {
       if (g === '') continue
-      ids.slice(0, 2).forEach(id => finalistIds.add(id))
+      ids.slice(0, perGroup).forEach(id => finalistIds.add(id))
     }
   } else {
-    rows.slice(0, 8).forEach(r => finalistIds.add(r.team.id))
+    rows.slice(0, finalistCount).forEach(r => finalistIds.add(r.team.id))
   }
 
   return rows.map((row, i) => ({

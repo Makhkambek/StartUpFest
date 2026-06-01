@@ -74,6 +74,8 @@ export async function POST(req: NextRequest) {
   const action = (await req.json()) as Action
   if (!action?.type) return NextResponse.json({ error: 'type required' }, { status: 400 })
 
+  const activeMatchIdBeforeReset = action.type === 'reset' ? (await readCurrentState())?.active_match_id ?? null : null
+
   let next: LiveStateB | null = null
   let upstreamError: string | null = null
   if (hasSupabase) {
@@ -95,13 +97,15 @@ export async function POST(req: NextRequest) {
       const cityCode = await getActiveCityCode()
       const { createAdminClient } = await import('@/lib/supabase/admin')
       const supabase = createAdminClient()
-      await supabase.from('fights_c').delete().eq('city_code', cityCode)
-      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'c').eq('city_code', cityCode)
+      if (activeMatchIdBeforeReset) {
+        await supabase.from('fights_c').delete().eq('scheduled_match_id', activeMatchIdBeforeReset).eq('city_code', cityCode)
+        await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('id', activeMatchIdBeforeReset)
+      }
     } else {
-      const { clearResultsForCategory } = await import('@/lib/mock-store')
-      clearResultsForCategory('c')
-      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
-      resetScheduleStatuses('c')
+      if (activeMatchIdBeforeReset) {
+        const { setMatchStatus } = await import('@/lib/schedule-store')
+        setMatchStatus(activeMatchIdBeforeReset, 'pending')
+      }
     }
   }
 
@@ -110,6 +114,19 @@ export async function POST(req: NextRequest) {
     await persistFightResult(next).catch(() => null)
   }
   return NextResponse.json(next)
+}
+
+async function readCurrentState(): Promise<LiveStateB | null> {
+  if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('live_match_state').select('*').eq('category', 'c').eq('city_code', cityCode).maybeSingle()
+    return (data as LiveStateB | null) ?? null
+  }
+  const { getLiveC } = await import('@/lib/mock-store')
+  return getLiveC()
 }
 
 function clampScore(n: number): number {

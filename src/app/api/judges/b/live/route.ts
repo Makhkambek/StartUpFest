@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
   const action = (await req.json()) as Action
   if (!action?.type) return NextResponse.json({ error: 'type required' }, { status: 400 })
 
+  const activeMatchIdBeforeReset = action.type === 'reset' ? (await readCurrentState())?.active_match_id ?? null : null
+
   if (hasSupabase) {
     const next = await applySupabase(action)
     if (!next) {
@@ -82,8 +84,10 @@ export async function POST(req: NextRequest) {
       const cityCode = await getActiveCityCode()
       const { createAdminClient } = await import('@/lib/supabase/admin')
       const supabase = createAdminClient()
-      await supabase.from('matches_b').delete().eq('city_code', cityCode)
-      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'b').eq('city_code', cityCode)
+      if (activeMatchIdBeforeReset) {
+        await supabase.from('matches_b').delete().eq('scheduled_match_id', activeMatchIdBeforeReset).eq('city_code', cityCode)
+        await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('id', activeMatchIdBeforeReset)
+      }
     }
     return NextResponse.json(next)
   }
@@ -94,13 +98,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action', action: action.type }, { status: 400 })
   }
   if (action.type === 'end_match') await persistMatchMock(next)
-  if (action.type === 'reset') {
-    const { clearResultsForCategory } = await import('@/lib/mock-store')
-    clearResultsForCategory('b')
-    const { resetScheduleStatuses } = await import('@/lib/schedule-store')
-    resetScheduleStatuses('b')
+  if (action.type === 'reset' && activeMatchIdBeforeReset) {
+    const { setMatchStatus } = await import('@/lib/schedule-store')
+    setMatchStatus(activeMatchIdBeforeReset, 'pending')
   }
   return NextResponse.json(next)
+}
+
+async function readCurrentState(): Promise<LiveStateB | null> {
+  if (hasSupabase) {
+    const cityCode = await getActiveCityCode()
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { data } = await supabase
+      .from('live_match_state').select('*').eq('category', 'b').eq('city_code', cityCode).maybeSingle()
+    return (data as LiveStateB | null) ?? null
+  }
+  const { getLiveB } = await import('@/lib/mock-store')
+  return getLiveB()
 }
 
 // ── Persist final result to matches_b so standings see it ─────────────

@@ -12,7 +12,8 @@ type Action =
   | { type: 'go_fight' }
   | { type: 'finish_run'; time_sec: number | null }
   | { type: 'correct_time'; time_sec: number }
-  | { type: 'add_penalty' }
+  | { type: 'add_penalty'; penalty_sec: 10 | 40 }
+  | { type: 'disq_attempt' }
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
   | { type: 'end_match' }
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ...cur, persistError })
   }
 
+  // Capture active_match_id BEFORE the patch clears it (reset sets it to null).
+  const activeMatchIdBeforeReset = action.type === 'reset' ? (await readCurrentState())?.active_match_id ?? null : null
+
   const next = hasSupabase ? await applySupabase(action) : await applyMock(action)
   if (!next) {
     // Generic "Invalid action" used to confuse judges — log the action so we can
@@ -108,13 +112,16 @@ export async function POST(req: NextRequest) {
       const cityCode = await getActiveCityCode()
       const { createAdminClient } = await import('@/lib/supabase/admin')
       const supabase = createAdminClient()
-      await supabase.from('results_a').delete().eq('city_code', cityCode)
-      await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('category', 'a').eq('city_code', cityCode)
+      if (activeMatchIdBeforeReset) {
+        // Only delete result and reset status for the one match that was active.
+        await supabase.from('results_a').delete().eq('scheduled_match_id', activeMatchIdBeforeReset).eq('city_code', cityCode)
+        await supabase.from('scheduled_matches').update({ status: 'pending', result_id: null }).eq('id', activeMatchIdBeforeReset)
+      }
     } else {
-      const { clearResultsForCategory } = await import('@/lib/mock-store')
-      clearResultsForCategory('a')
-      const { resetScheduleStatuses } = await import('@/lib/schedule-store')
-      resetScheduleStatuses('a')
+      if (activeMatchIdBeforeReset) {
+        const { setMatchStatus } = await import('@/lib/schedule-store')
+        setMatchStatus(activeMatchIdBeforeReset, 'pending')
+      }
     }
   }
 
@@ -142,8 +149,8 @@ async function readCurrentState(): Promise<LiveStateB | null> {
   return getLiveA()
 }
 
-// ── History is stored as JSONB: for category A, an array of `{ time | null }` per attempt.
-type RunRecord = { time: number | null }
+// ── History is stored as JSONB: for category A, an array of `{ time | null, disq? }` per attempt.
+type RunRecord = { time: number | null; disq?: boolean }
 
 function readHistory(c: LiveStateB | null): RunRecord[] {
   const raw = (c?.round_history as unknown) ?? []
@@ -214,10 +221,21 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     }
     case 'add_penalty':
-      return { fouls_red: c.fouls_red + 1 }
+      return { fouls_red: c.fouls_red + action.penalty_sec }
     case 'mark_dnf': {
       const history = readHistory(c)
       history.push({ time: null })
+      return {
+        phase: 'round_result',
+        wins_red: c.wins_red + 1,
+        last_round_winner: 'draw',
+        match_winner: 1,
+        round_history: history as unknown as LiveStateB['round_history'],
+      }
+    }
+    case 'disq_attempt': {
+      const history = readHistory(c)
+      history.push({ time: null, disq: true })
       return {
         phase: 'round_result',
         wins_red: c.wins_red + 1,
@@ -321,13 +339,14 @@ async function persistRunResult(state: LiveStateB): Promise<string | null> {
   const run1 = history[0]?.time ?? null
   const run2 = history[1]?.time ?? null
 
-  // Derive penalty enum from fouls count + DNF detection from history.
-  const allDnf = history.length > 0 && history.every((r) => r.time === null)
+  // Derive penalty from history + accumulated fouls_red (= penalty seconds).
+  const anyDisq = history.some((r) => r.disq)
+  const allDnf = history.length > 0 && history.every((r) => r.time === null && !r.disq)
+  const penaltySec = anyDisq ? 0 : Math.max(0, state.fouls_red)
   const penalty: PenaltyA =
-    allDnf ? 'dnf'
-    : state.fouls_red >= 2 ? '40'
-    : state.fouls_red === 1 ? '20'
-    : '0'
+    anyDisq ? 'disq'
+    : allDnf ? 'dnf'
+    : String(penaltySec) as PenaltyA
 
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
@@ -336,8 +355,7 @@ async function persistRunResult(state: LiveStateB): Promise<string | null> {
 
     // Compute total (best run + penalty seconds; null if DNF/DISQ).
     const best = [run1, run2].filter((v): v is number => v !== null).reduce((a, b) => Math.min(a, b), Infinity)
-    const penaltySec = penalty === '20' ? 20 : penalty === '40' ? 40 : 0
-    const total: number | null = penalty === 'dnf'
+    const total: number | null = (penalty === 'dnf' || penalty === 'disq')
       ? null
       : isFinite(best) ? best + penaltySec : null
 

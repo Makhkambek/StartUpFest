@@ -367,16 +367,33 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                     🔵 {teamName(nextSuggested.team2_id)}{nextSuggested.team2b_id ? ` + ${teamName(nextSuggested.team2b_id)}` : ''}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   <button disabled={busy}
                     onClick={() => dispatch({ type: 'start_match', active_match_id: nextSuggested.id })}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
                     ▶ Start #{nextSuggested.match_id}
                   </button>
-                  <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
-                    className="bg-gray-200 dark:bg-zinc-800 hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-300 font-bold text-xs px-3 py-2 rounded">
-                    Choose another…
-                  </button>
+                  {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextSuggested.id).length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
+                        Or choose a different match…
+                      </summary>
+                      <div className="flex gap-2 mt-2">
+                        <select value={picked} onChange={e => setPicked(e.target.value)}
+                          className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
+                          <option value="">Choose a match…</option>
+                          {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                            <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}</option>
+                          ))}
+                        </select>
+                        <button disabled={busy || !picked}
+                          onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm px-3 py-1.5 rounded">
+                          Start
+                        </button>
+                      </div>
+                    </details>
+                  )}
                 </div>
               </div>
             )}

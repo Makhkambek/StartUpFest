@@ -335,7 +335,7 @@ export async function POST(req: NextRequest) {
     const ungrouped = teamsByGroup.get('Ungrouped')
     if (ungrouped && ungrouped.length > 0) {
       return NextResponse.json({
-        error: `${ungrouped.length} team(s) have no group assigned. Assign all teams to groups A–F before generating.`,
+        error: `${ungrouped.length} team(s) have no group assigned. Assign all teams to groups A–D before generating.`,
       }, { status: 400 })
     }
     const pairs = buildGroupPairings(teamsByGroup)

@@ -8,7 +8,7 @@ const TOTAL_DNF = 99_998
 const TOTAL_DISQ = 99_999
 const TOTAL_NO_RESULT = 99_999.5
 
-const PENALTY_SEC: Record<string, number> = { '10': 10, '20': 20, '40': 40, '50': 50 }
+const PENALTY_SEC: Record<string, number> = { '10': 10, '20': 20, '40': 40 }
 
 interface InternalRow {
   team: Team
@@ -57,7 +57,7 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
       penalty: best.penalty,
       penaltySec: PENALTY_SEC[best.penalty] ?? 0,
       total: isDnf ? TOTAL_DNF : isDisq ? TOTAL_DISQ : (best.total ?? TOTAL_NO_RESULT),
-      displayTotal: isDnf || isDisq ? null : best.total,
+      displayTotal: isDnf ? 120 : isDisq ? null : best.total,
       status: isDnf ? 'dnf' : isDisq ? 'disq' : null,
     }
   })
@@ -78,6 +78,6 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
     run2: row.run2,
     penalty: row.penalty,
     total: row.displayTotal,
-    status: row.status ?? (i < 4 ? 'finalist' : i < 16 ? 'qualified' : 'elim'),
+    status: row.status ?? (i < 16 ? 'qualified' : 'elim'),
   }))
 }

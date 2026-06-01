@@ -53,9 +53,11 @@ async function planFinalsB(): Promise<{ matches: PlannedMatch[]; warning?: strin
   const results = await getMatchesB()
   const standings = computeStandingsB(teams, results)
 
-  // Top 12 globally → 6 R1 matches (single elimination round 1)
-  const seeded = shuffle(standings.slice(0, 12))
-  if (seeded.length < 6) return { matches: [], warning: `Only ${seeded.length} teams ranked — need at least 6 for R1` }
+  // <20 teams → top 8 (4 R1 → 2 R2 → Final+3rd); 20+ → top 12 (6 R1 → 3 R2 → Triangle)
+  const finalistCount = teams.length >= 20 ? 12 : 8
+  const minR1Teams = finalistCount / 2
+  const seeded = shuffle(standings.slice(0, finalistCount))
+  if (seeded.length < minR1Teams) return { matches: [], warning: `Only ${seeded.length} teams ranked — need at least ${minR1Teams} for R1` }
 
   const matches: PlannedMatch[] = []
   for (let i = 0; i + 1 < seeded.length; i += 2) {

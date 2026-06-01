@@ -451,6 +451,9 @@ export default function JudgeCPage() {
                             return true
                           })
                           const nextUpId = schedule.find(m => !resultFor(m))?.id
+                          if (filtered.length === 0) return (
+                            <tr><td colSpan={5} className="text-center py-8 text-sm text-gray-300 dark:text-zinc-600">No matches yet</td></tr>
+                          )
                           return filtered.map(m => {
                           const r = resultFor(m)
                           const done = !!r

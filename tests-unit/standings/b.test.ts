@@ -86,6 +86,35 @@ describe('computeStandingsB — Mini Sumo', () => {
     expect(s[0].wins).toBe(0)
   })
 
+  it('no groups, 20+ teams: top 12 = finalist', () => {
+    const teams = Array.from({ length: 25 }, (_, i) => makeTeam({ id: `t${i}`, category: 'b' }))
+    const matches = teams.slice(3).map(opponent =>
+      makeMatchB({ team1_id: 't0', team2_id: opponent.id, winner: 1, rounds1: 2, rounds2: 0 })
+    )
+    const s = computeStandingsB(teams, matches)
+    expect(s.filter(r => r.status === 'finalist')).toHaveLength(12)
+    expect(s.filter(r => r.status === 'elim')).toHaveLength(13)
+  })
+
+  it('with 4 groups, 20+ teams: top 3 per group = finalist', () => {
+    const groups = ['A', 'B', 'C', 'D']
+    const teams = groups.flatMap(g =>
+      Array.from({ length: 6 }, (_, i) => makeTeam({ id: `t${g}${i}`, category: 'b', group_letter: g }))
+    ) // 24 teams total → threshold ≥20 → top 3 per group = 12 finalists
+    const matches = groups.flatMap(g => [
+      makeMatchB({ team1_id: `t${g}0`, team2_id: `t${g}3`, winner: 1, rounds1: 2, rounds2: 0 }),
+      makeMatchB({ team1_id: `t${g}1`, team2_id: `t${g}4`, winner: 1, rounds1: 2, rounds2: 0 }),
+      makeMatchB({ team1_id: `t${g}2`, team2_id: `t${g}5`, winner: 1, rounds1: 2, rounds2: 0 }),
+    ])
+    const s = computeStandingsB(teams, matches)
+    expect(s.filter(r => r.status === 'finalist')).toHaveLength(12)
+    groups.forEach(g => {
+      expect(s.find(r => r.team.id === `t${g}0`)!.status).toBe('finalist')
+      expect(s.find(r => r.team.id === `t${g}2`)!.status).toBe('finalist')
+      expect(s.find(r => r.team.id === `t${g}3`)!.status).toBe('elim')
+    })
+  })
+
   it('handles empty matches', () => {
     const t1 = makeTeam({ id: 't1', category: 'b' })
     const t2 = makeTeam({ id: 't2', category: 'b' })

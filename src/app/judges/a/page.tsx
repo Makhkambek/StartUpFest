@@ -30,20 +30,13 @@ export default function JudgeAPage() {
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
-  const [finalsVisible, setFinalsVisible] = useState(false)
   const [standbyMode, setStandbyMode] = useState(false)
 
   useEffect(() => {
     fetch('/api/judges/a/live').then(r => r.json()).then(s => {
-      setFinalsVisible(s.finals_visible ?? false)
       setStandbyMode(s.standby_mode ?? false)
     })
   }, [])
-
-  const toggleFinals = async () => {
-    const res = await fetch('/api/judges/a/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
-    if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
-  }
 
   const toggleStandby = async () => {
     const res = await fetch('/api/judges/a/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_standby' }) })
@@ -167,10 +160,6 @@ export default function JudgeAPage() {
           <button onClick={toggleStandby}
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${standbyMode ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'}`}>
             {standbyMode ? '⏸ Standby ON' : '⏸ Standby'}
-          </button>
-          <button onClick={toggleFinals}
-            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
-            {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
           </button>
           <a href="/a" target="_blank" className="ml-2 text-xs text-gray-400 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 px-3 py-1.5 rounded border border-gray-200 dark:border-zinc-700">Public ↗</a>
           <ThemeToggle />

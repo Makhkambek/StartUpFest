@@ -16,7 +16,8 @@ type ActionBody =
   | { type: 'go_fight' }
   | { type: 'finish_run'; time_sec: number | null }
   | { type: 'correct_time'; time_sec: number }
-  | { type: 'add_penalty' }
+  | { type: 'add_penalty'; penalty_sec: 10 | 40 }
+  | { type: 'disq_attempt' }
   | { type: 'mark_dnf' }
   | { type: 'next_attempt' }
   | { type: 'end_match' }
@@ -192,25 +193,40 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               </button>
             </div>
             {nextPending ? (
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="min-w-0 text-sm">
-                  <span className="text-gray-500 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
-                  <span className="font-mono font-black text-gray-900 dark:text-zinc-100">#{nextPending.match_id}</span>
-                  <span className="text-gray-500 dark:text-zinc-400 mx-1.5">·</span>
-                  <span className="text-gray-700 dark:text-zinc-300">🏎️ {teamName(nextPending.team1_id)}</span>
-                </div>
-                <div className="flex items-center gap-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 text-sm">
+                    <span className="text-gray-500 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
+                    <span className="font-mono font-black text-gray-900 dark:text-zinc-100">#{nextPending.match_id}</span>
+                    <span className="text-gray-500 dark:text-zinc-400 mx-1.5">·</span>
+                    <span className="text-gray-700 dark:text-zinc-300">🏎️ {teamName(nextPending.team1_id)}</span>
+                  </div>
                   <button disabled={busy} onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded">
                     ▶ Start now
                   </button>
-                  {false && (
-                    <button
-                      className="border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 text-xs font-bold px-2 py-1.5 rounded dark:text-zinc-300">
-                      Cancel
-                    </button>
-                  )}
                 </div>
+                {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextPending.id).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
+                      Or choose a different run…
+                    </summary>
+                    <div className="flex gap-2 mt-2">
+                      <select value={picked} onChange={e => setPicked(e.target.value)}
+                        className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
+                        <option value="">Choose a run…</option>
+                        {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                          <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)}</option>
+                        ))}
+                      </select>
+                      <button disabled={busy || !picked}
+                        onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm px-3 py-1.5 rounded">
+                        Start
+                      </button>
+                    </div>
+                  </details>
+                )}
               </div>
             ) : (
               <div className="text-sm text-gray-500 dark:text-zinc-400 italic">All matches completed 🎉</div>
@@ -228,7 +244,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               </div>
               <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
                 Phase: <span className="font-semibold text-gray-700 dark:text-zinc-300">{PHASE_LABEL[state.phase]}</span>
-                {state.fouls_red > 0 && <> · <span className="text-amber-700 dark:text-amber-400">+{state.fouls_red === 1 ? 20 : 40}s penalty</span></>}
+                {state.fouls_red > 0 && <> · <span className="text-amber-700 dark:text-amber-400">+{state.fouls_red}s штраф</span></>}
               </div>
             </div>
             <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
@@ -378,22 +394,37 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
 
             {/* Penalty + end match — hidden in correction mode */}
             {!inCorrectionMode && (
-              <div className="flex flex-wrap gap-2 items-center">
-                <button disabled={busy} onClick={() => dispatch({ type: 'add_penalty' })}
-                  className="border border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:bg-amber-950/30 dark:hover:bg-amber-950/20 text-amber-700 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded">
-                  ⚠ Add penalty ({state.fouls_red === 0 ? '+20s' : state.fouls_red === 1 ? '+40s' : 'DSQ'})
-                </button>
-                <button disabled={busy} onClick={() => dispatch({ type: 'end_match' })}
-                  className="bg-gray-900 hover:bg-black text-white text-sm font-bold px-3 py-1.5 rounded ml-auto">
-                  🏆 End match
-                </button>
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-400">
+                  Штрафы{state.fouls_red > 0 ? <span className="text-amber-600 dark:text-amber-400 ml-1">(итого: +{state.fouls_red}s)</span> : ''}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button disabled={busy || state.phase !== 'fighting'}
+                    onClick={() => dispatch({ type: 'add_penalty', penalty_sec: 10 })}
+                    className="border border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-xs font-bold px-3 py-1.5 rounded disabled:opacity-30">
+                    +10s — касание / сход
+                  </button>
+                  <button disabled={busy || state.phase !== 'fighting'}
+                    onClick={() => dispatch({ type: 'add_penalty', penalty_sec: 40 })}
+                    className="border border-orange-400 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30 text-orange-700 dark:text-orange-400 text-xs font-bold px-3 py-1.5 rounded disabled:opacity-30">
+                    +40s — луч не пересечён
+                  </button>
+                  <button disabled={busy || state.phase !== 'fighting'}
+                    onClick={() => dispatch({ type: 'disq_attempt' })}
+                    className="border border-red-400 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-700 dark:text-red-400 text-xs font-bold px-3 py-1.5 rounded disabled:opacity-30">
+                    DSQ попытки
+                  </button>
+                  <button disabled={busy} onClick={() => dispatch({ type: 'end_match' })}
+                    className="bg-gray-900 hover:bg-black text-white text-sm font-bold px-3 py-1.5 rounded ml-auto">
+                    Завершить матч
+                  </button>
+                </div>
               </div>
             )}
 
             {!inCorrectionMode && (
-              <div className="text-[10px] text-gray-400 dark:text-zinc-400 italic mt-2">
-                After {`"Finish"`} the run is recorded and the match completes.
-                Use End match only if the team withdraws or is DSQ.
+              <div className="text-[10px] text-gray-400 dark:text-zinc-400 italic mt-1">
+                +10s — касание робота или сход &gt;3 сек. +40s — луч не пересечён за 30 сек. DSQ — повторный сход или остановка &gt;10 сек.
               </div>
             )}
           </>

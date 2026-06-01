@@ -80,8 +80,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ca
 
   // group_letter update
   const { group_letter } = body
-  const validGroups = ['A', 'B', 'C', 'D', 'E', 'F', null]
-  if (!validGroups.includes(group_letter)) return NextResponse.json({ error: 'group_letter must be A–F or null' }, { status: 400 })
+  const validGroups = ['A', 'B', 'C', 'D', null]
+  if (!validGroups.includes(group_letter)) return NextResponse.json({ error: 'group_letter must be A–D or null' }, { status: 400 })
 
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')

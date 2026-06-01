@@ -94,8 +94,9 @@ async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; wa
   // ── v1.0: R2 done → Final+3rd (2 winners) or Triangle (3 winners) ───────
   if (r2.length > 0 && r2.every(m => m.status === 'completed')) {
     const sorted = [...r2].sort((a, b) => a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
-    const winners = sorted.map(m => m.team2_id ? winnerOf(m.id, m.team1_id, m.team2_id) : null).filter((x): x is string => !!x)
-    const losers  = sorted.map(m => m.team2_id ? loserOf(m.id, m.team1_id, m.team2_id) : null).filter((x): x is string => !!x)
+    // Bye matches (team2_id=null, auto-completed) count as team1 advancing.
+    const winners = sorted.map(m => m.team2_id ? winnerOf(m.id, m.team1_id, m.team2_id) : m.team1_id).filter((x): x is string => !!x)
+    const losers  = sorted.filter(m => !!m.team2_id).map(m => loserOf(m.id, m.team1_id, m.team2_id!)).filter((x): x is string => !!x)
     if (winners.length < 2) return { matches: [], warning: `Record all R2 results first (winners: ${winners.length})`, round: 'r2' }
     if (winners.length === 2) {
       return {
@@ -125,6 +126,11 @@ async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; wa
     const matches: PlannedMatch[] = []
     for (let i = 0; i + 1 < winners.length; i += 2) {
       matches.push({ match_id: `FB-R2-${matches.length + 1}`, team1_id: winners[i], team2_id: winners[i + 1], round: 'r2' })
+    }
+    // Odd number of R1 winners (e.g. 10 teams → 5 winners): last winner gets a bye
+    // and auto-advances to Triangle Final as the 3rd finalist.
+    if (winners.length % 2 === 1) {
+      matches.push({ match_id: `FB-R2-${matches.length + 1}`, team1_id: winners[winners.length - 1], team2_id: null, round: 'r2' })
     }
     return { round: 'r2', matches }
   }
@@ -176,7 +182,8 @@ export async function POST(req: NextRequest) {
     city_code: cityCode,
     phase: 'finals' as const,
     round: m.round,
-    status: 'pending' as const,
+    // Bye matches (no opponent) are auto-completed so they don't block Next Round.
+    status: (m.team2_id === null ? 'completed' : 'pending') as 'completed' | 'pending',
     created_at: new Date(now + i).toISOString(),
   }))
   const { error } = await supabase.from('scheduled_matches').insert(rows)

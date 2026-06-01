@@ -229,19 +229,42 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
               </button>
             </div>
             {nextPending ? (
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="min-w-0 text-sm">
-                  <span className="text-gray-500 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
-                  <span className="font-mono font-black text-gray-900 dark:text-zinc-100">#{nextPending.match_id}</span>
-                  <span className="text-gray-500 dark:text-zinc-400 mx-1.5">·</span>
-                  <span className="text-gray-700 dark:text-zinc-300">🔴 {teamName(nextPending.team1_id)}</span>
-                  <span className="text-gray-400 dark:text-zinc-400 mx-1.5">vs</span>
-                  <span className="text-gray-700 dark:text-zinc-300">🔵 {teamName(nextPending.team2_id)}</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 text-sm">
+                    <span className="text-gray-500 dark:text-zinc-400 text-[11px] font-bold uppercase tracking-widest mr-2">Next:</span>
+                    <span className="font-mono font-black text-gray-900 dark:text-zinc-100">#{nextPending.match_id}</span>
+                    <span className="text-gray-500 dark:text-zinc-400 mx-1.5">·</span>
+                    <span className="text-gray-700 dark:text-zinc-300">🔴 {teamName(nextPending.team1_id)}</span>
+                    <span className="text-gray-400 dark:text-zinc-400 mx-1.5">vs</span>
+                    <span className="text-gray-700 dark:text-zinc-300">🔵 {teamName(nextPending.team2_id)}</span>
+                  </div>
+                  <button disabled={busy} onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-1.5 rounded">
+                    ▶ Start next bout
+                  </button>
                 </div>
-                <button disabled={busy} onClick={() => dispatch({ type: 'start_match', active_match_id: nextPending.id })}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-1.5 rounded">
-                  ▶ Start next bout
-                </button>
+                {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextPending.id).length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
+                      Or choose a different bout…
+                    </summary>
+                    <div className="flex gap-2 mt-2">
+                      <select value={picked} onChange={e => setPicked(e.target.value)}
+                        className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
+                        <option value="">Choose a bout…</option>
+                        {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                          <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}</option>
+                        ))}
+                      </select>
+                      <button disabled={busy || !picked}
+                        onClick={() => dispatch({ type: 'start_match', active_match_id: picked })}
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-sm px-3 py-1.5 rounded">
+                        Start
+                      </button>
+                    </div>
+                  </details>
+                )}
               </div>
             ) : (
               <div className="text-sm text-gray-500 dark:text-zinc-400 italic">All bouts completed 🎉</div>

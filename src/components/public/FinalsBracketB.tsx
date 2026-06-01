@@ -474,7 +474,7 @@ export default function FinalsBracketB({
   let displaySF       = sf
   let displayTriangle = triangle
   if (isV10 && qf.length >= 4) {
-    const expectedSF = Math.floor(qf.length / 2)
+    const expectedSF = Math.ceil(qf.length / 2)
     if (sf.length < expectedSF) {
       displaySF = [
         ...sf,
@@ -528,7 +528,10 @@ export default function FinalsBracketB({
   // R2 / SF: center of each pair
   const sf1CY = hasQF && qf.length >= 2 ? (qf1CY + qf2CY) / 2 : TOP + s.cardH / 2
   const sf2CY = hasQF && qf.length >= 4 ? (qf3CY + qf4CY) / 2 : sf1CY + s.cardH + s.groupGap
-  const sf3CY = hasQF && qf.length >= 6 ? (qf5CY + qf6CY) / 2 : sf2CY + s.cardH + s.groupGap
+  // 6 R1 matches: sf3 is between pair3 centres; 5 R1 matches: lone 5th match → sf3 aligns directly with it
+  const sf3CY = hasQF && qf.length >= 6 ? (qf5CY + qf6CY) / 2
+              : hasQF && qf.length === 5 ? qf5CY
+              : sf2CY + s.cardH + s.groupGap
   const sf1Y  = sf1CY - s.cardH / 2
   const sf2Y  = sf2CY - s.cardH / 2
   const sf3Y  = sf3CY - s.cardH / 2
@@ -555,7 +558,7 @@ export default function FinalsBracketB({
 
   const totalW = numCols > 0 ? (numCols - 1) * (s.cardW + s.colGap) + s.cardW : s.cardW
   const totalH = Math.max(
-    hasQF       ? (qf.length >= 6 ? qf6Y + s.cardH : qf4Y + s.cardH) : 0,
+    hasQF       ? (qf.length >= 6 ? qf6Y + s.cardH : qf.length >= 5 ? qf5Y + s.cardH : qf4Y + s.cardH) : 0,
     hasSF       ? (displaySF.length >= 3 ? sf3Y + s.cardH : sf2Y + s.cardH) : 0,
     hasFinal    ? thirdY + s.cardH  : 0,
     hasTriangle ? sf3Y  + s.cardH  : 0,  // triangle cards sit at sf3Y
@@ -629,6 +632,11 @@ export default function FinalsBracketB({
             <line x1={mid1X} y1={sf3CY} x2={sfX} y2={sf3CY}
               stroke={lineCol} strokeWidth={s.lineW} strokeLinecap="round" />
           </>)}
+          {/* Lone QF5 → SF3 — 10-team bracket (5th match has no pair, goes directly) */}
+          {hasQF && hasSF && qf.length === 5 && displaySF.length >= 3 && (
+            <line x1={qfX + s.cardW} y1={qf5CY} x2={sfX} y2={sf3CY}
+              stroke={lineCol} strokeWidth={s.lineW} strokeLinecap="round" />
+          )}
 
           {/* SF1+SF2 → Final (gold when SF done) — only in non-triangle bracket */}
           {hasSF && hasFinal && !hasTriangle && displaySF.length >= 2 && final.length >= 1 && (<>

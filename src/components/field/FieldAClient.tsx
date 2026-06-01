@@ -450,7 +450,7 @@ function ArcadeRunner({
   channel: string
 }) {
   void channel
-  const penaltySec = fouls === 0 ? 0 : fouls === 1 ? 20 : 40
+  const penaltySec = Math.max(0, fouls)  // fouls_red now stores actual penalty seconds directly
 
   // Showing countdown digits (5..4..3..2..1) — only while remaining > 0.
   const inCountdownDigits = isCountdown && cdRemaining !== null && cdRemaining > 0

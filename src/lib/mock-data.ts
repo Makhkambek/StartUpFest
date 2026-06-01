@@ -17,7 +17,7 @@ function makeTeams(category: string, names: string[]): Team[] {
     city_code: 'MOCK',
     name,
     school: SCHOOLS[i],
-    group_letter: category === 'b' ? ['A','B','C','D','E','F'][i % 6] : null,
+    group_letter: category === 'b' ? ['A','B','C','D'][i % 4] : null,
     created_at: '2026-05-11T00:00:00Z',
   }))
 }

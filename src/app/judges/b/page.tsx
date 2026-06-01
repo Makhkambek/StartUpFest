@@ -60,8 +60,12 @@ export default function JudgeBPage() {
       fetch('/api/judges/b/matches', { cache: 'no-store' }).then(r => r.json()),
     ])
     setTeams(Array.isArray(tr) ? tr : [])
-    const sorted = (Array.isArray(sc) ? sc : []).sort((a: { match_id: string }, b: { match_id: string }) =>
-      a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
+    const sorted = (Array.isArray(sc) ? sc : []).sort((a: { match_id: string }, b: { match_id: string }) => {
+      const na = parseInt(a.match_id.match(/(\d+)/)?.[1] ?? '0')
+      const nb = parseInt(b.match_id.match(/(\d+)/)?.[1] ?? '0')
+      if (na !== nb) return na - nb
+      return a.match_id.localeCompare(b.match_id)
+    })
     setSchedule(sorted)
     setMatches(Array.isArray(mr) ? mr : [])
     setLoading(false)
@@ -101,7 +105,7 @@ export default function JudgeBPage() {
   const [genFinalsErr, setGenFinalsErr] = useState('')
   const [genFinals, setGenFinals] = useState(false)
   const handleGenerateFinals = async () => {
-    if (!await confirm('Generate SEMI-FINALS from current standings? Top 12 teams will be seeded into 6 R1 matches. Existing finals will be replaced.')) return
+    if (!await confirm('Generate SEMI-FINALS from current standings? Top 8 teams will be seeded into 4 R1 matches. Existing finals will be replaced.')) return
     setGenFinals(true); setGenFinalsErr('')
     const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setGenFinals(false); return }
@@ -301,7 +305,11 @@ export default function JudgeBPage() {
                     <span className="text-xs text-amber-600 dark:text-amber-400">{schedule.filter(m => m.phase === 'finals').length} finals scheduled</span>
                   )}
                 </div>
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Top 12 from qualifications → Semi-Finals R1 (6 matches) → R2 (3 matches) → Triangle Final.</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                  {teams.length >= 20
+                    ? 'Top 12 from qualifications → R1 (6 matches) → R2 (3 matches) → Triangle Final.'
+                    : 'Top 8 from qualifications → R1 (4 matches) → R2 (2 matches) → Final + 3rd Place.'}
+                </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {/* Step 1: always visible — seed R1 from standings */}
                   {(() => {
@@ -386,19 +394,14 @@ export default function JudgeBPage() {
               </div>
 
               {schedule.length > 0 && (() => {
-                const hasQF = schedule.some(m => m.phase === 'finals' && m.round === 'quarter')
                 const hasR1 = schedule.some(m => m.phase === 'finals' && (m.round === 'r1' || m.round === 'r2'))
-                const hasSF = schedule.some(m => m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2'))
-                const hasFinal = schedule.some(m => m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle'))
                 const sfTabLabel = hasR1 ? 'Rounds 1 & 2' : 'Semi-Finals'
                 const tabs: { key: typeof matchFilter; label: string; count: number }[] = [
                   { key: 'all', label: 'All', count: schedule.length },
                   { key: 'group', label: 'Group Stage', count: schedule.filter(m => m.phase !== 'finals').length },
-                  ...(hasQF ? [{ key: 'quarter' as const, label: 'Quarter-Finals', count: schedule.filter(m => m.round === 'quarter').length }] : []),
-                  ...(hasSF ? [{ key: 'semi' as const, label: sfTabLabel, count: schedule.filter(m => m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')).length }] : []),
-                  ...((hasSF || hasFinal) ? [{ key: 'final' as const, label: 'Finals', count: schedule.filter(m => m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')).length }] : []),
+                  { key: 'semi' as const, label: sfTabLabel, count: schedule.filter(m => m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')).length },
+                  { key: 'final' as const, label: 'Finals', count: schedule.filter(m => m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')).length },
                 ]
-                if (tabs.length <= 2) return null
                 return (
                   <div className="flex gap-1 overflow-x-auto pb-1">
                     {tabs.map(tab => (
@@ -455,6 +458,9 @@ export default function JudgeBPage() {
                             if (matchFilter === 'final') return m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')
                             return true
                           })
+                          if (filtered.length === 0) return (
+                            <tr><td colSpan={5} className="text-center py-8 text-sm text-gray-300 dark:text-zinc-600">No matches yet</td></tr>
+                          )
                           let lastSection = ''
                           return filtered.map(m => {
                           const section = sectionOf(m)
@@ -608,7 +614,7 @@ export default function JudgeBPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <h2 className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Auto-Assign Groups</h2>
-                    <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">Randomly splits teams into 6 balanced groups (A–F)</p>
+                    <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">Randomly splits teams into 4 balanced groups (A–D)</p>
                   </div>
                   <button
                     onClick={async () => {
@@ -616,7 +622,7 @@ export default function JudgeBPage() {
                       if (hasGroups && !isAdmin) { alert('Groups already assigned. Only admin can overwrite.'); return }
                       if (hasGroups && !await confirm(`Groups already exist. Overwrite all ${teams.length} teams?`)) return
                       const shuffled = [...teams].sort(() => Math.random() - 0.5)
-                      const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F']
+                      const groupLetters = ['A', 'B', 'C', 'D']
                       await Promise.all(shuffled.map((t, i) =>
                         fetch('/api/judges/b/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, group_letter: groupLetters[i % 4] }) })
                       ))
@@ -686,7 +692,7 @@ export default function JudgeBPage() {
                               className="border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded px-2 py-1 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
                             >
                               <option value="">—</option>
-                              {['A', 'B', 'C', 'D', 'E', 'F'].map(g => <option key={g} value={g}>{g}</option>)}
+                              {['A', 'B', 'C', 'D'].map(g => <option key={g} value={g}>{g}</option>)}
                             </select>
                           </td>
                           <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{pts}</td>
