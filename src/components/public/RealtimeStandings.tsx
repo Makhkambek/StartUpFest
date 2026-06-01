@@ -79,7 +79,7 @@ export default function RealtimeStandings(props: Standings) {
       const res = await fetch(endpoint, { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
-      if (data?.state?.finals_visible && Array.isArray(data.finalsData)) {
+      if (data?.state?.finals_visible && Array.isArray(data.finalsData) && data.finalsData.length > 0) {
         if (props.category === 'b') {
           setFinalsData(data.finalsData)
         } else {
