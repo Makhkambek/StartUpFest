@@ -4,6 +4,7 @@ import { useEventSettings } from '@/lib/use-event-settings'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import FinalsBracketD from '@/components/public/FinalsBracketD'
+import { ConfettiRain, GrandFinalAura } from './VictoryScreen'
 
 interface TeamLite {
   id: string
@@ -550,6 +551,14 @@ function FifaView({ data, eventWatermark }: { data: FieldStateD; eventWatermark:
 
       {/* ── GOAL OVERLAY ── */}
       {goalOverlay && <GoalOverlay key={goalOverlay.ts} side={goalOverlay.side} scoredBy={goalOverlay.side === 'red' ? red!.name : white!.name} />}
+
+      {/* Confetti + aura — finals round-robin matches with a winner */}
+      {isMatchOver && match?.round === 'round_robin' && winnerSide && winnerSide !== 'draw' && (
+        <>
+          <ConfettiRain />
+          <GrandFinalAura />
+        </>
+      )}
     </div>
   )
 }

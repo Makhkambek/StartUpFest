@@ -84,14 +84,24 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
 
   // Derived values used by both render and effects (state may be null on first render).
   // Sort by match_id so "next up" is the next sequential bout (Q-1 → Q-2 → ...).
+  // Finals use round-priority ordering so 3rd-place is always played before the Final.
+  const ROUND_PRIORITY: Record<string, number> = { r1: 1, r2: 2, quarter: 3, semi: 4, third_place: 5, final: 6, triangle: 6, round_robin: 6 }
   const eligible = state ? schedule.filter((m) => m.status !== 'completed' && m.team2_id) : []
   const sortedEligible = [...eligible].sort((a, b) => {
+    const ra = a.round ? (ROUND_PRIORITY[a.round] ?? 0) : 0
+    const rb = b.round ? (ROUND_PRIORITY[b.round] ?? 0) : 0
+    if (ra !== rb) return ra - rb
     const na = parseInt(a.match_id.match(/(\d+)/)?.[1] ?? '0')
     const nb = parseInt(b.match_id.match(/(\d+)/)?.[1] ?? '0')
     if (na !== nb) return na - nb
     return a.match_id.localeCompare(b.match_id)
   })
-  const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
+  // If the active match was replayed (reset to pending), eligible includes it.
+  // In that case, include it as the next suggestion instead of skipping it.
+  const activeMatchReplayed = state ? eligible.some(m => m.id === state.active_match_id) : false
+  const nextPending = state
+    ? (activeMatchReplayed ? sortedEligible[0] : sortedEligible.find(m => m.id !== state.active_match_id)) ?? null
+    : null
   const isMatchOver = state?.phase === 'match_result'
 
   // Auto-dispatch go_fight once the 5-second countdown finishes — so judge doesn't have to.
@@ -178,7 +188,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
                     ▶ Start next match
                   </button>
                 </div>
-                {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextPending.id).length > 0 && (
+                {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).length > 0 && (
                   <details className="text-xs">
                     <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                       Or choose a different match…
@@ -187,7 +197,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
                       <select value={picked} onChange={e => setPicked(e.target.value)}
                         className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                         <option value="">Choose a match…</option>
-                        {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                        {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).map(m => (
                           <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}</option>
                         ))}
                       </select>

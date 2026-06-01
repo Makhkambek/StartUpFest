@@ -105,7 +105,9 @@ export default function JudgeBPage() {
   const [genFinalsErr, setGenFinalsErr] = useState('')
   const [genFinals, setGenFinals] = useState(false)
   const handleGenerateFinals = async () => {
-    if (!await confirm('Generate SEMI-FINALS from current standings? Top 8 teams will be seeded into 4 R1 matches. Existing finals will be replaced.')) return
+    const fc = teams.length >= 20 ? 12 : 8
+    const r1count = fc / 2
+    if (!await confirm(`Generate FINALS BRACKET from current standings? Top ${fc} teams → ${r1count} R1 matches. Existing finals will be replaced.`)) return
     setGenFinals(true); setGenFinalsErr('')
     const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setGenFinals(false); return }
@@ -319,7 +321,7 @@ export default function JudgeBPage() {
                       <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing || !qualDone}
                         title={!qualDone ? 'All qualification matches must be completed first' : !isAdmin ? 'Admin only' : ''}
                         className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
-                        {genFinals ? 'Generating…' : 'Generate Semi-Finals'}
+                        {genFinals ? 'Generating…' : 'Generate Finals Bracket'}
                       </button>
                     )
                   })()}
@@ -436,7 +438,7 @@ export default function JudgeBPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-zinc-800">
                         {(() => {
-                          const nextUpId = schedule.find(m => !resultFor(m))?.id
+                          const nextUpId = schedule.find(m => m.status !== 'completed' && !resultFor(m))?.id
 
                           const sectionOf = (m: ScheduledMatch): string => {
                             if (m.phase !== 'finals') return 'Group Stage'
@@ -467,7 +469,8 @@ export default function JudgeBPage() {
                           const showHeader = section !== lastSection
                           if (showHeader) lastSection = section
                           const r = resultFor(m)
-                          const done = !!r
+                          const isBye = !m.team2_id
+                          const done = !!r || (isBye && m.status === 'completed')
                           const isNext = m.id === nextUpId
                           const isOpen = activeMatch?.id === m.id
                           return (

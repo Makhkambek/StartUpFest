@@ -272,10 +272,12 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
   // Auto-pick next match: lowest match_id among eligible, excluding the one
   // that just finished. Judges don't have to manually scan the schedule —
   // when end_match fires we surface the next one as a one-click action.
+  // Exception: if active match was replayed (reset to pending), include it.
   const sortedEligible = [...eligible].sort((a, b) =>
     a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
   )
-  const nextSuggested = sortedEligible.find((m) => m.id !== state.active_match_id) ?? null
+  const activeMatchReplayed = eligible.some(m => m.id === state.active_match_id)
+  const nextSuggested = (activeMatchReplayed ? sortedEligible[0] : sortedEligible.find(m => m.id !== state.active_match_id)) ?? null
   function matchLabel(m: ScheduledMatch): string {
     const red = m.team1b_id
       ? `${teamName(m.team1_id)} + ${teamName(m.team1b_id)}`
@@ -373,7 +375,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-4 py-2 rounded shadow-sm">
                     ▶ Start #{nextSuggested.match_id}
                   </button>
-                  {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextSuggested.id).length > 0 && (
+                  {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextSuggested?.id).length > 0 && (
                     <details className="text-xs">
                       <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                         Or choose a different match…
@@ -382,7 +384,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
                         <select value={picked} onChange={e => setPicked(e.target.value)}
                           className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                           <option value="">Choose a match…</option>
-                          {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                          {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextSuggested?.id).map(m => (
                             <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}</option>
                           ))}
                         </select>

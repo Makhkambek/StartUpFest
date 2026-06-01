@@ -188,7 +188,8 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
   )
   const activeMatch = schedule.find((m) => m.id === state.active_match_id && m.status !== 'completed') ?? null
   const isMatchOver = state.phase === 'match_result' || (state.phase === 'round_result' && state.match_winner !== null)
-  const nextPending = sortedEligible.find((m) => m.id !== state.active_match_id) ?? null
+  const activeMatchReplayed = eligible.some(m => m.id === state.active_match_id)
+  const nextPending = (activeMatchReplayed ? sortedEligible[0] : sortedEligible.find(m => m.id !== state.active_match_id)) ?? null
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-lg border-2 border-rose-300 dark:border-rose-800 shadow-sm dark:shadow-lg dark:shadow-rose-950/20">
@@ -244,7 +245,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
                     ▶ Start next bout
                   </button>
                 </div>
-                {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextPending.id).length > 0 && (
+                {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).length > 0 && (
                   <details className="text-xs">
                     <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                       Or choose a different bout…
@@ -253,7 +254,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
                       <select value={picked} onChange={e => setPicked(e.target.value)}
                         className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                         <option value="">Choose a bout…</option>
-                        {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                        {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).map(m => (
                           <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)} vs {teamName(m.team2_id)}</option>
                         ))}
                       </select>

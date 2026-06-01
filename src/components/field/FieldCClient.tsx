@@ -5,6 +5,7 @@ import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import FinalsBracketB from '@/components/public/FinalsBracketB'
+import { ConfettiRain, GrandFinalAura } from './VictoryScreen'
 
 interface TeamLite {
   id: string
@@ -430,6 +431,14 @@ function FightingView({ data }: { data: FieldStateC }) {
           </TrophyCard>
         </div>
       )}
+
+      {/* Confetti + aura — Grand Final only */}
+      {match?.match_id === 'FC-F1' && winnerSide && winnerSide !== 'draw' && phaseElapsed >= RESULT_SUSPENSE_MS + 3000 && (
+        <>
+          <ConfettiRain />
+          <GrandFinalAura />
+        </>
+      )}
     </div>
   )
 }
@@ -749,6 +758,7 @@ function PlayerCell({
 
 // ── Finals bracket overlay ──
 function FinalsBracketOverlayC({ matches }: { matches: BracketMatchC[] }) {
+
   const sf1    = matches.find(m => m.match_id === 'FC-SF1') ?? null
   const sf2    = matches.find(m => m.match_id === 'FC-SF2') ?? null
   const final_ = matches.find(m => m.match_id === 'FC-F1')  ?? null

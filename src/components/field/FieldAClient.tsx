@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard from './TrophyCard'
+import { ConfettiRain, GrandFinalAura } from './VictoryScreen'
 import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
@@ -319,6 +320,8 @@ function ArcadeView({ data, eventWatermark }: { data: FieldStateA; eventWatermar
     return null
   })()
 
+  const topRank = team ? leaderboard.find((r) => r.name === team.name)?.rank ?? null : null
+
   const matchLabel = match ? `MATCH ${match.match_id}` : 'STANDBY'
   // Pull the numeric part of the match id (Q-3 → 3, TEST-B1 → 1) for the track channel label.
   const channelNum = match ? (match.match_id.match(/\d+/)?.[0] ?? '01') : '—'
@@ -399,7 +402,7 @@ function ArcadeView({ data, eventWatermark }: { data: FieldStateA; eventWatermar
           window, then the screen falls through to the next runner. */}
       {isMatchOver && team && phaseElapsed <= MATCH_RESULT_DISPLAY_MS && (() => {
         const finalTime = bestTime ?? lastRunTime
-        const myRank = leaderboard.find((r) => r.name === team.name)?.rank ?? null
+        const myRank = topRank
         const isTop = myRank === 1
         return (
           <div className="absolute inset-0 z-40 bg-black/65 backdrop-blur-sm flex items-center justify-center">
@@ -425,6 +428,14 @@ function ArcadeView({ data, eventWatermark }: { data: FieldStateA; eventWatermar
           </div>
         )
       })()}
+
+      {/* Confetti + aura — fastest-today moments */}
+      {isMatchOver && topRank === 1 && phaseElapsed <= MATCH_RESULT_DISPLAY_MS && (
+        <>
+          <ConfettiRain />
+          <GrandFinalAura />
+        </>
+      )}
     </div>
   )
 }

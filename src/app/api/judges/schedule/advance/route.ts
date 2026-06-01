@@ -121,7 +121,7 @@ async function advanceB(cityCode: string): Promise<{ matches: PlannedMatch[]; wa
   // ── v1.0: R1 done → R2 ──────────────────────────────────────────────────
   if (r1.length > 0 && r1.every(m => m.status === 'completed')) {
     const sorted = [...r1].sort((a, b) => a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
-    const winners = sorted.map(m => m.team2_id ? winnerOf(m.id, m.team1_id, m.team2_id) : null).filter((x): x is string => !!x)
+    const winners = sorted.map(m => m.team2_id ? winnerOf(m.id, m.team1_id, m.team2_id) : m.team1_id).filter((x): x is string => !!x)
     if (winners.length < 2) return { matches: [], warning: `Record all R1 results first (winners: ${winners.length})`, round: 'r1' }
     const matches: PlannedMatch[] = []
     for (let i = 0; i + 1 < winners.length; i += 2) {

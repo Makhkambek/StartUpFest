@@ -103,7 +103,10 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
   const sortedEligible = [...eligible].sort((a, b) =>
     a.match_id.localeCompare(b.match_id, undefined, { numeric: true }),
   )
-  const nextPending = state ? sortedEligible.find((m) => m.id !== state.active_match_id) ?? null : null
+  const activeMatchReplayed = state ? eligible.some(m => m.id === state.active_match_id) : false
+  const nextPending = state
+    ? (activeMatchReplayed ? sortedEligible[0] : sortedEligible.find(m => m.id !== state.active_match_id)) ?? null
+    : null
   // Match is "over" when phase is match_result OR round_result with a final winner (attempt 2 done).
   const isMatchOver = state?.phase === 'match_result' || (state?.phase === 'round_result' && state?.match_winner !== null)
   const inCorrectionMode = isMatchOver && correctionMatchId !== null && state?.active_match_id === correctionMatchId
@@ -206,7 +209,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
                     ▶ Start now
                   </button>
                 </div>
-                {sortedEligible.filter(m => m.id !== state.active_match_id && m.id !== nextPending.id).length > 0 && (
+                {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).length > 0 && (
                   <details className="text-xs">
                     <summary className="cursor-pointer text-gray-500 dark:text-zinc-400 hover:text-gray-800 dark:hover:text-zinc-50">
                       Or choose a different run…
@@ -215,7 +218,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
                       <select value={picked} onChange={e => setPicked(e.target.value)}
                         className="flex-1 border border-gray-300 dark:border-zinc-700 rounded px-2 py-1.5 text-sm dark:bg-zinc-800 dark:text-zinc-100">
                         <option value="">Choose a run…</option>
-                        {sortedEligible.filter(m => m.id !== state.active_match_id).map(m => (
+                        {sortedEligible.filter(m => (activeMatchReplayed || m.id !== state.active_match_id) && m.id !== nextPending?.id).map(m => (
                           <option key={m.id} value={m.id}>#{m.match_id} · {teamName(m.team1_id)}</option>
                         ))}
                       </select>

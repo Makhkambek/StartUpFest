@@ -56,7 +56,30 @@ async function planFinalsB(): Promise<{ matches: PlannedMatch[]; warning?: strin
   // <20 teams → top 8 (4 R1 → 2 R2 → Final+3rd); 20+ → top 12 (6 R1 → 3 R2 → Triangle)
   const finalistCount = teams.length >= 20 ? 12 : 8
   const minR1Teams = finalistCount / 2
-  const seeded = shuffle(standings.slice(0, finalistCount))
+
+  // Use group-fair selection (same logic as standings display) so every group is represented.
+  // Falls back to global top-N when no groups are configured.
+  const groups = new Map<string, typeof standings>()
+  for (const row of standings) {
+    const g = row.team.group_letter ?? ''
+    if (!groups.has(g)) groups.set(g, [])
+    groups.get(g)!.push(row)
+  }
+  const hasGroups = groups.size > 1 || (groups.size === 1 && !groups.has(''))
+  let finalists: typeof standings
+  if (hasGroups) {
+    const realGroupCount = [...groups.keys()].filter(g => g !== '').length
+    const perGroup = Math.floor(finalistCount / Math.max(realGroupCount, 1))
+    finalists = []
+    for (const [g, rows] of groups) {
+      if (g === '') continue
+      finalists.push(...rows.slice(0, perGroup))
+    }
+  } else {
+    finalists = standings.slice(0, finalistCount)
+  }
+
+  const seeded = shuffle(finalists)
   if (seeded.length < minR1Teams) return { matches: [], warning: `Only ${seeded.length} teams ranked — need at least ${minR1Teams} for R1` }
 
   const matches: PlannedMatch[] = []

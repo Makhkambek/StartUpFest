@@ -6,6 +6,7 @@ import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
 import FinalsBracketB from '@/components/public/FinalsBracketB'
+import { ConfettiRain, GrandFinalAura } from './VictoryScreen'
 
 interface TeamLite {
   id: string
@@ -399,6 +400,14 @@ function Scoreboard({ data }: { data: FieldState }) {
                 </TrophyCard>
               </div>
             )}
+
+            {/* Confetti + aura — Grand Final only */}
+            {match?.match_id === 'FB-F1' && winnerSide && winnerSide !== 'draw' && phaseElapsed >= WINNER_OVERLAY_MS && (
+              <>
+                <ConfettiRain />
+                <GrandFinalAura />
+              </>
+            )}
           </div>
         </main>
       )}
@@ -750,7 +759,7 @@ function FinalsOverlayB({ items }: { items: FinalsMatchB[] }) {
         <div className="flex items-center gap-3 mb-1">
           <div className="w-16 h-px bg-gradient-to-r from-transparent to-amber-400/60" />
           <span className="text-amber-400/70 text-[11px] font-black tracking-[0.4em] uppercase">
-            Single Elimination · Best of 3
+            {items.some(m => finalsRoundOf(m.match_id) === 'triangle') ? 'Round Robin · Triangle Final' : 'Single Elimination · Best of 3'}
           </span>
           <div className="w-16 h-px bg-gradient-to-l from-transparent to-amber-400/60" />
         </div>
