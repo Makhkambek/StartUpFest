@@ -162,10 +162,10 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         ? { wins_red: clampScore(c.wins_red + action.delta) }
         : { wins_white: clampScore(c.wins_white + action.delta) }
     case 'win_ko': {
-      // KO = decisive victory: winner's bar fills to 100. Loser's score is kept as-is
-      // (their accumulated technical score still counts, just doesn't help here).
-      const winsRed  = action.side === 'red'   ? 100 : c.wins_red
-      const winsWhite = action.side === 'white' ? 100 : c.wins_white
+      // KO = decisive victory. Per rulebook, judge scores (0–100) apply only to JD.
+      // Set winner to 100, loser to 0 for clear visual (no accumulated partial scores).
+      const winsRed  = action.side === 'red'   ? 100 : 0
+      const winsWhite = action.side === 'white' ? 100 : 0
       return {
         phase: 'round_result',
         wins_red: winsRed,
@@ -177,9 +177,9 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     }
     case 'win_imm': {
-      // Immobilization is also decisive — winner's bar fills to 100.
-      const winsRed  = action.side === 'red'   ? 100 : c.wins_red
-      const winsWhite = action.side === 'white' ? 100 : c.wins_white
+      // IMM = decisive victory. Same as KO — winner 100, loser 0.
+      const winsRed  = action.side === 'red'   ? 100 : 0
+      const winsWhite = action.side === 'white' ? 100 : 0
       return {
         phase: 'round_result',
         wins_red: winsRed,
