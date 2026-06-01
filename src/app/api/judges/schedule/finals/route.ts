@@ -101,9 +101,18 @@ async function planFinalsC(step: 'semi' | 'final', cityCode: string): Promise<{ 
       .eq('category', 'c').eq('city_code', cityCode).eq('phase', 'finals').in('round', ['semi'])
     sfSchedule = (sf ?? []) as typeof sfSchedule
     if (sfSchedule.length > 0) {
+      // Fetch by scheduled_match_id first; also fetch by team pairs as fallback
+      // in case the fight was recorded without scheduled_match_id linkage.
       const ids = sfSchedule.map(m => m.id)
-      const { data: ff } = await supabase.from('fights_c').select('*').in('scheduled_match_id', ids)
-      sfFights = (ff ?? []) as typeof sfFights
+      const teamIds = [...new Set(sfSchedule.flatMap(m => [m.team1_id, m.team2_id]))]
+      const [byId, byTeam] = await Promise.all([
+        supabase.from('fights_c').select('*').in('scheduled_match_id', ids),
+        supabase.from('fights_c').select('*').in('team1_id', teamIds),
+      ])
+      const combined = [...(byId.data ?? []), ...(byTeam.data ?? [])]
+      // Deduplicate by fight id
+      const seen = new Set<string>()
+      sfFights = combined.filter((f: { id: string }) => seen.has(f.id) ? false : (seen.add(f.id), true)) as typeof sfFights
     }
   } else {
     const { getSchedule } = await import('@/lib/schedule-store')
@@ -115,10 +124,17 @@ async function planFinalsC(step: 'semi' | 'final', cityCode: string): Promise<{ 
   if (sfSchedule.length < 2) return { matches: [], warning: 'Semis not generated yet — generate semis first' }
 
   const getWinnerLoser = (sm: typeof sfSchedule[0]) => {
+    // Primary: match by scheduled_match_id. Fallback: match by team pair.
     const fight = sfFights.find(f => f.scheduled_match_id === sm.id)
-    if (!fight || fight.winner === 0) return null // draw = no result yet
-    const winner = fight.winner === 1 ? sm.team1_id : sm.team2_id
-    const loser  = fight.winner === 1 ? sm.team2_id : sm.team1_id
+      ?? sfFights.find(f =>
+          (f.team1_id === sm.team1_id && f.team2_id === sm.team2_id) ||
+          (f.team1_id === sm.team2_id && f.team2_id === sm.team1_id)
+        )
+    if (!fight || fight.winner === 0) return null
+    // Account for possible team order swap between fight record and scheduled match.
+    const swap = fight.team1_id !== sm.team1_id
+    const winner = fight.winner === 1 ? (swap ? sm.team2_id : sm.team1_id) : (swap ? sm.team1_id : sm.team2_id)
+    const loser  = fight.winner === 1 ? (swap ? sm.team1_id : sm.team2_id) : (swap ? sm.team2_id : sm.team1_id)
     return { winner, loser }
   }
 
@@ -211,9 +227,11 @@ export async function POST(req: NextRequest) {
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    // Delete existing finals first (re-randomize)
-    await supabase.from('scheduled_matches').delete()
+    // Delete only the rounds being replaced (e.g. step='final' must not delete semis).
+    let del = supabase.from('scheduled_matches').delete()
       .eq('category', category).eq('city_code', cityCode).eq('phase', 'finals')
+    if (checkRounds) del = (del as typeof del).in('round', checkRounds)
+    await del
     const now = Date.now()
     const rows = plan.matches.map((m, i) => ({
       category,
@@ -230,8 +248,10 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
     const { addScheduledMatch, getSchedule, deleteScheduledMatch } = await import('@/lib/schedule-store')
-    // Delete existing finals for this category
-    const existing = getSchedule(category).filter(m => m.phase === 'finals')
+    // Delete only the rounds being replaced (preserve semis when generating final step).
+    const existing = getSchedule(category).filter(m =>
+      m.phase === 'finals' && (!checkRounds || checkRounds.includes(m.round ?? ''))
+    )
     for (const m of existing) deleteScheduledMatch(m.id)
     for (const m of plan.matches) {
       addScheduledMatch({
@@ -289,7 +309,12 @@ export async function DELETE(req: NextRequest) {
         : category === 'c' ? 'fights_c'
         : null
       if (table) {
-        await supabase.from(table).delete().in('scheduled_match_id', ids)
+        // Use admin client to bypass RLS — fight results must be deleted before
+        // scheduled_matches to prevent FK ON DELETE SET NULL from nulling the
+        // scheduled_match_id and making old results match new matches via team-pair fallback.
+        const { createAdminClient } = await import('@/lib/supabase/admin')
+        const adminSupabase = createAdminClient()
+        await adminSupabase.from(table).delete().in('scheduled_match_id', ids)
       }
       await supabase.from('scheduled_matches').delete().in('id', ids)
     }
