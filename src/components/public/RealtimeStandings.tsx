@@ -8,7 +8,6 @@ import StandingsTableC from './StandingsTableC'
 import StandingsTableD from './StandingsTableD'
 import PublicMatchesList from './PublicMatchesList'
 import FinalsBracketB from './FinalsBracketB'
-import FinalsBracketD, { type FinalMatchD } from './FinalsBracketD'
 
 type Standings =
   | { category: 'a'; data: StandingA[] }
@@ -33,7 +32,6 @@ export default function RealtimeStandings(props: Standings) {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [view, setView] = useState<'standings' | 'matches' | 'finals'>('standings')
   const [finalsData, setFinalsData] = useState<Parameters<typeof FinalsBracketB>[0]['matches'] | null>(null)
-  const [finalsDataD, setFinalsDataD] = useState<FinalMatchD[] | null>(null)
 
   const refetch = useCallback(async () => {
     const res = await fetch(`/api/standings/${props.category}`, { cache: 'no-store' })
@@ -72,23 +70,19 @@ export default function RealtimeStandings(props: Standings) {
     }
   }, [props.category, refetch])
 
+  // Finals bracket overlay — only for Cat B (Mini Sumo bracket view).
+  // Cat D finals appear directly in the MATCHES tab under the PLAYOFFS section.
   useEffect(() => {
-    if (props.category !== 'b' && props.category !== 'd') return
-    const endpoint = props.category === 'b' ? '/api/field/b/state' : '/api/field/d/state'
+    if (props.category !== 'b') return
     const fetchFinals = async () => {
-      const res = await fetch(endpoint, { cache: 'no-store' })
+      const res = await fetch('/api/field/b/state', { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
       if (data?.state?.finals_visible && Array.isArray(data.finalsData) && data.finalsData.length > 0) {
-        if (props.category === 'b') {
-          setFinalsData(data.finalsData)
-        } else {
-          setFinalsDataD(data.finalsData as FinalMatchD[])
-        }
+        setFinalsData(data.finalsData)
         setView(v => v === 'standings' ? 'finals' : v)
       } else {
-        if (props.category === 'b') setFinalsData(null)
-        else setFinalsDataD(null)
+        setFinalsData(null)
         setView(v => v === 'finals' ? 'standings' : v)
       }
     }
@@ -120,7 +114,7 @@ export default function RealtimeStandings(props: Standings) {
             }`}>
             {t('tabMatches')}
           </button>
-          {(finalsData || finalsDataD) && (
+          {finalsData && (
             <button onClick={() => setView('finals')}
               className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
                 view === 'finals' ? 'text-amber-600 border-amber-500' : 'text-amber-500 border-transparent hover:text-amber-600'
@@ -135,11 +129,9 @@ export default function RealtimeStandings(props: Standings) {
       </div>
       {view === 'finals' && finalsData
         ? <FinalsBracketB matches={finalsData} />
-        : view === 'finals' && finalsDataD
-          ? <FinalsBracketD matches={finalsDataD} />
-          : view === 'matches'
-            ? <PublicMatchesList category={props.category} />
-            : table()
+        : view === 'matches'
+          ? <PublicMatchesList category={props.category} />
+          : table()
       }
     </div>
   )
