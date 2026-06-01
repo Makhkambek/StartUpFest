@@ -309,12 +309,22 @@ export async function DELETE(req: NextRequest) {
         : category === 'c' ? 'fights_c'
         : null
       if (table) {
-        // Use admin client to bypass RLS — fight results must be deleted before
-        // scheduled_matches to prevent FK ON DELETE SET NULL from nulling the
-        // scheduled_match_id and making old results match new matches via team-pair fallback.
         const { createAdminClient } = await import('@/lib/supabase/admin')
         const adminSupabase = createAdminClient()
+        // Delete by scheduled_match_id (normal case, bypasses RLS).
         await adminSupabase.from(table).delete().in('scheduled_match_id', ids)
+        // Also delete orphaned results (scheduled_match_id=NULL) whose team pairs
+        // match any of the matches being reset. These arise from prior FK SET NULL.
+        const { data: matchDetails } = await supabase
+          .from('scheduled_matches').select('team1_id, team2_id').in('id', ids)
+        if (matchDetails && matchDetails.length > 0) {
+          const teamPairs = matchDetails.filter((m: { team1_id: string; team2_id: string | null }) => m.team1_id && m.team2_id)
+          for (const pair of teamPairs as Array<{ team1_id: string; team2_id: string }>) {
+            await adminSupabase.from(table).delete()
+              .is('scheduled_match_id', null)
+              .or(`and(team1_id.eq.${pair.team1_id},team2_id.eq.${pair.team2_id}),and(team1_id.eq.${pair.team2_id},team2_id.eq.${pair.team1_id})`)
+          }
+        }
       }
       await supabase.from('scheduled_matches').delete().in('id', ids)
     }
