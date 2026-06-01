@@ -251,7 +251,12 @@ export default function JudgeDPage() {
         )}
 
         {!loading && view === 'schedule' && (() => {
-          const recent: RecentEntry[] = schedule
+          const filteredSchedule = schedule.filter(m => {
+            if (matchFilter === 'group') return m.phase !== 'finals'
+            if (matchFilter === 'finals') return m.phase === 'finals'
+            return true
+          })
+          const recent: RecentEntry[] = filteredSchedule
             .map(m => {
               const r = resultFor(m)
               if (!r) return null

@@ -97,7 +97,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
   const addScore = useCallback((side: 'red' | 'white', delta: number) => {
     setState((prev) => {
       if (!prev) return prev
-      const clamp = (n: number) => Math.max(0, Math.min(100, n))
+      const clamp = (n: number) => Math.min(100, n)
       return side === 'red'
         ? { ...prev, wins_red: clamp(prev.wins_red + delta) }
         : { ...prev, wins_white: clamp(prev.wins_white + delta) }
@@ -281,7 +281,7 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
             </div>
             <div className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">
               Phase: <span className="font-semibold text-gray-700 dark:text-zinc-300">{PHASE_LABEL[state.phase]}</span>
-              {' · '}🔴 {state.wins_red}/100 — {state.wins_white}/100 🔵
+              {' · '}🔴 {state.wins_red} — {state.wins_white} 🔵
             </div>
           </div>
         ) : (!activeMatch && !isMatchOver) ? (
@@ -421,7 +421,7 @@ function ScoreColumn({
     <div className={`border ${color} rounded p-2`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-black tracking-widest uppercase">{label}</span>
-        <span className="font-mono font-black text-lg">{score}/100</span>
+        <span className="font-mono font-black text-lg">{score} pts</span>
       </div>
       <div className="grid grid-cols-4 gap-1">
         <HoldButton onTrigger={() => addScore(side, -1)} className="bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-900 dark:text-zinc-100 text-xs font-bold py-1 rounded select-none">−1</HoldButton>

@@ -231,7 +231,13 @@ export default function JudgeCPage() {
         )}
 
         {!loading && view === 'schedule' && (() => {
-          const recent: RecentEntry[] = schedule
+          const filteredSchedule = schedule.filter(m => {
+            if (matchFilter === 'qualification') return m.phase !== 'finals'
+            if (matchFilter === 'semi') return (m as {round?:string}).round === 'semi'
+            if (matchFilter === 'final') return ['final','third_place'].includes((m as {round?:string}).round ?? '')
+            return true
+          })
+          const recent: RecentEntry[] = filteredSchedule
             .map(m => {
               const r = resultFor(m)
               if (!r) return null

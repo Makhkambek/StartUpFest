@@ -31,25 +31,8 @@ export function computeStandingsB(teams: Team[], matches: MatchB[]): StandingB[]
   //            20+ teams → top 3 per group → 12 finalists (6 R1 → 3 R2 → Triangle)
   const finalistCount = teams.length >= 20 ? 12 : 8
 
-  const groups = new Map<string, string[]>()
-  for (const row of rows) {
-    const g = row.team.group_letter ?? ''
-    if (!groups.has(g)) groups.set(g, [])
-    groups.get(g)!.push(row.team.id)
-  }
-
   const finalistIds = new Set<string>()
-  const hasGroups = groups.size > 1 || (groups.size === 1 && !groups.has(''))
-  if (hasGroups) {
-    const realGroupCount = [...groups.keys()].filter(g => g !== '').length
-    const perGroup = Math.floor(finalistCount / Math.max(realGroupCount, 1))
-    for (const [g, ids] of groups) {
-      if (g === '') continue
-      ids.slice(0, perGroup).forEach(id => finalistIds.add(id))
-    }
-  } else {
-    rows.slice(0, finalistCount).forEach(r => finalistIds.add(r.team.id))
-  }
+  rows.slice(0, finalistCount).forEach(r => finalistIds.add(r.team.id))
 
   return rows.map((row, i) => ({
     rank: i + 1,

@@ -13,8 +13,8 @@ export function computeStandingsC(teams: Team[], fights: FightC[]): StandingC[] 
     }
     // Clamp judge scores to [0, 100] — defends against bad data; canonical
     // validation lives at the POST endpoint.
-    s1.judge_score += Math.max(0, Math.min(100, f.judge_score1))
-    s2.judge_score += Math.max(0, Math.min(100, f.judge_score2))
+    s1.judge_score += Math.min(100, f.judge_score1)
+    s2.judge_score += Math.min(100, f.judge_score2)
     if (f.winner === 1) {
       s1.wins++; s1.points += 3; s2.losses++
       if (f.method === 'KO') s1.knockouts++

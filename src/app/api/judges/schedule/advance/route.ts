@@ -6,12 +6,9 @@ import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-async function requireAdmin() {
-  const { getSession } = await import('@/lib/session')
-  const session = await getSession()
-  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' }
-  if (session.role !== 'admin') return { ok: false as const, status: 403, error: 'Admin only' }
-  return { ok: true as const }
+async function requireCategoryOrAdmin(category: string) {
+  const { requireCategory } = await import('@/lib/session')
+  return requireCategory(category)
 }
 
 interface PlannedMatch {
@@ -145,9 +142,6 @@ async function advanceD(_cityCode: string): Promise<{ matches: PlannedMatch[]; w
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireAdmin()
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-
   if (!hasSupabase) {
     return NextResponse.json({ error: 'Advance is Supabase-only (mock mode uses /finals)' }, { status: 400 })
   }
@@ -156,6 +150,10 @@ export async function POST(req: NextRequest) {
   if (!category || !['a', 'b', 'c', 'd'].includes(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
+
+  const guard = await requireCategoryOrAdmin(category)
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
+
   if (category === 'a' || category === 'c') {
     return NextResponse.json({ error: `Cat ${category.toUpperCase()} advance not supported — manage finals manually` }, { status: 400 })
   }

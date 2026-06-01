@@ -23,7 +23,7 @@ export const UZ_CITIES: readonly UzCity[] = [
   { code: 'NAV', en: 'Navoiy',    ru: 'Навои',     uz: 'Navoiy'    },
   { code: 'JIZ', en: 'Jizzakh',   ru: 'Джизак',    uz: 'Jizzax'    },
   { code: 'GUL', en: 'Gulistan',  ru: 'Гулистан',  uz: 'Guliston'  },
-  { code: 'XOR', en: 'Khiva',     ru: 'Хива',      uz: 'Xiva'      },
+  { code: 'TOV', en: 'Tashkent Region', ru: 'Ташкентская область', uz: 'Toshkent viloyati' },
 ] as const
 
 export const DEFAULT_CITY_CODE = 'TSH'

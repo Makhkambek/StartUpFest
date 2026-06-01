@@ -255,7 +255,14 @@ export default function JudgeBPage() {
         })()}
 
         {!loading && view === 'schedule' && (() => {
-          const recent: RecentEntry[] = schedule
+          const filteredSchedule = schedule.filter(m => {
+            if (matchFilter === 'group') return m.phase !== 'finals'
+            if (matchFilter === 'quarter') return m.round === 'quarter'
+            if (matchFilter === 'semi') return m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')
+            if (matchFilter === 'final') return m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')
+            return true
+          })
+          const recent: RecentEntry[] = filteredSchedule
             .map(m => {
               const r = resultFor(m)
               if (!r) return null
@@ -318,8 +325,8 @@ export default function JudgeBPage() {
                     const qualMatches = schedule.filter(m => m.phase !== 'finals')
                     const qualDone = qualMatches.length > 0 && qualMatches.every(m => !!resultFor(m))
                     return (
-                      <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing || !qualDone}
-                        title={!qualDone ? 'All qualification matches must be completed first' : !isAdmin ? 'Admin only' : ''}
+                      <button onClick={handleGenerateFinals} disabled={!canGenerate || genFinals || advancing || !qualDone}
+                        title={!qualDone ? 'All qualification matches must be completed first' : ''}
                         className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                         {genFinals ? 'Generating…' : 'Generate Finals Bracket'}
                       </button>
@@ -327,16 +334,16 @@ export default function JudgeBPage() {
                   })()}
                   {/* Step 2: R1 → R2 */}
                   {schedule.some(m => m.phase === 'finals' && m.round === 'r1') && !schedule.some(m => m.phase === 'finals' && m.round === 'r2') && (
-                    <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
-                      title={!isAdmin ? 'Admin only' : 'Generate R2 from R1 winners. You can edit/delete generated matches.'}
+                    <button onClick={handleAdvance} disabled={!canGenerate || advancing || genFinals}
+                      title="Generate R2 from R1 winners. You can edit/delete generated matches."
                       className="bg-white dark:bg-transparent border border-amber-600 text-amber-700 dark:text-amber-400 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
                       {advancing ? 'Advancing…' : '→ Next Round'}
                     </button>
                   )}
                   {/* Step 3: R2 → Triangle Final */}
                   {schedule.some(m => m.phase === 'finals' && m.round === 'r2') && !schedule.some(m => m.phase === 'finals' && m.round === 'triangle') && (
-                    <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
-                      title={!isAdmin ? 'Admin only' : 'Generate Triangle Final from R2 winners.'}
+                    <button onClick={handleAdvance} disabled={!canGenerate || advancing || genFinals}
+                      title="Generate Triangle Final from R2 winners."
                       className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                       {advancing ? 'Generating…' : 'Generate Finals'}
                     </button>
@@ -622,8 +629,7 @@ export default function JudgeBPage() {
                   <button
                     onClick={async () => {
                       const hasGroups = teams.some(t => t.group_letter)
-                      if (hasGroups && !isAdmin) { alert('Groups already assigned. Only admin can overwrite.'); return }
-                      if (hasGroups && !await confirm(`Groups already exist. Overwrite all ${teams.length} teams?`)) return
+                      if (hasGroups && !confirm(`Groups already exist. Overwrite all ${teams.length} teams?`)) return
                       const shuffled = [...teams].sort(() => Math.random() - 0.5)
                       const groupLetters = ['A', 'B', 'C', 'D']
                       await Promise.all(shuffled.map((t, i) =>

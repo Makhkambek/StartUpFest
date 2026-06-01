@@ -40,8 +40,8 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
     // Sort by updated_at to get chronological order, then treat each row's
     // run1 as the N-th run for display purposes.
     const sorted = [...teamResults].sort((a, b) => a.updated_at.localeCompare(b.updated_at))
-    const run1 = sorted[0]?.run1 ?? null
-    const run2 = sorted[1]?.run1 ?? null
+    const run1 = sorted[0]?.total ?? null
+    const run2 = sorted[1]?.total ?? null
 
     // Best result row for ranking (lowest total, ignoring DNF/DISQ).
     const completed = teamResults.filter(r => r.penalty !== 'dnf' && r.penalty !== 'disq' && r.total !== null)

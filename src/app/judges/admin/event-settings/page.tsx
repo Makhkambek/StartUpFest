@@ -126,12 +126,12 @@ export default function EventSettingsPage() {
             >
               {UZ_CITIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.en} · {c.ru} · {c.uz}
+                  {c.en}
                 </option>
               ))}
             </select>
             <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-              All three locales render the appropriate name automatically.
+              Each region maps to the correct locale name automatically on public displays.
             </p>
           </div>
 

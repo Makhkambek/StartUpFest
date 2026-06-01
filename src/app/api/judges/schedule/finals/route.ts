@@ -10,12 +10,9 @@ import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-async function requireAdmin() {
-  const { getSession } = await import('@/lib/session')
-  const session = await getSession()
-  if (!session) return { ok: false as const, status: 401, error: 'Unauthorized' }
-  if (session.role !== 'admin') return { ok: false as const, status: 403, error: 'Admin only' }
-  return { ok: true as const }
+async function requireCategoryOrAdmin(category: string) {
+  const { requireCategory } = await import('@/lib/session')
+  return requireCategory(category)
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -180,14 +177,14 @@ async function planFinalsD(): Promise<{ matches: PlannedMatch[]; warning?: strin
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireAdmin()
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-
   const body = await req.json() as { category: Category; confirm?: boolean; step?: 'semi' | 'final' }
   const { category } = body
   if (!category || !['a', 'b', 'c', 'd'].includes(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
+
+  const guard = await requireCategoryOrAdmin(category)
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
 
   const cityCode = hasSupabase ? await getActiveCityCode() : 'MOCK'
 
@@ -276,13 +273,13 @@ export async function POST(req: NextRequest) {
 //   'semi'  → deletes semi + final + third_place  (cascade, since Final feeds from SF)
 //   'final' → deletes final + third_place only
 export async function DELETE(req: NextRequest) {
-  const guard = await requireAdmin()
-  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
-
   const { category, round } = await req.json() as { category: Category; round: 'semi' | 'final' }
   if (!category || !['a', 'b', 'c', 'd'].includes(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
+
+  const guard = await requireCategoryOrAdmin(category)
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status })
   if (round !== 'semi' && round !== 'final') {
     return NextResponse.json({ error: 'round must be "semi" or "final"' }, { status: 400 })
   }

@@ -359,23 +359,10 @@ async function playWhistle(src: string) {
   source.start()
 }
 
-// Countdown beep at each whole second (5→4→3→2→1) + whistle on phase change.
-function useMatchSound(phase: LiveStateB['phase'], cdRemaining: number | null) {
+// Whistle on phase transitions (countdown beeps removed).
+function useMatchSound(phase: LiveStateB['phase'], _cdRemaining: number | null) {
   const prevPhaseRef = useRef<LiveStateB['phase']>('idle')
-  const prevCeilRef  = useRef<number | null>(null)
 
-  // Countdown beeps: fire when the displayed integer drops by 1
-  useEffect(() => {
-    if (cdRemaining === null) { prevCeilRef.current = null; return }
-    const ceil = Math.ceil(cdRemaining)
-    if (ceil !== prevCeilRef.current && ceil >= 1 && ceil <= 5) {
-      // Higher pitch on 1 so the last beep stands out
-      playBeep(ceil === 1 ? 1200 : 880, 0.12, 0.6)
-    }
-    prevCeilRef.current = ceil
-  }, [cdRemaining])
-
-  // Whistle on phase transitions
   useEffect(() => {
     const prev = prevPhaseRef.current
     prevPhaseRef.current = phase

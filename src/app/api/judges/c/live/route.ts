@@ -130,7 +130,7 @@ async function readCurrentState(): Promise<LiveStateB | null> {
 }
 
 function clampScore(n: number): number {
-  return Math.max(0, Math.min(100, Math.round(n)))
+  return Math.min(100, Math.round(n))
 }
 
 function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB> {
@@ -162,32 +162,34 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         ? { wins_red: clampScore(c.wins_red + action.delta) }
         : { wins_white: clampScore(c.wins_white + action.delta) }
     case 'win_ko': {
-      // KO = decisive victory. Per rulebook, judge scores (0–100) apply only to JD.
-      // Set winner to 100, loser to 0 for clear visual (no accumulated partial scores).
-      const winsRed  = action.side === 'red'   ? 100 : 0
-      const winsWhite = action.side === 'white' ? 100 : 0
+      // KO · Red means "Red was knocked out" → Red is the LOSER, opposite side wins.
+      // Per rulebook, judge scores apply only to JD — winner gets 100, loser gets 0.
+      const winner: Side = action.side === 'red' ? 'white' : 'red'
+      const winsRed   = winner === 'red'   ? 100 : 0
+      const winsWhite = winner === 'white' ? 100 : 0
       return {
         phase: 'round_result',
         wins_red: winsRed,
         wins_white: winsWhite,
-        match_winner: action.side === 'red' ? 1 : 2,
-        last_round_winner: action.side,
+        match_winner: winner === 'red' ? 1 : 2,
+        last_round_winner: winner,
         starting_position: 'face' as const,  // re-used to flag KO method
-        round_history: [{ method: 'KO', winner: action.side, score_a: winsRed, score_b: winsWhite }] as unknown as LiveStateB['round_history'],
+        round_history: [{ method: 'KO', winner, score_a: winsRed, score_b: winsWhite }] as unknown as LiveStateB['round_history'],
       }
     }
     case 'win_imm': {
-      // IMM = decisive victory. Same as KO — winner 100, loser 0.
-      const winsRed  = action.side === 'red'   ? 100 : 0
-      const winsWhite = action.side === 'white' ? 100 : 0
+      // IMM · Red means "Red was immobilized" → Red is the LOSER, opposite side wins.
+      const winner: Side = action.side === 'red' ? 'white' : 'red'
+      const winsRed   = winner === 'red'   ? 100 : 0
+      const winsWhite = winner === 'white' ? 100 : 0
       return {
         phase: 'round_result',
         wins_red: winsRed,
         wins_white: winsWhite,
-        match_winner: action.side === 'red' ? 1 : 2,
-        last_round_winner: action.side,
+        match_winner: winner === 'red' ? 1 : 2,
+        last_round_winner: winner,
         starting_position: 'side' as const,  // = IMM
-        round_history: [{ method: 'IMM', winner: action.side, score_a: winsRed, score_b: winsWhite }] as unknown as LiveStateB['round_history'],
+        round_history: [{ method: 'IMM', winner, score_a: winsRed, score_b: winsWhite }] as unknown as LiveStateB['round_history'],
       }
     }
     case 'win_jd': {
