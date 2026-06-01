@@ -101,7 +101,7 @@ export default function JudgeBPage() {
   const [genFinalsErr, setGenFinalsErr] = useState('')
   const [genFinals, setGenFinals] = useState(false)
   const handleGenerateFinals = async () => {
-    if (!await confirm('Generate FINALS bracket from current standings? Existing finals will be replaced.')) return
+    if (!await confirm('Generate SEMI-FINALS from current standings? Top 12 teams will be seeded into 6 R1 matches. Existing finals will be replaced.')) return
     setGenFinals(true); setGenFinalsErr('')
     const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setGenFinals(false); return }
@@ -121,7 +121,7 @@ export default function JudgeBPage() {
   const [resettingFinal, setResettingFinal] = useState(false)
 
   const handleResetRound = async (round: 'semi' | 'final') => {
-    const label = round === 'semi' ? 'Semi-Finals (and Final + 3rd Place)' : 'Final + 3rd Place'
+    const label = round === 'semi' ? 'Semi-Finals R1+R2 (and Triangle Final)' : 'Triangle Final'
     if (!await confirm(`Delete all ${label} matches and their results? This cannot be undone.`)) return
     const setter = round === 'semi' ? setResettingSF : setResettingFinal
     setter(true); setGenFinalsErr('')
@@ -296,40 +296,60 @@ export default function JudgeBPage() {
 
               <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Generate FINALS Bracket</h2>
+                  <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Finals Bracket</h2>
                   {schedule.filter(m => m.phase === 'finals').length > 0 && (
                     <span className="text-xs text-amber-600 dark:text-amber-400">{schedule.filter(m => m.phase === 'finals').length} finals scheduled</span>
                   )}
                 </div>
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Top 12 from qualifications → R1 (6 matches) → R2 (3 matches) → Triangle Final.</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Top 12 from qualifications → Semi-Finals R1 (6 matches) → R2 (3 matches) → Triangle Final.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing}
-                    title={!isAdmin ? 'Admin only' : ''}
-                    className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
-                    {genFinals ? 'Generating…' : 'Generate Finals'}
-                  </button>
-                  <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
-                    title={!isAdmin ? 'Admin only' : 'Generate next round from completed matches. You can edit/delete the generated matches.'}
-                    className="bg-white dark:bg-transparent border border-amber-600 text-amber-700 dark:text-amber-400 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
-                    {advancing ? 'Advancing…' : '→ Next Round'}
-                  </button>
-                  {/* Per-round reset — visible as soon as any finals match exists */}
+                  {/* Step 1: always visible — seed R1 from standings */}
+                  {(() => {
+                    const qualMatches = schedule.filter(m => m.phase !== 'finals')
+                    const qualDone = qualMatches.length > 0 && qualMatches.every(m => !!resultFor(m))
+                    return (
+                      <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing || !qualDone}
+                        title={!qualDone ? 'All qualification matches must be completed first' : !isAdmin ? 'Admin only' : ''}
+                        className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                        {genFinals ? 'Generating…' : 'Generate Semi-Finals'}
+                      </button>
+                    )
+                  })()}
+                  {/* Step 2: R1 → R2 */}
+                  {schedule.some(m => m.phase === 'finals' && m.round === 'r1') && !schedule.some(m => m.phase === 'finals' && m.round === 'r2') && (
+                    <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
+                      title={!isAdmin ? 'Admin only' : 'Generate R2 from R1 winners. You can edit/delete generated matches.'}
+                      className="bg-white dark:bg-transparent border border-amber-600 text-amber-700 dark:text-amber-400 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
+                      {advancing ? 'Advancing…' : '→ Next Round'}
+                    </button>
+                  )}
+                  {/* Step 3: R2 → Triangle Final */}
+                  {schedule.some(m => m.phase === 'finals' && m.round === 'r2') && !schedule.some(m => m.phase === 'finals' && m.round === 'triangle') && (
+                    <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
+                      title={!isAdmin ? 'Admin only' : 'Generate Triangle Final from R2 winners.'}
+                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                      {advancing ? 'Generating…' : 'Generate Finals'}
+                    </button>
+                  )}
+                  {/* Reset buttons */}
                   {isAdmin && schedule.some(m => m.phase === 'finals') && (
                     <>
                       <button
                         onClick={() => handleResetRound('semi')}
                         disabled={resettingSF || resettingFinal}
-                        title="Delete Semi-Finals + Final + 3rd Place matches and their results"
+                        title="Delete Semi-Finals R1+R2 and Triangle Final matches"
                         className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
-                        {resettingSF ? '…' : '↩ Reset SF'}
+                        {resettingSF ? '…' : '↩ Reset Semis'}
                       </button>
-                      <button
-                        onClick={() => handleResetRound('final')}
-                        disabled={resettingFinal || resettingSF}
-                        title="Delete Final + 3rd Place matches and their results"
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
-                        {resettingFinal ? '…' : '↩ Reset Final'}
-                      </button>
+                      {schedule.some(m => m.phase === 'finals' && m.round === 'triangle') && (
+                        <button
+                          onClick={() => handleResetRound('final')}
+                          disabled={resettingFinal || resettingSF}
+                          title="Delete Triangle Final matches and their results"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                          {resettingFinal ? '…' : '↩ Reset Finals'}
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

@@ -104,6 +104,16 @@ export default function JudgeDPage() {
     await load(); setGenFinals(false)
   }
 
+  const [resettingFinals, setResettingFinals] = useState(false)
+  const handleResetFinals = async () => {
+    if (!await confirm('Delete all Finals matches and their results? This cannot be undone.')) return
+    setResettingFinals(true); setGenFinalsErr('')
+    // 'semi' cascade also covers round_robin (used by Cat D)
+    const res = await fetch('/api/judges/schedule/finals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'd', round: 'semi' }) })
+    if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed') }
+    await load(); setResettingFinals(false)
+  }
+
   const [advancing, setAdvancing] = useState(false)
   const handleAdvance = async () => {
     if (!await confirm('Generate the NEXT finals round from winners of completed matches? You can edit/delete the generated matches afterwards.')) return
@@ -303,6 +313,13 @@ export default function JudgeDPage() {
                     className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
                     {genFinals ? 'Generating…' : 'Generate Finals'}
                   </button>
+                  {isAdmin && schedule.some(m => m.phase === 'finals') && (
+                    <button onClick={handleResetFinals} disabled={resettingFinals}
+                      title="Delete all Finals matches and their results"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                      {resettingFinals ? '…' : '↩ Reset Finals'}
+                    </button>
+                  )}
                 </div>
                 {genFinalsErr && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{genFinalsErr}</p>}
               </div>

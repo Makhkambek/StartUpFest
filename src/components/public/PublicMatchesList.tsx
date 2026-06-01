@@ -70,6 +70,14 @@ export default function PublicMatchesList({ category }: Props) {
         const rB = roundOrder[b.round ?? ''] ?? 3
         if (rA !== rB) return rA - rB
       }
+      // Interleave groups: sort by match number first, then group letter (A-1, B-1, C-1, D-1, A-2, B-2...)
+      const mA = a.match_id.match(/^([A-F])-(\d+)$/i)
+      const mB = b.match_id.match(/^([A-F])-(\d+)$/i)
+      if (mA && mB) {
+        const numDiff = parseInt(mA[2], 10) - parseInt(mB[2], 10)
+        if (numDiff !== 0) return numDiff
+        return mA[1].localeCompare(mB[1])
+      }
       return a.match_id.localeCompare(b.match_id, undefined, { numeric: true })
     })
 

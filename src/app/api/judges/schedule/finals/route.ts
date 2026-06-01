@@ -264,7 +264,7 @@ export async function DELETE(req: NextRequest) {
 
   // Which rounds to wipe (cascade later rounds when resetting earlier ones)
   const roundsToDelete: MatchRound[] = round === 'semi'
-    ? ['semi', 'r2', 'final', 'third_place', 'triangle', 'round_robin']
+    ? ['semi', 'r1', 'r2', 'final', 'third_place', 'triangle', 'round_robin']
     : ['final', 'third_place', 'triangle']
 
   if (hasSupabase) {

@@ -31,6 +31,7 @@ export default function JudgeCPage() {
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
   const [genSemis, setGenSemis] = useState(false); const [genSemisErr, setGenSemisErr] = useState('')
   const [genFinal, setGenFinal] = useState(false); const [genFinalErr, setGenFinalErr] = useState('')
+  const [resettingSF, setResettingSF] = useState(false); const [resettingFinal, setResettingFinal] = useState(false)
   const [matchFilter, setMatchFilter] = useState<'all' | 'qualification' | 'semi' | 'final'>('all')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
@@ -100,6 +101,22 @@ export default function JudgeCPage() {
     const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', step: 'final', confirm: true }) })
     if (!res.ok) { const e = await res.json(); setGenFinalErr(e.error ?? 'Failed'); setGenFinal(false); return }
     await load(); setGenFinal(false)
+  }
+
+  const handleResetSF = async () => {
+    if (!await confirm('Delete Semi-Finals + Final + 3rd Place matches and their results? This cannot be undone.')) return
+    setResettingSF(true); setGenSemisErr('')
+    const res = await fetch('/api/judges/schedule/finals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', round: 'semi' }) })
+    if (!res.ok) { const e = await res.json(); setGenSemisErr(e.error ?? 'Failed') }
+    await load(); setResettingSF(false)
+  }
+
+  const handleResetFinal = async () => {
+    if (!await confirm('Delete Final + 3rd Place matches and their results? This cannot be undone.')) return
+    setResettingFinal(true); setGenFinalErr('')
+    const res = await fetch('/api/judges/schedule/finals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', round: 'final' }) })
+    if (!res.ok) { const e = await res.json(); setGenFinalErr(e.error ?? 'Failed') }
+    await load(); setResettingFinal(false)
   }
 
   const handleReset = async () => {
@@ -261,35 +278,57 @@ export default function JudgeCPage() {
               </div>
 
               {/* Finals panel */}
-              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-4 space-y-3">
-                <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Finals Bracket</h2>
-                <div>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 1 — generate semifinals from Top-4.</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={handleGenerateSemis} disabled={!isAdmin || genSemis}
-                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
-                      {genSemis ? 'Generating…' : 'Generate Semifinals'}
-                    </button>
-                    {schedule.filter(m => (m as {round?:string}).round === 'semi').length > 0 && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400">✓ FC-SF1, FC-SF2 exist</span>
-                    )}
+              {(() => {
+                const qualMatches = schedule.filter(m => m.phase !== 'finals')
+                const qualDone = qualMatches.length > 0 && qualMatches.every(m => !!resultFor(m))
+                const anyFinals = schedule.some(m => m.phase === 'finals')
+                const hasFinalRound = schedule.some(m => m.round === 'final' || m.round === 'third_place')
+                return (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Finals Bracket</h2>
+                      {anyFinals && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">{schedule.filter(m => m.phase === 'finals').length} finals scheduled</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 1 — generate semifinals from Top-4.</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={handleGenerateSemis} disabled={!isAdmin || genSemis || !qualDone}
+                          title={!qualDone ? 'All qualification matches must be completed first' : !isAdmin ? 'Admin only' : ''}
+                          className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                          {genSemis ? 'Generating…' : 'Generate Semifinals'}
+                        </button>
+                        {anyFinals && isAdmin && (
+                          <button onClick={handleResetSF} disabled={resettingSF || resettingFinal}
+                            title="Delete all Finals matches (Semis + Final + 3rd Place)"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                            {resettingSF ? '…' : '↩ Reset Semis'}
+                          </button>
+                        )}
+                      </div>
+                      {genSemisErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genSemisErr}</p>}
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 2 — after both semifinals played, generate final + 3rd place.</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={handleGenerateFinal} disabled={!isAdmin || genFinal}
+                          className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                          {genFinal ? 'Generating…' : 'Generate Final + 3rd Place'}
+                        </button>
+                        {hasFinalRound && isAdmin && (
+                          <button onClick={handleResetFinal} disabled={resettingFinal || resettingSF}
+                            title="Delete Final + 3rd Place matches"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                            {resettingFinal ? '…' : '↩ Reset Finals'}
+                          </button>
+                        )}
+                      </div>
+                      {genFinalErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genFinalErr}</p>}
+                    </div>
                   </div>
-                  {genSemisErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genSemisErr}</p>}
-                </div>
-                <div>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 2 — after both semifinals played, generate final + 3rd place.</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={handleGenerateFinal} disabled={!isAdmin || genFinal}
-                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
-                      {genFinal ? 'Generating…' : 'Generate Final + 3rd Place'}
-                    </button>
-                    {schedule.filter(m => (m as {round?:string}).round === 'final').length > 0 && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400">✓ FC-F1, FC-3RD exist</span>
-                    )}
-                  </div>
-                  {genFinalErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genFinalErr}</p>}
-                </div>
-              </div>
+                )
+              })()}
 
               <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide mb-3">Add Fight to Schedule</h2>
