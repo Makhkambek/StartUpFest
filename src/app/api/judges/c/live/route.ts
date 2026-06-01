@@ -5,7 +5,7 @@ import { getActiveCityCode } from '@/lib/get-active-city-code'
 
 const hasSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
-type Method = 'KO' | 'IMM' | 'JD'
+type Method = 'KO' | 'IMM' | 'JD' | 'DRAW'
 type Side = 'red' | 'white'
 
 type Action =
@@ -205,7 +205,7 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
       }
     }
     case 'end_match':
-      return { phase: 'match_result', match_winner: c.wins_red >= c.wins_white ? 1 : 2 }
+      return { phase: 'match_result', match_winner: c.wins_red > c.wins_white ? 1 : c.wins_white > c.wins_red ? 2 : 0 }
     case 'reset':
       return {
         active_match_id: null,
@@ -275,12 +275,13 @@ async function applySupabase(action: Action): Promise<{ state: LiveStateB | null
 async function persistFightResult(state: LiveStateB) {
   if (!state.active_match_id) return
 
-  // Read method from starting_position hack (face=KO, side=IMM, back=JD).
+  // Read method from starting_position hack (face=KO, side=IMM, back=JD, null=DRAW).
+  const winner: 0 | 1 | 2 = state.match_winner === 1 ? 1 : state.match_winner === 2 ? 2 : 0
   const method: Method =
-    state.starting_position === 'face' ? 'KO'
+    winner === 0 ? 'DRAW'
+    : state.starting_position === 'face' ? 'KO'
     : state.starting_position === 'side' ? 'IMM'
     : 'JD'
-  const winner: 1 | 2 = state.match_winner === 2 ? 2 : 1
 
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()
