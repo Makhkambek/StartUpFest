@@ -27,9 +27,30 @@ export function computeStandingsB(teams: Team[], matches: MatchB[]): StandingB[]
 
   rows.sort((a, b) => b.points - a.points || b.round_wins - a.round_wins || a.team.created_at.localeCompare(b.team.created_at))
 
+  // v1.1: 4 groups, top 2 per group → 8-team QF bracket.
+  // If groups are configured: top 2 in each group = finalist.
+  // If no groups yet: top 8 globally = finalist.
+  const groups = new Map<string, string[]>()
+  for (const row of rows) {
+    const g = row.team.group_letter ?? ''
+    if (!groups.has(g)) groups.set(g, [])
+    groups.get(g)!.push(row.team.id)
+  }
+
+  const finalistIds = new Set<string>()
+  const hasGroups = groups.size > 1 || (groups.size === 1 && !groups.has(''))
+  if (hasGroups) {
+    for (const [g, ids] of groups) {
+      if (g === '') continue
+      ids.slice(0, 2).forEach(id => finalistIds.add(id))
+    }
+  } else {
+    rows.slice(0, 8).forEach(r => finalistIds.add(r.team.id))
+  }
+
   return rows.map((row, i) => ({
     rank: i + 1,
     ...row,
-    status: i < 3 ? 'finalist' : i < 12 ? 'qualified' : 'elim',
+    status: finalistIds.has(row.team.id) ? 'finalist' : 'elim',
   } as StandingB))
 }

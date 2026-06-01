@@ -41,23 +41,21 @@ export async function POST(req: NextRequest) {
 
   // Penalty must be one of the documented enum values (no implicit fallthrough
   // to 0 like the legacy code did).
-  if (!['0', '20', '40', 'dnf', 'disq'].includes(body.penalty)) {
+  if (!['0', '10', '20', '40', '50', 'dnf', 'disq'].includes(body.penalty)) {
     return NextResponse.json({ error: 'Invalid penalty value' }, { status: 400 })
   }
-  // Run times must be either null (skipped/no attempt) or a finite number in
-  // [0, 600] seconds. Negative times and absurd durations are bad data.
+  // run1 = raw laser time; penalties are stored separately and added here.
   const validRun = (v: number | null) =>
     v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 600)
-  if (!validRun(body.run1) || !validRun(body.run2)) {
-    return NextResponse.json({ error: 'run1/run2 must be null or a number in [0, 600]' }, { status: 400 })
+  if (!validRun(body.run1)) {
+    return NextResponse.json({ error: 'run1 must be null or a number in [0, 600]' }, { status: 400 })
   }
 
-  const penaltySec = body.penalty === '20' ? 20 : body.penalty === '40' ? 40 : 0
-  const runs = [body.run1, body.run2].filter((v): v is number => v !== null)
-  const best = runs.length ? Math.min(...runs) : null
+  const PENALTY_SEC: Record<string, number> = { '10': 10, '20': 20, '40': 40, '50': 50 }
+  const penaltySec = PENALTY_SEC[body.penalty] ?? 0
   const total = body.penalty === 'dnf' || body.penalty === 'disq'
     ? null
-    : best !== null ? best + penaltySec : null
+    : body.run1 !== null ? body.run1 + penaltySec : null
 
   if (hasSupabase) {
     const cityCode = await getActiveCityCode()

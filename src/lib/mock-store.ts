@@ -51,6 +51,18 @@ export function addTeam(data: { name: string; school: string; category: string }
   return team
 }
 
+export function updateTeamGroup(id: string, group_letter: string | null) {
+  const team = teams.get(id)
+  if (!team) return
+  teams.set(id, { ...team, group_letter })
+}
+
+export function updateTeamAllianceName(id: string, alliance_name: string | null) {
+  const team = teams.get(id)
+  if (!team) return
+  teams.set(id, { ...team, alliance_name })
+}
+
 /**
  * Removes a team and cascades to all of its results/matches/fights so the
  * mock store doesn't keep orphaned references that break standings or
@@ -88,14 +100,11 @@ export function upsertResultA(data: {
   run_phase?: ResultA['run_phase']
   notes?: string | null
 }): ResultA {
-  const best = [data.run1, data.run2]
-    .filter((v): v is number => v !== null)
-    .reduce((a, b) => Math.min(a, b), Infinity)
-
-  const penaltySec = data.penalty === '20' ? 20 : data.penalty === '40' ? 40 : 0
+  const PENALTY_SEC: Record<string, number> = { '10': 10, '20': 20, '40': 40, '50': 50 }
+  const penaltySec = PENALTY_SEC[data.penalty] ?? 0
   const total = data.penalty === 'dnf' || data.penalty === 'disq'
     ? null
-    : isFinite(best) ? best + penaltySec : null
+    : data.run1 !== null ? data.run1 + penaltySec : null
 
   const result: ResultA = {
     scheduled_match_id: data.scheduled_match_id,
@@ -163,7 +172,7 @@ export function getFightsC(): FightC[] {
 export function addFightC(data: {
   team1_id: string
   team2_id: string
-  winner: 1 | 2
+  winner: 1 | 2 | 0
   method: FightC['method']
   judge_score1: number
   judge_score2: number
@@ -266,6 +275,7 @@ const initialLiveB: LiveStateB = {
   fouls_white: 0,
   round_history: [],
   finals_visible: false,
+  standby_mode: false,
   updated_at: new Date().toISOString(),
 }
 
@@ -308,7 +318,7 @@ export function setLiveD(patch: Partial<LiveStateB>): LiveStateB {
 export type LivePatchB = Partial<Pick<LiveStateB,
   'active_match_id' | 'phase' | 'round_number' | 'wins_red' | 'wins_white' |
   'starting_position' | 'last_round_winner' | 'match_winner' |
-  'countdown_started_at' | 'fouls_red' | 'fouls_white' | 'round_history' | 'finals_visible'
+  'countdown_started_at' | 'fouls_red' | 'fouls_white' | 'round_history' | 'finals_visible' | 'standby_mode'
 >>
 
 export function setLiveB(patch: LivePatchB): LiveStateB {

@@ -28,17 +28,27 @@ export default function JudgeBPage() {
   const [tName, setTName] = useState(''); const [tSchool, setTSchool] = useState(''); const [addingTeam, setAddingTeam] = useState(false)
   const [smId, setSmId] = useState(''); const [smT1, setSmT1] = useState(''); const [smT2, setSmT2] = useState(''); const [addingSm, setAddingSm] = useState(false); const [smErr, setSmErr] = useState('')
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
+  const [matchFilter, setMatchFilter] = useState<'all' | 'group' | 'quarter' | 'semi' | 'final'>('all')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
   const [finalsVisible, setFinalsVisible] = useState(false)
+  const [standbyMode, setStandbyMode] = useState(false)
 
   useEffect(() => {
-    fetch('/api/judges/b/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+    fetch('/api/judges/b/live').then(r => r.json()).then(s => {
+      setFinalsVisible(s.finals_visible ?? false)
+      setStandbyMode(s.standby_mode ?? false)
+    })
   }, [])
 
   const toggleFinals = async () => {
     const res = await fetch('/api/judges/b/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
     if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
+
+  const toggleStandby = async () => {
+    const res = await fetch('/api/judges/b/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_standby' }) })
+    if (res.ok) { const s = await res.json(); setStandbyMode(s.standby_mode ?? false) }
   }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
@@ -105,6 +115,23 @@ export default function JudgeBPage() {
     const res = await fetch('/api/judges/schedule/advance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'b' }) })
     if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setAdvancing(false); return }
     await load(); setAdvancing(false)
+  }
+
+  const [resettingSF, setResettingSF] = useState(false)
+  const [resettingFinal, setResettingFinal] = useState(false)
+
+  const handleResetRound = async (round: 'semi' | 'final') => {
+    const label = round === 'semi' ? 'Semi-Finals (and Final + 3rd Place)' : 'Final + 3rd Place'
+    if (!await confirm(`Delete all ${label} matches and their results? This cannot be undone.`)) return
+    const setter = round === 'semi' ? setResettingSF : setResettingFinal
+    setter(true); setGenFinalsErr('')
+    const res = await fetch('/api/judges/schedule/finals', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: 'b', round }),
+    })
+    if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed') }
+    await load(); setter(false)
   }
 
   const resultFor = (m: ScheduledMatch) =>
@@ -178,6 +205,10 @@ export default function JudgeBPage() {
               {v === 'schedule' ? 'Matches' : 'Teams'}
             </button>
           ))}
+          <button onClick={toggleStandby}
+            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${standbyMode ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'}`}>
+            {standbyMode ? '⏸ Standby ON' : '⏸ Standby'}
+          </button>
           <button onClick={toggleFinals}
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
@@ -196,13 +227,26 @@ export default function JudgeBPage() {
           </div>
         )}
 
-        {!loading && view === 'schedule' && schedule.length > 0 && (
-          <StatsBar
-            done={schedule.filter(m => resultFor(m)).length}
-            total={schedule.length}
-            label="Matches"
-          />
-        )}
+        {!loading && view === 'schedule' && schedule.length > 0 && (() => {
+          const filtered = schedule.filter(m => {
+            if (matchFilter === 'all') return true
+            if (matchFilter === 'group') return m.phase !== 'finals'
+            if (matchFilter === 'quarter') return m.round === 'quarter'
+            if (matchFilter === 'semi') return m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')
+            if (matchFilter === 'final') return m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')
+            return true
+          })
+          const sectionLabel: Record<typeof matchFilter, string> = {
+            all: 'Matches', group: 'Group Stage', quarter: 'Quarter-Finals', semi: 'Semi-Finals', final: 'Finals'
+          }
+          return (
+            <StatsBar
+              done={filtered.filter(m => resultFor(m)).length}
+              total={filtered.length}
+              label={sectionLabel[matchFilter]}
+            />
+          )
+        })()}
 
         {!loading && view === 'schedule' && (() => {
           const recent: RecentEntry[] = schedule
@@ -257,7 +301,7 @@ export default function JudgeBPage() {
                     <span className="text-xs text-amber-600 dark:text-amber-400">{schedule.filter(m => m.phase === 'finals').length} finals scheduled</span>
                   )}
                 </div>
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Auto-picks Top 2 per group → Round 1 single-elimination bracket.</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Top 12 from qualifications → R1 (6 matches) → R2 (3 matches) → Triangle Final.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals || advancing}
                     title={!isAdmin ? 'Admin only' : ''}
@@ -266,9 +310,28 @@ export default function JudgeBPage() {
                   </button>
                   <button onClick={handleAdvance} disabled={!isAdmin || advancing || genFinals}
                     title={!isAdmin ? 'Admin only' : 'Generate next round from completed matches. You can edit/delete the generated matches.'}
-                    className="bg-white border border-amber-600 text-amber-700 dark:text-amber-400 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-950/30 dark:bg-amber-950/30 transition-colors">
+                    className="bg-white dark:bg-transparent border border-amber-600 text-amber-700 dark:text-amber-400 px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors">
                     {advancing ? 'Advancing…' : '→ Next Round'}
                   </button>
+                  {/* Per-round reset — visible as soon as any finals match exists */}
+                  {isAdmin && schedule.some(m => m.phase === 'finals') && (
+                    <>
+                      <button
+                        onClick={() => handleResetRound('semi')}
+                        disabled={resettingSF || resettingFinal}
+                        title="Delete Semi-Finals + Final + 3rd Place matches and their results"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                        {resettingSF ? '…' : '↩ Reset SF'}
+                      </button>
+                      <button
+                        onClick={() => handleResetRound('final')}
+                        disabled={resettingFinal || resettingSF}
+                        title="Delete Final + 3rd Place matches and their results"
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 dark:border-red-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                        {resettingFinal ? '…' : '↩ Reset Final'}
+                      </button>
+                    </>
+                  )}
                 </div>
                 {genFinalsErr && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{genFinalsErr}</p>}
               </div>
@@ -302,6 +365,37 @@ export default function JudgeBPage() {
                 {smErr && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{smErr}</p>}
               </div>
 
+              {schedule.length > 0 && (() => {
+                const hasQF = schedule.some(m => m.phase === 'finals' && m.round === 'quarter')
+                const hasR1 = schedule.some(m => m.phase === 'finals' && (m.round === 'r1' || m.round === 'r2'))
+                const hasSF = schedule.some(m => m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2'))
+                const hasFinal = schedule.some(m => m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle'))
+                const sfTabLabel = hasR1 ? 'Rounds 1 & 2' : 'Semi-Finals'
+                const tabs: { key: typeof matchFilter; label: string; count: number }[] = [
+                  { key: 'all', label: 'All', count: schedule.length },
+                  { key: 'group', label: 'Group Stage', count: schedule.filter(m => m.phase !== 'finals').length },
+                  ...(hasQF ? [{ key: 'quarter' as const, label: 'Quarter-Finals', count: schedule.filter(m => m.round === 'quarter').length }] : []),
+                  ...(hasSF ? [{ key: 'semi' as const, label: sfTabLabel, count: schedule.filter(m => m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')).length }] : []),
+                  ...((hasSF || hasFinal) ? [{ key: 'final' as const, label: 'Finals', count: schedule.filter(m => m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')).length }] : []),
+                ]
+                if (tabs.length <= 2) return null
+                return (
+                  <div className="flex gap-1 overflow-x-auto pb-1">
+                    {tabs.map(tab => (
+                      <button key={tab.key} onClick={() => setMatchFilter(tab.key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                          matchFilter === tab.key
+                            ? tab.key === 'final' ? 'bg-amber-500 text-white' : 'bg-gray-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                            : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100'
+                        }`}>
+                        {tab.label}
+                        <span className={`text-[10px] px-1 py-0.5 rounded ${matchFilter === tab.key ? 'bg-white/20' : 'bg-gray-100 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500'}`}>{tab.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
               <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
                 {schedule.length === 0
                   ? <p className="text-center text-sm text-gray-300 dark:text-zinc-400 py-10">No matches scheduled yet</p>
@@ -320,13 +414,50 @@ export default function JudgeBPage() {
                       <tbody className="divide-y divide-gray-50 dark:divide-zinc-800">
                         {(() => {
                           const nextUpId = schedule.find(m => !resultFor(m))?.id
-                          return schedule.map(m => {
+
+                          const sectionOf = (m: ScheduledMatch): string => {
+                            if (m.phase !== 'finals') return 'Group Stage'
+                            if (m.round === 'quarter') return 'Quarter-Finals'
+                            if (m.round === 'semi') return 'Semi-Finals'
+                            if (m.round === 'r1') return 'Round 1'
+                            if (m.round === 'r2') return 'Round 2'
+                            if (m.round === 'third_place') return '3rd Place'
+                            if (m.round === 'final') return 'Final'
+                            if (m.round === 'triangle') return 'Triangle Final'
+                            return 'Finals'
+                          }
+
+                          const filtered = schedule.filter(m => {
+                            if (matchFilter === 'all') return true
+                            if (matchFilter === 'group') return m.phase !== 'finals'
+                            if (matchFilter === 'quarter') return m.round === 'quarter'
+                            if (matchFilter === 'semi') return m.phase === 'finals' && (m.round === 'semi' || m.round === 'r1' || m.round === 'r2')
+                            if (matchFilter === 'final') return m.phase === 'finals' && (m.round === 'final' || m.round === 'third_place' || m.round === 'triangle')
+                            return true
+                          })
+                          let lastSection = ''
+                          return filtered.map(m => {
+                          const section = sectionOf(m)
+                          const showHeader = section !== lastSection
+                          if (showHeader) lastSection = section
                           const r = resultFor(m)
                           const done = !!r
                           const isNext = m.id === nextUpId
                           const isOpen = activeMatch?.id === m.id
                           return (
-                            <tr key={m.id} className={`hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors ${isNext ? 'bg-blue-50/60 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : isOpen ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                            <Fragment key={m.id}>
+                              {showHeader && (
+                                <tr>
+                                  <td colSpan={5} className="px-4 pt-4 pb-1">
+                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                      section === 'Group Stage' ? 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400' :
+                                      section === 'Final' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400' :
+                                      'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400'
+                                    }`}>{section}</span>
+                                  </td>
+                                </tr>
+                              )}
+                            <tr className={`hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors ${isNext ? 'bg-blue-50/60 dark:bg-blue-950/30 border-l-4 border-l-blue-500' : isOpen ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   <span className={`font-mono ${isNext ? 'text-blue-900 font-black text-base' : 'font-black text-gray-900 dark:text-zinc-100'}`}>{m.match_id}</span>
@@ -381,6 +512,7 @@ export default function JudgeBPage() {
                                 </div>
                               </td>
                             </tr>
+                            </Fragment>
                           )
                           })
                         })()}
@@ -449,6 +581,32 @@ export default function JudgeBPage() {
 
         {!loading && view === 'teams' && (
           <div className="space-y-4">
+            {teams.length >= 2 && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm p-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h2 className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Auto-Assign Groups</h2>
+                    <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">Randomly splits teams into 6 balanced groups (A–F)</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const hasGroups = teams.some(t => t.group_letter)
+                      if (hasGroups && !isAdmin) { alert('Groups already assigned. Only admin can overwrite.'); return }
+                      if (hasGroups && !await confirm(`Groups already exist. Overwrite all ${teams.length} teams?`)) return
+                      const shuffled = [...teams].sort(() => Math.random() - 0.5)
+                      const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F']
+                      await Promise.all(shuffled.map((t, i) =>
+                        fetch('/api/judges/b/teams', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, group_letter: groupLetters[i % 4] }) })
+                      ))
+                      await load()
+                    }}
+                    className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors"
+                  >
+                    Auto-assign
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
               <h2 className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide mb-3">Add Team</h2>
               <div className="flex gap-2">
@@ -472,6 +630,7 @@ export default function JudgeBPage() {
                     <th className="text-left px-5 py-3 w-8">#</th>
                     <th className="text-left px-4 py-3">Team</th>
                     <th className="text-left px-4 py-3">School</th>
+                    <th className="text-center px-3 py-3 w-20">Group</th>
                     <th className="text-center px-4 py-3">Pts</th>
                     <th className="text-center px-4 py-3 hidden sm:table-cell">W/D/L</th>
                     <th className="px-4 py-3"></th>
@@ -493,6 +652,21 @@ export default function JudgeBPage() {
                           <td className="px-5 py-3 text-gray-400 dark:text-zinc-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3 font-medium dark:text-zinc-200">{t.name}</td>
                           <td className="px-4 py-3 text-gray-400 dark:text-zinc-400">{t.school || '—'}</td>
+                          <td className="px-3 py-2 text-center">
+                            <select
+                              value={t.group_letter ?? ''}
+                              disabled={!isAdmin}
+                              onChange={async e => {
+                                const g = e.target.value || null
+                                await fetch(`/api/judges/b/teams`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, group_letter: g }) })
+                                await load()
+                              }}
+                              className="border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 rounded px-2 py-1 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
+                            >
+                              <option value="">—</option>
+                              {['A', 'B', 'C', 'D', 'E', 'F'].map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                          </td>
                           <td className="px-4 py-3 text-center font-bold text-gray-800 dark:text-zinc-200">{pts}</td>
                           <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-zinc-500 hidden sm:table-cell"><span className="text-green-600">{wins}</span>/<span className="text-amber-500">{draws}</span>/<span className="text-red-500">{losses}</span></td>
                           <td className="px-4 py-3 text-right">

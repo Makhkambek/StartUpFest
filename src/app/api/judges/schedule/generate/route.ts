@@ -49,7 +49,37 @@ function buildSoloRuns(teamIds: string[], n: number): { team1_id: string; team2_
   return result
 }
 
-// Categories B/C — head-to-head pairings, one match per pair.
+// Category B — full round-robin within each group.
+// Generates every unique pair inside a group exactly once, then interleaves
+// groups so the schedule alternates between them.
+function buildGroupPairings(
+  teamsByGroup: Map<string, string[]>,
+): { team1_id: string; team2_id: string; match_prefix: string }[] {
+  const groupQueues: { team1_id: string; team2_id: string; match_prefix: string }[][] = []
+  for (const [group, ids] of teamsByGroup) {
+    if (ids.length < 2) continue
+    const shuffled = shuffle(ids)
+    const pairs: { team1_id: string; team2_id: string; match_prefix: string }[] = []
+    for (let i = 0; i < shuffled.length; i++) {
+      for (let j = i + 1; j < shuffled.length; j++) {
+        pairs.push({ team1_id: shuffled[i], team2_id: shuffled[j], match_prefix: group })
+      }
+    }
+    groupQueues.push(shuffle(pairs))
+  }
+  // Interleave groups round-robin style
+  const result: { team1_id: string; team2_id: string; match_prefix: string }[] = []
+  let remaining = groupQueues.filter(q => q.length > 0)
+  while (remaining.length > 0) {
+    for (const queue of remaining) {
+      if (queue.length > 0) result.push(queue.shift()!)
+    }
+    remaining = remaining.filter(q => q.length > 0)
+  }
+  return result
+}
+
+// Category C — head-to-head pairings, one match per pair.
 // At round boundaries, swaps the first match to avoid repeating teams from the
 // previous round's last match.
 function buildPairings(teamIds: string[], n: number): { team1_id: string; team2_id: string }[] {
@@ -294,7 +324,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ count: alliances.length, surrogates: surrogateCount, format: 'alliance-4' })
   }
 
-  // B / C — head-to-head pairs
+  // B — group-stage round-robin (each team plays every other team in its group once)
+  if (body.category === 'b') {
+    const teamsByGroup = new Map<string, string[]>()
+    for (const t of teams) {
+      const g = t.group_letter ?? 'Ungrouped'
+      if (!teamsByGroup.has(g)) teamsByGroup.set(g, [])
+      teamsByGroup.get(g)!.push(t.id)
+    }
+    const ungrouped = teamsByGroup.get('Ungrouped')
+    if (ungrouped && ungrouped.length > 0) {
+      return NextResponse.json({
+        error: `${ungrouped.length} team(s) have no group assigned. Assign all teams to groups A–F before generating.`,
+      }, { status: 400 })
+    }
+    const pairs = buildGroupPairings(teamsByGroup)
+    // Assign match_ids per group: A-1, A-2, … B-1, B-2, …
+    const groupCounters: Record<string, number> = {}
+    const rows = pairs.map((p) => {
+      groupCounters[p.match_prefix] = (groupCounters[p.match_prefix] ?? 0) + 1
+      return { team1_id: p.team1_id, team2_id: p.team2_id, match_id: `${p.match_prefix}-${groupCounters[p.match_prefix]}` }
+    })
+    if (hasSupabase) {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const now = Date.now()
+      const { error } = await supabase.from('scheduled_matches').insert(
+        rows.map((r, i) => ({ category: 'b', match_id: r.match_id, team1_id: r.team1_id, team2_id: r.team2_id, city_code: cityCode, created_at: new Date(now + i).toISOString() }))
+      )
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ count: rows.length, format: 'group-roundrobin' })
+    }
+    const { addScheduledMatch } = await import('@/lib/schedule-store')
+    rows.forEach((r) => addScheduledMatch({ category: 'b', match_id: r.match_id, team1_id: r.team1_id, team2_id: r.team2_id }))
+    return NextResponse.json({ count: rows.length, format: 'group-roundrobin' })
+  }
+
+  // C — head-to-head pairs
   const pairs = buildPairings(teams.map((t) => t.id), body.n)
   if (hasSupabase) {
     const { createClient } = await import('@/lib/supabase/server')

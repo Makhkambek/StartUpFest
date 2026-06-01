@@ -296,31 +296,43 @@ async function getStateForC() {
   const nextRed = nextSched ? { id: nextSched.team1_id, name: teamName(nextSched.team1_id), school: teamSchool(nextSched.team1_id) } : null
   const nextWhite = nextSched && nextSched.team2_id ? { id: nextSched.team2_id, name: teamName(nextSched.team2_id), school: teamSchool(nextSched.team2_id) } : null
 
-  // ── Finals data (Cat C = top-3 standings, no bracket) ───────────────
+  // ── Finals data (Cat C = SE bracket: SF → Final + 3rd) ───────────────
   let finalsData = null
   if (liveState.finals_visible) {
-    const { computeStandingsC } = await import('@/lib/standings/c')
-    const { getFightsC } = hasSupabase
-      ? await (async () => {
-          const cityCode = await getActiveCityCode()
-          const { createClient } = await import('@/lib/supabase/server')
-          const supabase = await createClient()
-          const { data } = await supabase.from('fights_c').select('*')
-            .eq('city_code', cityCode).order('created_at')
-          return { getFightsC: () => (data ?? []) as Parameters<typeof computeStandingsC>[1] }
-        })()
-      : await import('@/lib/mock-store')
-    const standings = computeStandingsC(teams, getFightsC())
-    finalsData = standings.slice(0, 3).map((s) => ({
-      rank: s.rank,
-      name: s.team.name,
-      school: s.team.school,
-      wins: s.wins,
-      draws: s.draws,
-      losses: s.losses,
-      points: s.points,
-      judge_score: s.judge_score,
-    }))
+    let finalsSchedule: ScheduledMatch[] = []
+    let fightsC: FightC[] = []
+    if (hasSupabase) {
+      const cityCode = await getActiveCityCode()
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const { data: fs } = await supabase.from('scheduled_matches').select('*')
+        .eq('category', 'c').eq('city_code', cityCode).eq('phase', 'finals')
+      finalsSchedule = (fs as ScheduledMatch[] | null) ?? []
+      if (finalsSchedule.length > 0) {
+        const ids = finalsSchedule.map(m => m.id)
+        const { data: fc } = await supabase.from('fights_c').select('*').in('scheduled_match_id', ids)
+        fightsC = (fc as FightC[] | null) ?? []
+      }
+    } else {
+      const { getSchedule } = await import('@/lib/schedule-store')
+      finalsSchedule = getSchedule('c').filter(m => (m as ScheduledMatch & { phase?: string }).phase === 'finals')
+      const { getFightsC: getMockFights } = await import('@/lib/mock-store')
+      fightsC = getMockFights()
+    }
+    const teamName = (id: string | null) => id ? teams.find(t => t.id === id)?.name ?? null : null
+    const teamSchool = (id: string | null) => id ? teams.find(t => t.id === id)?.school ?? null : null
+    finalsData = finalsSchedule.map(fm => {
+      const result = fightsC.find(f => f.scheduled_match_id === fm.id) ?? null
+      return {
+        match_id: fm.match_id,
+        status: fm.status,
+        red:   { id: fm.team1_id, name: teamName(fm.team1_id), school: teamSchool(fm.team1_id) },
+        white: fm.team2_id ? { id: fm.team2_id, name: teamName(fm.team2_id), school: teamSchool(fm.team2_id) } : null,
+        winner: result?.winner ?? null,
+        rounds1: result?.judge_score1 ?? null,
+        rounds2: result?.judge_score2 ?? null,
+      }
+    })
   }
 
   return NextResponse.json({
@@ -387,8 +399,9 @@ async function getStateForD() {
 
   const teamName = (id: string | null | undefined) => id ? teams.find((t) => t.id === id)?.name ?? null : null
   const teamSchool = (id: string | null | undefined) => id ? teams.find((t) => t.id === id)?.school ?? null : null
+  const teamAllianceName = (id: string | null | undefined) => id ? teams.find((t) => t.id === id)?.alliance_name ?? null : null
   const teamLite = (id: string | null | undefined) =>
-    id ? { id, name: teamName(id), school: teamSchool(id) } : null
+    id ? { id, name: teamName(id), school: teamSchool(id), alliance_name: teamAllianceName(id) } : null
 
   const red = match ? teamLite(match.team1_id) : null
   const redPartner = match ? teamLite(match.team1b_id) : null

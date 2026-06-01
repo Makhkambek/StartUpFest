@@ -17,7 +17,9 @@ type Action =
   | { type: 'foul'; side: 'red' | 'white' }
   | { type: 'set_phase'; phase: LivePhaseB }
   | { type: 'reset' }
+  | { type: 'close_match' }
   | { type: 'toggle_finals' }
+  | { type: 'toggle_standby' }
 
 const DEFAULT_STATE_B = {
   category: 'b' as const,
@@ -35,6 +37,7 @@ const DEFAULT_STATE_B = {
   fouls_white: 0,
   round_history: [],
   finals_visible: false,
+  standby_mode: false,
   updated_at: new Date().toISOString(),
 }
 
@@ -164,7 +167,22 @@ async function applyMock(action: Action): Promise<LiveStateB | null> {
     case 'foul': return m.liveB_addFoul(action.side)
     case 'set_phase': return m.liveB_setPhase(action.phase)
     case 'reset': return m.resetLiveB()
+    case 'close_match': return m.setLiveB({
+      active_match_id: null,
+      phase: 'idle',
+      round_number: 1,
+      wins_red: 0,
+      wins_white: 0,
+      starting_position: null,
+      last_round_winner: null,
+      match_winner: null,
+      countdown_started_at: null,
+      fouls_red: 0,
+      fouls_white: 0,
+      round_history: [],
+    })
     case 'toggle_finals': return m.setLiveB({ finals_visible: !(m.getLiveB().finals_visible ?? false) })
+    case 'toggle_standby': return m.setLiveB({ standby_mode: !(m.getLiveB().standby_mode ?? false) })
   }
 }
 
@@ -292,10 +310,33 @@ async function applySupabase(action: Action): Promise<LiveStateB | null> {
         round_history: [],
       })
       break
+    case 'close_match':
+      // Clears live state only — does NOT touch matches_b or scheduled_matches.
+      Object.assign(patch, {
+        active_match_id: null,
+        phase: 'idle',
+        round_number: 1,
+        wins_red: 0,
+        wins_white: 0,
+        starting_position: null,
+        last_round_winner: null,
+        match_winner: null,
+        countdown_started_at: null,
+        fouls_red: 0,
+        fouls_white: 0,
+        round_history: [],
+      })
+      break
     case 'toggle_finals': {
       const cur = await supabase.from('live_match_state').select('finals_visible')
         .eq('category', 'b').eq('city_code', cityCode).maybeSingle()
       patch.finals_visible = !(cur.data as { finals_visible?: boolean } | null)?.finals_visible
+      break
+    }
+    case 'toggle_standby': {
+      const cur = await supabase.from('live_match_state').select('standby_mode')
+        .eq('category', 'b').eq('city_code', cityCode).maybeSingle()
+      patch.standby_mode = !(cur.data as { standby_mode?: boolean } | null)?.standby_mode
       break
     }
   }

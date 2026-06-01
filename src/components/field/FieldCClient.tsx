@@ -4,6 +4,7 @@ import { useEventSettings } from '@/lib/use-event-settings'
 import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
+import FinalsBracketB from '@/components/public/FinalsBracketB'
 
 interface TeamLite {
   id: string
@@ -18,15 +19,14 @@ interface NextMatch {
   white: TeamLite | null
 }
 
-interface FinalsStandingC {
-  rank: number
-  name: string | null
-  school: string | null
-  wins: number
-  draws: number
-  losses: number
-  points: number
-  judge_score: number
+interface BracketMatchC {
+  match_id: string
+  status: string
+  red: TeamLite | null
+  white: TeamLite | null
+  winner: 1 | 2 | 0 | null
+  rounds1: number | null
+  rounds2: number | null
 }
 
 interface FieldStateC {
@@ -35,7 +35,7 @@ interface FieldStateC {
   red: TeamLite | null
   white: TeamLite | null
   nextMatch: NextMatch | null
-  finalsData?: FinalsStandingC[] | null
+  finalsData?: BracketMatchC[] | null
 }
 
 const hasSupabase = !!(
@@ -164,10 +164,63 @@ export default function FieldCClient() {
     <>
       <FightingView data={data} />
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
-        <FinalsOverlayC items={data.finalsData} />
+        <FinalsBracketOverlayC matches={data.finalsData} />
       )}
+      {data.state.standby_mode && <StandbyOverlay />}
       {stale && <ReconnectingBanner />}
     </>
+  )
+}
+
+function StandbyOverlay() {
+  const { watermark, settings } = useEventSettings('en')
+  const eventName = settings.event_name ?? 'Startup Fest Robotics Challenge'
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black text-white overflow-hidden select-none"
+      style={{ fontFamily: '"Anton", "Impact", "Arial Black", sans-serif' }}
+    >
+      <SparkLayer />
+      <div className="relative z-10 text-center px-8 flex flex-col items-center">
+        {/* Event name */}
+        <div
+          className="font-black tracking-[0.3em] uppercase text-rose-300/70 mb-2"
+          style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}
+        >
+          {eventName}
+        </div>
+        {/* City + year */}
+        <div
+          className="font-mono text-white/40 mb-8"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 2rem)', letterSpacing: '0.3em' }}
+        >
+          {watermark}
+        </div>
+
+        {/* Category */}
+        <div
+          className="text-rose-300 font-black tracking-[0.45em] uppercase mb-3"
+          style={{
+            fontSize: 'clamp(2.5rem, 7vw, 6rem)',
+            animation: 'sfrcMagentaPulse 3s ease-in-out infinite',
+          }}
+        >
+          MiniRoboWar
+        </div>
+        <div className="w-48 h-[2px] bg-gradient-to-r from-transparent via-rose-400/60 to-transparent mb-8 mx-auto" />
+
+        {/* BREAK */}
+        <div
+          className="text-rose-200 font-black uppercase tracking-tight text-center mb-5"
+          style={{ fontSize: 'clamp(5rem, 18vw, 14rem)', lineHeight: 0.9 }}
+        >
+          BREAK
+        </div>
+        <div className="text-white/40 uppercase tracking-[0.4em] text-center" style={{ fontSize: 'clamp(0.9rem, 2vw, 1.4rem)' }}>
+          Please wait…
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -321,6 +374,16 @@ function FightingView({ data }: { data: FieldStateC }) {
       </main>
 
       {/* ── BOTTOM SCOREBOARD ── */}
+      <div className="relative z-20 overflow-hidden border-t border-rose-900/40 bg-black/60 h-8 flex items-center shrink-0">
+        <div
+          className="flex whitespace-nowrap text-[11px] tracking-[0.28em] font-bold uppercase text-rose-400/40"
+          style={{ animation: 'sfrcMarquee 55s linear infinite' }}
+        >
+          {[0, 1].map(i => (
+            <span key={i}>{`ASSOCIATION OF ROBOTICS AND ENGINEERING OF UZBEKISTAN · STARTUP FEST ROBOTICS CHALLENGE · ${eventSettings.year} · MINIROBOWAR · `.repeat(4)}</span>
+          ))}
+        </div>
+      </div>
       <footer className="relative z-20 border-t-2 border-rose-700/50 bg-black/70 backdrop-blur-sm px-6 sm:px-10 py-3">
         <div className="grid grid-cols-3 items-center">
           <div className="text-xs font-black tracking-[0.3em] uppercase text-rose-300">
@@ -684,69 +747,63 @@ function PlayerCell({
   )
 }
 
-// ── Finals podium overlay (shown when judge enables Show Finals) ──
-function FinalsOverlayC({ items }: { items: FinalsStandingC[] }) {
-  // Podium order: 2nd (left), 1st (center), 3rd (right)
-  const ordered = [items[1], items[0], items[2]]
-  const medals = ['🥈', '🥇', '🥉']
-  const heights = ['h-44 sm:h-52', 'h-56 sm:h-64', 'h-36 sm:h-44']
-  const nameSize = ['text-xl sm:text-2xl', 'text-2xl sm:text-4xl', 'text-lg sm:text-2xl']
-  const borderColor = ['border-slate-400/50', 'border-amber-400/70', 'border-amber-700/50']
-  const bgColor = [
-    'bg-gradient-to-b from-slate-700/60 to-slate-900/60',
-    'bg-gradient-to-b from-amber-900/60 to-black/60',
-    'bg-gradient-to-b from-amber-800/40 to-black/60',
+// ── Finals bracket overlay ──
+function FinalsBracketOverlayC({ matches }: { matches: BracketMatchC[] }) {
+  const sf1    = matches.find(m => m.match_id === 'FC-SF1') ?? null
+  const sf2    = matches.find(m => m.match_id === 'FC-SF2') ?? null
+  const final_ = matches.find(m => m.match_id === 'FC-F1')  ?? null
+  const third  = matches.find(m => m.match_id === 'FC-3RD') ?? null
+
+  // Derive winner/loser names from SF results for TBD labels
+  const nameOf = (m: BracketMatchC | null, side: 'winner' | 'loser') => {
+    if (!m) return null
+    if (!m.winner) return null
+    const w = m.winner === 1 ? m.red?.name : m.white?.name
+    const l = m.winner === 1 ? m.white?.name : m.red?.name
+    return side === 'winner' ? (w ?? null) : (l ?? null)
+  }
+
+  // Build full bracket — always include all 4 slots so FinalsBracketB draws connecting lines
+  const tbd = (id: string, n: string | null) => ({ id, name: n ?? '', school: null })
+
+  const fullMatches: BracketMatchC[] = [
+    // Semis (always exist once generated)
+    ...(sf1 ? [sf1] : []),
+    ...(sf2 ? [sf2] : []),
+    // Final — use real match if exists, else virtual with TBD names from SF results
+    final_ ?? {
+      match_id: 'FC-F1', status: 'pending',
+      red:   tbd('f-r', nameOf(sf1, 'winner')),
+      white: tbd('f-w', nameOf(sf2, 'winner')),
+      winner: null, rounds1: null, rounds2: null,
+    },
+    // 3rd place — same
+    third ?? {
+      match_id: 'FC-3RD', status: 'pending',
+      red:   tbd('t-r', nameOf(sf1, 'loser')),
+      white: tbd('t-w', nameOf(sf2, 'loser')),
+      winner: null, rounds1: null, rounds2: null,
+    },
   ]
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8"
       style={{
         background: 'radial-gradient(ellipse at 50% 40%, #2a0508 0%, #0a0306 65%, #02010a 100%)',
         fontFamily: '"Anton", "Impact", "Arial Black", sans-serif',
       }}
     >
       <SparkLayer />
-      <div className="relative z-10 w-full max-w-4xl">
-        <div className="text-rose-300 font-black tracking-[0.5em] uppercase text-center mb-2"
-          style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
+      <div className="relative z-10 w-full flex flex-col items-center gap-8">
+        <div className="text-rose-300 font-black tracking-[0.5em] uppercase text-center"
+          style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
           ▌ MINIROBOWARS · FINALS ▐
         </div>
-        <div className="text-rose-300/40 text-[10px] font-mono tracking-widest text-center mb-10 uppercase">
-          Top 3 by cumulative judge score
+        <div className="overflow-x-auto w-full flex justify-center">
+          <FinalsBracketB matches={fullMatches} dark scale={1.6} colGapMult={1.5} />
         </div>
-        {/* Podium */}
-        <div className="flex items-end justify-center gap-3 sm:gap-6">
-          {ordered.map((item, idx) => {
-            if (!item) return <div key={idx} className={`${heights[idx]} flex-1 max-w-[220px]`} />
-            return (
-              <div
-                key={item.rank}
-                className={`${heights[idx]} flex-1 max-w-[220px] flex flex-col items-center justify-end pb-5 border-t-4 ${borderColor[idx]} ${bgColor[idx]} backdrop-blur-sm relative`}
-              >
-                <span className="text-3xl sm:text-4xl mb-2">{medals[idx]}</span>
-                <div className={`font-black uppercase text-white text-center leading-tight px-3 ${nameSize[idx]}`}>
-                  {item.name ?? '—'}
-                </div>
-                {item.school && (
-                  <div className="text-white/50 text-xs sm:text-sm text-center mt-1 px-3 truncate w-full">{item.school}</div>
-                )}
-                <div className="mt-3 flex items-center gap-2 text-white/70 text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  <span className="text-emerald-400">{item.wins}W</span>
-                  <span>·</span>
-                  <span className="text-amber-300">{item.draws}D</span>
-                  <span>·</span>
-                  <span className="text-rose-400">{item.losses}L</span>
-                </div>
-                <div className={`font-black tabular-nums mt-1 ${idx === 1 ? 'text-amber-300' : 'text-white/80'}`}
-                  style={{ fontSize: 'clamp(1.2rem, 2vw, 1.6rem)' }}>
-                  {item.points}pts
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="mt-8 text-center text-rose-300/20 text-[10px] tracking-[0.4em] uppercase">
+        <div className="text-rose-300/20 text-[10px] tracking-[0.4em] uppercase">
           SFRC · STARTUP FEST ROBOTICS CHALLENGE
         </div>
       </div>

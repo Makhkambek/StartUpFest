@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     team1_id: string; team2_id: string
-    winner: 1 | 2; method: FightC['method']
+    winner: 1 | 2 | 0; method: FightC['method']
     judge_score1: number; judge_score2: number
     fight_number?: number | null
     notes?: string | null
@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
   }
   if (body.team1_id === body.team2_id) return NextResponse.json({ error: 'Teams must be different' }, { status: 400 })
   if (body.notes && body.notes.length > 500) return NextResponse.json({ error: 'Notes max 500 chars' }, { status: 400 })
-  if (![1, 2].includes(body.winner)) {
-    return NextResponse.json({ error: 'winner must be 1 or 2' }, { status: 400 })
+  if (![0, 1, 2].includes(body.winner)) {
+    return NextResponse.json({ error: 'winner must be 0 (draw), 1, or 2' }, { status: 400 })
   }
-  if (!['KO', 'IMM', 'JD'].includes(body.method)) {
-    return NextResponse.json({ error: 'method must be KO, IMM, or JD' }, { status: 400 })
+  if (!['KO', 'IMM', 'JD', 'DRAW'].includes(body.method)) {
+    return NextResponse.json({ error: 'method must be KO, IMM, JD, or DRAW' }, { status: 400 })
   }
   const validScore = (v: unknown): v is number =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100

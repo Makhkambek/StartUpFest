@@ -3,11 +3,13 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useEventSettings } from '@/lib/use-event-settings'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
+import FinalsBracketD from '@/components/public/FinalsBracketD'
 
 interface TeamLite {
   id: string
   name: string | null
   school: string | null
+  alliance_name?: string | null
 }
 
 interface NextMatch {
@@ -210,8 +212,61 @@ export default function FieldDClient() {
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
         <FinalsOverlayD items={data.finalsData} />
       )}
+      {data.state.standby_mode && <StandbyOverlay />}
       {stale && <ReconnectingBanner />}
     </>
+  )
+}
+
+function StandbyOverlay() {
+  const { watermark, settings } = useEventSettings('en')
+  const eventName = settings.event_name ?? 'Startup Fest Robotics Challenge'
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden text-white select-none"
+      style={{
+        background: 'linear-gradient(180deg, #0a3d1c 0%, #052010 50%, #02100a 100%)',
+        fontFamily: '"Inter", "SF Pro Display", "Helvetica Neue", sans-serif',
+      }}
+    >
+      <PitchPattern />
+      <div className="relative z-10 text-center px-8 flex flex-col items-center">
+        {/* Event name */}
+        <div
+          className="font-black tracking-[0.3em] uppercase text-emerald-300/70 mb-2"
+          style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}
+        >
+          {eventName}
+        </div>
+        {/* City + year */}
+        <div
+          className="font-mono text-white/40 mb-8"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 2rem)', letterSpacing: '0.3em' }}
+        >
+          {watermark}
+        </div>
+
+        {/* Category */}
+        <div
+          className="text-emerald-300 font-black tracking-[0.45em] uppercase mb-3"
+          style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}
+        >
+          Robo Football
+        </div>
+        <div className="w-48 h-[2px] bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent mb-8 mx-auto" />
+
+        {/* BREAK */}
+        <div
+          className="text-emerald-200 font-black uppercase tracking-tight text-center mb-5"
+          style={{ fontSize: 'clamp(5rem, 18vw, 14rem)', lineHeight: 0.9 }}
+        >
+          BREAK
+        </div>
+        <div className="text-white/40 uppercase tracking-[0.4em] text-center" style={{ fontSize: 'clamp(0.9rem, 2vw, 1.4rem)' }}>
+          Please wait…
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -482,15 +537,14 @@ function FifaView({ data, eventWatermark }: { data: FieldStateD; eventWatermark:
       </main>
 
       {/* ── BOTTOM TICKER ── */}
-      <footer className="relative z-20 px-6 sm:px-10 py-2.5 flex items-center justify-between border-t border-emerald-500/20 bg-black/70 backdrop-blur-sm">
-        <div className="text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase text-emerald-300">
-          ⚽ Robo Football
-        </div>
-        <div className="text-[10px] sm:text-xs font-mono text-emerald-200/60 tracking-wider">
-          {match!.match_id} · {eventWatermark}
-        </div>
-        <div className="text-[10px] sm:text-xs font-black tracking-widest uppercase text-emerald-300/60">
-          SFRC
+      <footer className="relative z-20 overflow-hidden border-t border-emerald-500/20 bg-black/60 h-9 flex items-center shrink-0">
+        <div
+          className="flex whitespace-nowrap text-[11px] tracking-[0.28em] font-bold uppercase text-emerald-400/50"
+          style={{ animation: 'sfrcMarquee 55s linear infinite' }}
+        >
+          {[0, 1].map(i => (
+            <span key={i}>{`ASSOCIATION OF ROBOTICS AND ENGINEERING OF UZBEKISTAN · STARTUP FEST ROBOTICS CHALLENGE · ${eventWatermark} · ROBO FOOTBALL · `.repeat(4)}</span>
+          ))}
         </div>
       </footer>
 
@@ -1159,65 +1213,35 @@ function PitchIdle({ next }: { next: NextMatch | null }) {
 
 // ── Finals round-robin overlay (shown when judge enables Show Finals) ──
 function FinalsOverlayD({ items }: { items: FinalsMatchD[] }) {
-  const sorted = [...items].sort((a, b) =>
-    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
-  const allianceName = (team: TeamLite | null, partner: TeamLite | null): string => {
-    if (!team) return 'TBD'
-    if (!partner) return team.name ?? '—'
-    return `${team.name ?? '—'} + ${partner.name ?? '—'}`
-  }
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-auto"
       style={{
         background: 'linear-gradient(180deg, #0a3d1c 0%, #052010 50%, #02100a 100%)',
         fontFamily: '"Inter", "SF Pro Display", "Helvetica Neue", sans-serif',
+        padding: 'clamp(16px, 4vw, 48px)',
       }}
     >
       <PitchPattern />
-      <div className="relative z-10 w-full max-w-3xl">
-        <div className="text-emerald-400 font-black tracking-[0.4em] uppercase text-center mb-2"
-          style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}>
-          ⚽ ROBO FOOTBALL · FINALS
+      <div className="relative z-10 w-full" style={{ maxWidth: 680 }}>
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div
+            className="text-emerald-400 font-black tracking-[0.4em] uppercase"
+            style={{ fontSize: 'clamp(1rem, 2.5vw, 1.6rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}
+          >
+            ⚽ ROBO FOOTBALL · FINALS
+          </div>
+          <div className="text-emerald-300/40 text-[10px] font-mono tracking-widest uppercase mt-1">
+            3-Alliance Round Robin
+          </div>
         </div>
-        <div className="text-emerald-300/40 text-[10px] font-mono tracking-widest text-center mb-8 uppercase">
-          3-Alliance Round Robin
-        </div>
-        <div className="space-y-3">
-          {sorted.map((item) => {
-            const isDone = item.status === 'completed'
-            const redName = allianceName(item.red, item.redPartner)
-            const whiteName = allianceName(item.white, item.whitePartner)
-            const redWon = isDone && item.goals1 !== null && item.goals2 !== null && item.goals1 > item.goals2
-            const whiteWon = isDone && item.goals1 !== null && item.goals2 !== null && item.goals2 > item.goals1
-            return (
-              <div key={item.match_id}
-                className="border border-emerald-500/20 bg-black/50 backdrop-blur-sm px-5 py-4 grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-3">
-                <span className="text-white/40 font-mono text-[11px] text-center">{item.match_id}</span>
-                <span className={`font-black text-right truncate ${redWon ? 'text-amber-300' : 'text-rose-300'}`}>
-                  {redName}
-                </span>
-                <span className="font-black tabular-nums text-center text-lg shrink-0 min-w-[4rem] text-white/70">
-                  {isDone && item.goals1 !== null
-                    ? `${item.goals1}–${item.goals2}`
-                    : <span className="text-white/25 text-sm">vs</span>}
-                </span>
-                <span className={`font-black truncate ${whiteWon ? 'text-amber-300' : 'text-cyan-300'}`}>
-                  {whiteName}
-                </span>
-                <span className="text-center text-emerald-400 text-sm">
-                  {isDone ? '✓' : ''}
-                </span>
-              </div>
-            )
-          })}
-          {sorted.length === 0 && (
-            <div className="text-center text-white/20 text-sm tracking-widest py-12">
-              NO FINALS MATCHES SCHEDULED
-            </div>
-          )}
-        </div>
-        <div className="mt-8 text-center text-emerald-300/20 text-[10px] tracking-[0.4em] uppercase">
+
+        {/* Bracket */}
+        <FinalsBracketD matches={items} dark scale={1.05} />
+
+        {/* Footer */}
+        <div className="mt-6 text-center text-emerald-300/20 text-[10px] tracking-[0.4em] uppercase">
           SFRC · STARTUP FEST ROBOTICS CHALLENGE
         </div>
       </div>

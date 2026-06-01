@@ -1,3 +1,10 @@
+import FullscreenButton from '@/components/field/FullscreenButton'
+
 export default function FieldLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-gray-950 text-white">{children}</div>
+  return (
+    <div className="min-h-screen bg-gray-950 text-white">
+      {children}
+      <FullscreenButton />
+    </div>
+  )
 }

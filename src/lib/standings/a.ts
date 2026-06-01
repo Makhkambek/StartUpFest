@@ -8,12 +8,14 @@ const TOTAL_DNF = 99_998
 const TOTAL_DISQ = 99_999
 const TOTAL_NO_RESULT = 99_999.5
 
+const PENALTY_SEC: Record<string, number> = { '10': 10, '20': 20, '40': 40, '50': 50 }
+
 interface InternalRow {
   team: Team
   run1: number | null
   run2: number | null
   penalty: string
-  bestRun: number | null      // best single-run time (tiebreaker)
+  penaltySec: number          // tiebreaker: fewer penalty seconds = better
   total: number               // sort key (uses sentinels above)
   displayTotal: number | null // what to render in the standings table
   status: StatusA | null      // forced status, or null = derive from rank
@@ -28,7 +30,7 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
         run1: null,
         run2: null,
         penalty: '0',
-        bestRun: null,
+        penaltySec: 0,
         total: TOTAL_NO_RESULT,
         displayTotal: null,
         status: 'elim',
@@ -48,27 +50,24 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
       : teamResults[teamResults.length - 1]
     const isDnf = completed.length === 0 && best.penalty === 'dnf'
     const isDisq = completed.length === 0 && best.penalty === 'disq'
-    const allTimes = sorted.map(r => r.run1).filter((v): v is number => v !== null)
-    const bestRun = allTimes.length ? Math.min(...allTimes) : null
     return {
       team,
       run1,
       run2,
       penalty: best.penalty,
-      bestRun,
+      penaltySec: PENALTY_SEC[best.penalty] ?? 0,
       total: isDnf ? TOTAL_DNF : isDisq ? TOTAL_DISQ : (best.total ?? TOTAL_NO_RESULT),
       displayTotal: isDnf || isDisq ? null : best.total,
       status: isDnf ? 'dnf' : isDisq ? 'disq' : null,
     }
   })
 
-  // Primary: total (lower wins). Tiebreaker 1: best single-run (lower wins).
-  // Tiebreaker 2: team.created_at (earlier registration wins) — deterministic.
+  // Primary: total (lower wins).
+  // Tiebreaker 1: penaltySec (fewer = better) — rulebook §3.2.
+  // Tiebreaker 2: team.created_at (earlier registration) — deterministic, triggers golden run in practice.
   rows.sort((a, b) => {
     if (a.total !== b.total) return a.total - b.total
-    const aRun = a.bestRun ?? Infinity
-    const bRun = b.bestRun ?? Infinity
-    if (aRun !== bRun) return aRun - bRun
+    if (a.penaltySec !== b.penaltySec) return a.penaltySec - b.penaltySec
     return a.team.created_at.localeCompare(b.team.created_at)
   })
 
@@ -79,7 +78,6 @@ export function computeStandingsA(teams: Team[], results: ResultA[]): StandingA[
     run2: row.run2,
     penalty: row.penalty,
     total: row.displayTotal,
-    // Forced status (dnf/disq/elim-no-result) wins. Otherwise derive from rank.
     status: row.status ?? (i < 4 ? 'finalist' : i < 16 ? 'qualified' : 'elim'),
   }))
 }

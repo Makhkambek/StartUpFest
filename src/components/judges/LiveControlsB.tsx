@@ -21,6 +21,7 @@ type ActionBody =
   | { type: 'foul'; side: 'red' | 'white' }
   | { type: 'set_phase'; phase: LivePhaseB }
   | { type: 'reset' }
+  | { type: 'close_match' }
 
 const PHASE_LABEL: Record<LivePhaseB, string> = {
   idle: 'Idle',
@@ -152,7 +153,7 @@ export default function LiveControlsB({ schedule, teamName, onChange }: Props) {
                   ({state.wins_red}−{state.wins_white}, winner: {state.match_winner === 1 ? '🔴 Red' : state.match_winner === 2 ? '🔵 Blue' : '🟰 Draw'})
                 </span>
               </div>
-              <button disabled={busy} onClick={() => dispatch({ type: 'reset' })}
+              <button disabled={busy} onClick={() => dispatch({ type: 'close_match' })}
                 className="text-xs font-bold text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-50 underline">
                 Close / idle
               </button>

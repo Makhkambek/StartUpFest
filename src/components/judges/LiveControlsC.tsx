@@ -151,11 +151,11 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [state?.phase, addScore])
 
-  // Auto judges' decision when 2-minute fight timer expires
+  // Auto judges' decision when 3-minute fight timer expires (rulebook v1.0: 3 min)
   useEffect(() => {
     if (state?.phase !== 'fighting' || !state.countdown_started_at) return
     const elapsed = (Date.now() - Date.parse(state.countdown_started_at)) / 1000
-    const remaining = 120 - elapsed
+    const remaining = 180 - elapsed
     if (remaining <= 0) { dispatch({ type: 'win_jd' }); return }
     const id = setTimeout(() => dispatch({ type: 'win_jd' }), remaining * 1000)
     return () => clearTimeout(id)
@@ -329,6 +329,10 @@ export default function LiveControlsC({ schedule, teamName, onChange }: Props) {
               <button disabled={busy || (state.phase !== 'countdown' && state.phase !== 'positioning')} onClick={() => dispatch({ type: 'go_fight' })}
                 className="bg-green-600 hover:bg-green-700 disabled:opacity-30 text-white font-bold text-sm px-3 py-1.5 rounded">
                 ▶ FIGHT (start now)
+              </button>
+              <button disabled={busy || state.phase !== 'fighting'} onClick={() => dispatch({ type: 'win_jd' })}
+                className="bg-red-700 hover:bg-red-800 disabled:opacity-30 text-white font-bold text-sm px-3 py-1.5 rounded">
+                ⏹ End bout
               </button>
             </div>
 

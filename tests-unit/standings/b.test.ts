@@ -43,16 +43,36 @@ describe('computeStandingsB — Mini Sumo', () => {
     expect(s[2].points).toBe(0)
   })
 
-  it('assigns finalist/qualified/elim status by rank', () => {
+  it('no groups: top 8 = finalist, rest = elim (v1.1)', () => {
     const teams = Array.from({ length: 15 }, (_, i) => makeTeam({ id: `t${i}`, category: 'b' }))
-    // build matches so winners are t0, t1, t2 (top 3)
     const matches = teams.slice(3).map(opponent =>
       makeMatchB({ team1_id: 't0', team2_id: opponent.id, winner: 1, rounds1: 2, rounds2: 0 })
     )
     const s = computeStandingsB(teams, matches)
-    expect(s.filter(r => r.status === 'finalist')).toHaveLength(3)
-    expect(s.filter(r => r.status === 'qualified').length).toBeGreaterThan(0)
-    expect(s.filter(r => r.status === 'elim').length).toBeGreaterThan(0)
+    expect(s.filter(r => r.status === 'finalist')).toHaveLength(8)
+    expect(s.filter(r => r.status === 'qualified')).toHaveLength(0)
+    expect(s.filter(r => r.status === 'elim')).toHaveLength(7)
+  })
+
+  it('with 4 groups: top 2 per group = finalist (v1.1)', () => {
+    const groups = ['A', 'B', 'C', 'D']
+    const teams = groups.flatMap(g =>
+      Array.from({ length: 4 }, (_, i) => makeTeam({ id: `t${g}${i}`, category: 'b', group_letter: g }))
+    )
+    // In each group: first two teams win all matches
+    const matches = groups.flatMap(g => [
+      makeMatchB({ team1_id: `t${g}0`, team2_id: `t${g}2`, winner: 1, rounds1: 2, rounds2: 0 }),
+      makeMatchB({ team1_id: `t${g}1`, team2_id: `t${g}3`, winner: 1, rounds1: 2, rounds2: 0 }),
+    ])
+    const s = computeStandingsB(teams, matches)
+    expect(s.filter(r => r.status === 'finalist')).toHaveLength(8)
+    expect(s.filter(r => r.status === 'elim')).toHaveLength(8)
+    groups.forEach(g => {
+      expect(s.find(r => r.team.id === `t${g}0`)!.status).toBe('finalist')
+      expect(s.find(r => r.team.id === `t${g}1`)!.status).toBe('finalist')
+      expect(s.find(r => r.team.id === `t${g}2`)!.status).toBe('elim')
+      expect(s.find(r => r.team.id === `t${g}3`)!.status).toBe('elim')
+    })
   })
 
   it('handles match with unknown team_id without crashing', () => {

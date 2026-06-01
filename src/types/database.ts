@@ -7,10 +7,11 @@ export interface Team {
   name: string
   school: string
   group_letter: string | null
+  alliance_name?: string | null
   created_at: string
 }
 
-export type PenaltyA = '0' | '20' | '40' | 'dnf' | 'disq'
+export type PenaltyA = '0' | '10' | '20' | '40' | '50' | 'dnf' | 'disq'
 export type RunPhase = 'qualification' | 'final'
 export type StartingPosition = 'face' | 'side' | 'back'
 export type MatchPhase = 'group' | 'extra' | 'penalties'
@@ -51,8 +52,8 @@ export interface FightC {
   fight_number: number | null
   team1_id: string
   team2_id: string
-  winner: 1 | 2
-  method: 'KO' | 'IMM' | 'JD'
+  winner: 1 | 2 | 0
+  method: 'KO' | 'IMM' | 'JD' | 'DRAW'
   judge_score1: number
   judge_score2: number
   notes: string | null
@@ -124,6 +125,7 @@ export interface LiveStateB {
   fouls_white: number
   round_history: RoundOutcome[]
   finals_visible: boolean
+  standby_mode: boolean
   updated_at: string
 }
 

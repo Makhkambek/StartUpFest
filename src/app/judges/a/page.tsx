@@ -31,14 +31,23 @@ export default function JudgeAPage() {
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
   const [finalsVisible, setFinalsVisible] = useState(false)
+  const [standbyMode, setStandbyMode] = useState(false)
 
   useEffect(() => {
-    fetch('/api/judges/a/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+    fetch('/api/judges/a/live').then(r => r.json()).then(s => {
+      setFinalsVisible(s.finals_visible ?? false)
+      setStandbyMode(s.standby_mode ?? false)
+    })
   }, [])
 
   const toggleFinals = async () => {
     const res = await fetch('/api/judges/a/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
     if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
+
+  const toggleStandby = async () => {
+    const res = await fetch('/api/judges/a/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_standby' }) })
+    if (res.ok) { const s = await res.json(); setStandbyMode(s.standby_mode ?? false) }
   }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
@@ -86,16 +95,6 @@ export default function JudgeAPage() {
     } finally {
       setResetting(false)
     }
-  }
-
-  const [genFinalsErr, setGenFinalsErr] = useState('')
-  const [genFinals, setGenFinals] = useState(false)
-  const handleGenerateFinals = async () => {
-    if (!await confirm('Generate FINALS bracket from current Top-4 standings? Existing finals will be replaced.')) return
-    setGenFinals(true); setGenFinalsErr('')
-    const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'a' }) })
-    if (!res.ok) { const e = await res.json(); setGenFinalsErr(e.error ?? 'Failed'); setGenFinals(false); return }
-    await load(); setGenFinals(false)
   }
 
   const openDetail = (m: ScheduledMatch) => { setActiveMatch(m) }
@@ -165,6 +164,10 @@ export default function JudgeAPage() {
               {v === 'schedule' ? 'Matches' : 'Teams'}
             </button>
           ))}
+          <button onClick={toggleStandby}
+            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${standbyMode ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'}`}>
+            {standbyMode ? '⏸ Standby ON' : '⏸ Standby'}
+          </button>
           <button onClick={toggleFinals}
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
@@ -238,25 +241,6 @@ export default function JudgeAPage() {
                   {teams.length < 2 && <span className="text-xs text-amber-500 dark:text-amber-400">Add teams first</span>}
                 </div>
                 {genError && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{genError}</p>}
-              </div>
-
-              {/* Finals panel */}
-              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Generate FINALS Bracket</h2>
-                  {schedule.filter(m => m.phase === 'finals').length > 0 && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400">{schedule.filter(m => m.phase === 'finals').length} finals scheduled</span>
-                  )}
-                </div>
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Auto-picks Top 4 from current standings (Double Elimination).</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button onClick={handleGenerateFinals} disabled={!isAdmin || genFinals}
-                    title={!isAdmin ? 'Admin only' : ''}
-                    className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
-                    {genFinals ? 'Generating…' : 'Generate Finals'}
-                  </button>
-                </div>
-                {genFinalsErr && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{genFinalsErr}</p>}
               </div>
 
               {/* Add form */}
@@ -394,27 +378,19 @@ export default function JudgeAPage() {
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg p-3">
-                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Run 1</div>
+                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Laser time</div>
                             <div className="font-mono font-bold text-gray-900 dark:text-zinc-100">{r.run1 !== null ? r.run1 + 's' : '—'}</div>
                           </div>
                           <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg p-3">
-                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Run 2</div>
-                            <div className="font-mono font-bold text-gray-900 dark:text-zinc-100">{r.run2 !== null ? r.run2 + 's' : '—'}</div>
+                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Penalty</div>
+                            <div className="font-bold text-gray-900 dark:text-zinc-100">
+                              {r.penalty === '0' ? '—' : ['dnf','disq'].includes(r.penalty) ? r.penalty.toUpperCase() : `+${r.penalty}s`}
+                            </div>
                           </div>
                         </div>
                         <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg p-3">
-                          <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Best / Total</div>
+                          <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Total</div>
                           <div className="font-mono font-black text-xl text-gray-900 dark:text-zinc-100">{resultLabel(r)}</div>
-                        </div>
-                        <div className="flex gap-2">
-                          <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg p-3 flex-1">
-                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Penalty</div>
-                            <div className="font-bold text-gray-900 dark:text-zinc-100">{r.penalty === '0' ? '+0s' : r.penalty === '20' ? '+20s' : r.penalty === '40' ? '+40s' : r.penalty.toUpperCase()}</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-zinc-800 rounded-lg p-3 flex-1">
-                            <div className="text-[10px] font-bold text-gray-400 dark:text-zinc-400 uppercase mb-1">Phase</div>
-                            <div className="font-bold text-gray-900 dark:text-zinc-100 capitalize">{r.run_phase ?? '—'}</div>
-                          </div>
                         </div>
                         {r.notes && (
                           <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">

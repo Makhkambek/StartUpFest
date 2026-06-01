@@ -13,7 +13,7 @@ export default function RecordCPage() {
   const [loading, setLoading] = useState(true)
   // form state
   const [method, setMethod] = useState<FightC['method']>('KO')
-  const [winner, setWinner] = useState<1 | 2>(1)
+  const [winner, setWinner] = useState<1 | 2 | 0>(1)
   const [score1, setScore1] = useState('')
   const [score2, setScore2] = useState('')
   const [notes, setNotes] = useState('')
@@ -181,8 +181,8 @@ export default function RecordCPage() {
           </div>
         </div>
 
-        {/* Timer (2 min fight) */}
-        <MatchTimer duration={120} />
+        {/* Timer (3 min fight — rulebook §5.2) */}
+        <MatchTimer duration={180} />
 
 
         {/* Form */}
@@ -190,14 +190,22 @@ export default function RecordCPage() {
           {/* Method */}
           <div>
             <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">Decision Method</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {([
-                { value: 'KO', label: 'KO' },
-                { value: 'IMM', label: 'Immobilization' },
-                { value: 'JD', label: 'Judge Decision' },
+                { value: 'KO',   label: 'KO' },
+                { value: 'IMM',  label: 'Immobilization' },
+                { value: 'JD',   label: 'Judge Decision' },
+                { value: 'DRAW', label: 'Draw' },
               ] as const).map(m => (
-                <button key={m.value} onClick={() => setMethod(m.value)}
-                  className={`flex-1 py-3 rounded-lg text-sm font-bold border transition-colors ${method === m.value ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}>
+                <button key={m.value} onClick={() => {
+                  setMethod(m.value)
+                  if (m.value === 'DRAW') setWinner(0)
+                  else if (winner === 0) setWinner(1)
+                }}
+                  className={`flex-1 py-3 rounded-lg text-sm font-bold border transition-colors ${method === m.value
+                    ? m.value === 'DRAW' ? 'bg-gray-500 text-white border-gray-500'
+                    : 'bg-gray-900 text-white border-gray-900'
+                    : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}>
                   {m.label}
                 </button>
               ))}
@@ -205,6 +213,7 @@ export default function RecordCPage() {
           </div>
 
           {/* Winner */}
+          {method !== 'DRAW' && (
           <div>
             <label className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide block mb-2">Winner</label>
             <div className="flex gap-2">
@@ -218,6 +227,7 @@ export default function RecordCPage() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Judge Scores */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

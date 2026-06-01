@@ -17,7 +17,7 @@ export function fieldPollMs(phase: string | null | undefined, hasSupabase: boole
     //   — minimises the backward jump (liveMs overshoot vs server-recorded lastRunTime).
     if (phase === 'fighting') return 60
     if (phase === 'countdown') return 100
-    return 300
+    return 60000
   }
-  return phase && ACTIVE_PHASES.has(phase) ? 1500 : 4000
+  return phase && ACTIVE_PHASES.has(phase) ? 1500 : 60000
 }

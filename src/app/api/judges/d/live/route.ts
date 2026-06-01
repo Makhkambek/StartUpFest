@@ -22,6 +22,7 @@ type Action =
   | { type: 'retry_persist' }
   | { type: 'reset' }
   | { type: 'toggle_finals' }
+  | { type: 'toggle_standby' }
 
 // Default state returned when the DB hasn't been seeded yet. `category` must
 // match the route ('d') so UI consumers don't misroute. `updated_at` uses
@@ -44,6 +45,7 @@ const DEFAULT_STATE = {
   fouls_white: 0,
   round_history: [],
   finals_visible: false,
+  standby_mode: false,
   updated_at: new Date().toISOString(),
 }
 
@@ -231,6 +233,8 @@ function buildPatch(action: Action, cur: LiveStateB | null): Partial<LiveStateB>
         fouls_white: 0,
         round_history: [],
       }
+    case 'toggle_standby':
+      return { standby_mode: !(c.standby_mode ?? false) }
     case 'toggle_finals':
       return { finals_visible: !(c.finals_visible ?? false) }
   }

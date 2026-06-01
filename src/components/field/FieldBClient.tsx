@@ -5,6 +5,7 @@ import TrophyCard, { TrophyCrest, teamCode } from './TrophyCard'
 import { fieldPollMs } from '@/lib/field-poll'
 import type { LiveStateB } from '@/types/database'
 import type { ScheduledMatch } from '@/lib/schedule-store'
+import FinalsBracketB from '@/components/public/FinalsBracketB'
 
 interface TeamLite {
   id: string
@@ -110,11 +111,18 @@ export default function FieldBClient() {
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 8000), 2000)
+    const id = setInterval(() => setStale(Date.now() - lastFetchAt.current > 90000), 15000)
     return () => clearInterval(id)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
+
+  // Refetch immediately when tab becomes visible (e.g. judge switches Finals ON on another device)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refetch() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refetch])
 
   const pollMs = fieldPollMs(data?.state?.phase, hasSupabase)
   useEffect(() => {
@@ -155,8 +163,69 @@ export default function FieldBClient() {
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
         <FinalsOverlayB items={data.finalsData} />
       )}
+      {data.state.standby_mode && <StandbyOverlay />}
       {stale && <ReconnectingBanner />}
     </>
+  )
+}
+
+function StandbyOverlay() {
+  const { watermark, settings } = useEventSettings('en')
+  const eventName = settings.event_name ?? 'Startup Fest Robotics Challenge'
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center text-white select-none"
+      style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #14141c 100%)' }}
+    >
+      <div aria-hidden className="absolute inset-0 pointer-events-none opacity-[0.08]"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+      <div aria-hidden className="absolute inset-y-0 -left-1/4 w-1/2 pointer-events-none"
+        style={{
+          background: 'linear-gradient(110deg, transparent 0%, rgba(245,158,11,0.06) 50%, transparent 100%)',
+          animation: 'sfrcSheen 12s linear infinite',
+        }}
+      />
+      <div className="relative z-10 text-center px-8 flex flex-col items-center">
+        {/* Event name */}
+        <div
+          className="font-black tracking-[0.3em] uppercase text-amber-400/70 mb-2"
+          style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)' }}
+        >
+          {eventName}
+        </div>
+        {/* City + year */}
+        <div
+          className="font-mono text-white/40 mb-8"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 2rem)', letterSpacing: '0.3em' }}
+        >
+          {watermark}
+        </div>
+
+        {/* Category */}
+        <div
+          className="font-black tracking-[0.35em] uppercase text-amber-400/90 mb-3"
+          style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)' }}
+        >
+          Mini Sumo
+        </div>
+        <div className="w-48 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent mb-8 mx-auto" />
+
+        {/* BREAK */}
+        <div
+          className="font-black tracking-tight mb-5"
+          style={{ fontSize: 'clamp(5rem, 18vw, 14rem)', lineHeight: 0.9, animation: 'sfrcGlow 3s ease-in-out infinite' }}
+        >
+          BREAK
+        </div>
+        <div className="text-white/40 tracking-[0.4em] uppercase" style={{ fontSize: 'clamp(0.9rem, 2vw, 1.4rem)' }}>
+          Please wait…
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -307,7 +376,7 @@ function Scoreboard({ data }: { data: FieldState }) {
             </div>
 
             {/* Center stage overlay (countdown / fight / yuhkoh / draw badge) */}
-            <CenterOverlay state={state} remaining={remaining} winnerSide={winnerSide} phaseElapsed={phaseElapsed} matchTimer={matchTimer} />
+            <CenterOverlay state={state} remaining={remaining} winnerSide={winnerSide} phaseElapsed={phaseElapsed} matchTimer={matchTimer} redTeam={red} whiteTeam={white} />
 
             {/* Branded trophy card — settles in after the 4.5s sparkle slam. The
                 slam shows the side ("RED"); this shows the actual team name +
@@ -335,15 +404,14 @@ function Scoreboard({ data }: { data: FieldState }) {
       )}
 
       {/* ── Footer ── */}
-      <footer className="shrink-0 px-6 sm:px-10 py-2.5 flex items-center justify-between border-t border-white/10 bg-black/40">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-amber-400 rounded flex items-center justify-center font-black text-[8px] text-gray-900 tracking-widest">SFRC</div>
-          <span className="text-[11px] sm:text-xs font-bold tracking-[0.2em] uppercase text-white/70">
-            Startup Fest Robotics Challenge · {eventSettings.year}
-          </span>
-        </div>
-        <div className="text-[10px] sm:text-xs text-white/40 font-mono">
-          {hasMatch ? `${eventCity} · Mini Sumo` : '—'}
+      <footer className="shrink-0 overflow-hidden border-t border-white/10 bg-black/50 h-9 flex items-center">
+        <div
+          className="flex whitespace-nowrap text-[11px] tracking-[0.28em] font-bold uppercase text-amber-400/50"
+          style={{ animation: 'sfrcMarquee 55s linear infinite' }}
+        >
+          {[0, 1].map(i => (
+            <span key={i}>{`ASSOCIATION OF ROBOTICS AND ENGINEERING OF UZBEKISTAN · STARTUP FEST ROBOTICS CHALLENGE · ${eventSettings.year} · MINI SUMO · `.repeat(4)}</span>
+          ))}
         </div>
       </footer>
     </div>
@@ -477,13 +545,15 @@ function historyDots(hist: ('red' | 'white' | 'draw')[]): React.ReactNode {
 }
 
 function CenterOverlay({
-  state, remaining, winnerSide, phaseElapsed, matchTimer,
+  state, remaining, winnerSide, phaseElapsed, matchTimer, redTeam, whiteTeam,
 }: {
   state: LiveStateB
   remaining: number | null
   winnerSide: 'red' | 'white' | 'draw' | null
   phaseElapsed: number
   matchTimer: string
+  redTeam: TeamLite | null
+  whiteTeam: TeamLite | null
 }) {
   // Countdown always shown in full while we're in countdown phase.
   if (state.phase === 'countdown' && remaining !== null) {
@@ -524,24 +594,30 @@ function CenterOverlay({
     )
   }
 
-  // Round result overlay — Yuhkoh shown 2.5s.
+  // Round result overlay — shown 2.5s.
   if (state.phase === 'round_result' && phaseElapsed < ROUND_OVERLAY_MS) {
     const w = state.last_round_winner
     if (w === 'draw') {
       return (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/85 rounded-2xl px-10 py-6 border-2 border-amber-400 animate-[sfrcStart_0.35s_ease-out]">
-            <div className="font-black text-amber-400 text-5xl sm:text-7xl">🟰 Draw</div>
+          <div className="bg-black/85 rounded-2xl px-10 py-6 border-2 border-amber-400 animate-[sfrcStart_0.35s_ease-out] text-center">
+            <div className="text-white/50 text-xs font-black tracking-[0.4em] uppercase mb-2">Round {state.round_number}</div>
+            <div className="font-black text-amber-400 text-5xl sm:text-7xl">Draw</div>
           </div>
         </div>
       )
     }
-    const side = w === 'red' ? 'Red' : 'Blue'
+    const teamName = w === 'red' ? (redTeam?.name ?? 'Red') : (whiteTeam?.name ?? 'Blue')
     const color = w === 'red' ? 'text-red-400' : 'text-blue-300'
+    const borderColor = w === 'red' ? 'border-red-500' : 'border-blue-400'
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-        <div className="bg-black/85 rounded-2xl px-10 py-6 border-2 border-amber-400 animate-[sfrcStart_0.35s_ease-out]">
-          <div className={`font-black text-3xl sm:text-5xl ${color}`}>Yuhkoh by {side}</div>
+        <div className={`bg-black/85 backdrop-blur-md rounded-2xl px-12 py-7 border-2 ${borderColor} animate-[sfrcStart_0.35s_ease-out] text-center`}>
+          <div className="text-white/50 text-xs font-black tracking-[0.4em] uppercase mb-2">Round {state.round_number}</div>
+          <div className={`font-black leading-tight ${color}`} style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}>
+            {teamName}
+          </div>
+          <div className="text-white/60 text-sm font-black tracking-[0.35em] uppercase mt-2">Wins the round</div>
         </div>
       </div>
     )
@@ -559,20 +635,19 @@ function CenterOverlay({
       )
     }
     const winColor = winnerSide === 'red' ? 'text-red-400' : 'text-blue-300'
+    const winTeamName = winnerSide === 'red' ? (redTeam?.name ?? 'Red') : (whiteTeam?.name ?? 'Blue')
     return (
       <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
         <div className="relative animate-[sfrcWinner_0.7s_ease-out]">
-          {/* glow halo */}
           <div className="absolute inset-0 rounded-3xl bg-amber-400/20 blur-3xl animate-[sfrcGlow_1.6s_ease-in-out_infinite] -z-10" />
-          {/* sparkles flying outward */}
           <Sparkles />
           <div className="bg-black/90 backdrop-blur-md rounded-3xl px-16 py-12 border-4 border-amber-400 shadow-[0_0_120px_rgba(245,158,11,0.6)] text-center">
             <div className="flex items-center justify-center gap-4 text-amber-400 text-xl sm:text-2xl font-black tracking-[0.35em] uppercase mb-3">
               <span className="text-3xl sm:text-4xl">🏆</span>
               WINNER
             </div>
-            <div className={`font-black tracking-tight ${winColor} leading-none`} style={{ fontSize: 'clamp(4rem, 11vw, 9rem)' }}>
-              {winnerSide === 'red' ? 'Red' : 'Blue'}
+            <div className={`font-black tracking-tight ${winColor} leading-none`} style={{ fontSize: 'clamp(3rem, 9vw, 7rem)' }}>
+              {winTeamName}
             </div>
             <div className="text-white/70 text-base sm:text-xl font-bold tracking-widest uppercase mt-3">
               {state.wins_red} − {state.wins_white}
@@ -586,64 +661,152 @@ function CenterOverlay({
   return null
 }
 
-// ── Finals bracket overlay (shown when judge enables Show Finals) ──
+function finalsRoundOf(matchId: string) {
+  if (matchId.startsWith('FB-QF')) return 'quarter'
+  if (matchId.startsWith('FB-SF')) return 'semi'
+  if (matchId === 'FB-3RD') return 'third_place'
+  if (matchId === 'FB-F1') return 'final'
+  if (matchId.startsWith('FB-R1')) return 'r1'
+  if (matchId.startsWith('FB-R2')) return 'r2'
+  if (matchId.startsWith('FB-T')) return 'triangle'
+  return null
+}
+
+function stakesBadges(round: string | null): { win: string; lose?: string } {
+  switch (round) {
+    case 'semi':
+    case 'r2':      return { win: '🥇 играет за 1-е место', lose: '🥉 играет за 3-е место' }
+    case 'quarter':
+    case 'r1':      return { win: '→ Semi-Final' }
+    case 'final':   return { win: '🥇 Финал — 1-е место' }
+    case 'third_place': return { win: '🥉 Матч за 3-е место' }
+    case 'triangle': return { win: '🔺 Triangle Final' }
+    default:        return { win: '→ следующий раунд' }
+  }
+}
+
+// ── Finals bracket overlay (shown when judge enables Finals) ──
+//
+// Scale math: bracket totalH = 632*scale + 4 (tallest path = 6 R1 cards).
+// We measure the actual container height after layout (via ref) and solve:
+//   scale = (containerH - 4) / 632, clamped to [0.4, 1.5].
+// colGapMult stretches columns to fill available width.
 function FinalsOverlayB({ items }: { items: FinalsMatchB[] }) {
-  const sorted = [...items].sort((a, b) =>
-    a.match_id.localeCompare(b.match_id, undefined, { numeric: true }))
+  const next = items.find(m => m.status === 'pending' && m.red && m.white)
+  const round = next ? finalsRoundOf(next.match_id) : null
+  const stakes = stakesBadges(round)
+
+  // null = scale not yet computed (bracket hidden to avoid layout flash)
+  const [bracketScale, setBracketScale] = useState<number | null>(null)
+  const [colGapMult, setColGapMult] = useState(3)
+  const bracketAreaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function fit() {
+      const area = bracketAreaRef.current
+      if (!area) return
+      // clientHeight is the ACTUAL rendered height of the flex-1 bracket area
+      // after all other shrink-0 elements have taken their space.
+      const availH = area.clientHeight - 8  // subtract py-1 (4px × 2)
+      const availW = area.clientWidth - 80  // subtract px-10 (40px × 2)
+
+      const s = Math.min(Math.max((availH - 4) / 632, 0.4), 1.5)
+
+      const cardW = Math.round(180 * s)
+      const colGapBase = Math.round(64 * s)
+      const c = Math.max(1, Math.min((Math.max(availW, 300) - 3 * cardW) / (2 * colGapBase), 6))
+
+      setBracketScale(s)
+      setColGapMult(c)
+    }
+
+    // First fit runs after the flex layout has settled
+    fit()
+
+    const ro = new ResizeObserver(fit)
+    if (bracketAreaRef.current) ro.observe(bracketAreaRef.current)
+    return () => ro.disconnect()
+  }, [items])
+
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8 overflow-auto"
-      style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #14141c 100%)' }}
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #080810 0%, #0e0e1a 50%, #060608 100%)' }}
     >
-      {/* dot pattern bg */}
-      <div aria-hidden className="absolute inset-0 opacity-[0.06] pointer-events-none"
+      {/* Dot grid bg */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)',
-          backgroundSize: '24px 24px',
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0)',
+          backgroundSize: '28px 28px', opacity: 0.04,
         }}
       />
-      <div className="relative z-10 w-full max-w-3xl">
-        <div className="text-amber-400 font-black tracking-[0.4em] uppercase text-center mb-2 text-lg sm:text-xl">
+      {/* Amber glow top */}
+      <div aria-hidden className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[400px] pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.12) 0%, transparent 70%)' }}
+      />
+
+      {/* ── Header ── */}
+      <div className="relative z-10 shrink-0 flex flex-col items-center pt-4 pb-2 px-8">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-16 h-px bg-gradient-to-r from-transparent to-amber-400/60" />
+          <span className="text-amber-400/70 text-[11px] font-black tracking-[0.4em] uppercase">
+            Single Elimination · Best of 3
+          </span>
+          <div className="w-16 h-px bg-gradient-to-l from-transparent to-amber-400/60" />
+        </div>
+        <h1 className="text-amber-400 font-black tracking-[0.3em] uppercase"
+          style={{ fontSize: 'clamp(1.2rem, 2.5vw, 2rem)', textShadow: '0 0 40px rgba(245,158,11,0.5)' }}>
           🏆 MINI SUMO — FINALS
-        </div>
-        <div className="text-white/30 text-xs font-mono tracking-widest text-center mb-8 uppercase">
-          Single Elimination · Best of 3 rounds
-        </div>
-        <div className="space-y-2">
-          {sorted.map((item) => {
-            const isDone = item.status === 'completed'
-            const redWon = item.winner === 1
-            const whiteWon = item.winner === 2
-            return (
-              <div key={item.match_id}
-                className="border border-white/10 bg-white/5 px-5 py-4 grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-3">
-                <span className="text-white/40 font-mono text-[11px] text-center">{item.match_id}</span>
-                <span className={`font-black text-right truncate ${redWon ? 'text-amber-300' : 'text-white'}`}>
-                  {item.red?.name ?? 'TBD'}
-                </span>
-                <span className="text-white/50 font-black tabular-nums text-center text-lg shrink-0 min-w-[4rem] text-center">
-                  {isDone && item.rounds1 !== null
-                    ? `${item.rounds1}–${item.rounds2}`
-                    : <span className="text-white/25 text-sm">vs</span>}
-                </span>
-                <span className={`font-black truncate ${whiteWon ? 'text-amber-300' : 'text-white'}`}>
-                  {item.white?.name ?? 'TBD'}
-                </span>
-                <span className="text-center text-emerald-400 text-sm">
-                  {isDone ? '✓' : ''}
-                </span>
+        </h1>
+      </div>
+
+      {/* ── Bracket — hidden until scale computed, then snaps in ── */}
+      <div
+        ref={bracketAreaRef}
+        className="relative z-10 flex-1 min-h-0 flex items-center justify-center overflow-hidden px-10 py-1"
+        style={{ visibility: bracketScale === null ? 'hidden' : 'visible' }}
+      >
+        <FinalsBracketB matches={items} dark scale={bracketScale ?? 1.0} colGapMult={colGapMult} />
+      </div>
+
+      {/* ── Next match callout ── */}
+      {next && (
+        <div className="relative z-10 shrink-0 flex justify-center px-8 pb-4">
+          <div className="w-full max-w-2xl rounded-xl overflow-hidden"
+            style={{ border: '1.5px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)', backdropFilter: 'blur(8px)' }}>
+            <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+            <div className="px-8 py-3 text-center">
+              <div className="text-white/40 text-[10px] font-black tracking-[0.4em] uppercase mb-1.5">
+                Следующий матч · {next.match_id}
               </div>
-            )
-          })}
-          {sorted.length === 0 && (
-            <div className="text-center text-white/20 text-sm tracking-widest py-12">
-              NO FINALS MATCHES SCHEDULED
+              <div className="font-black text-white mb-2"
+                style={{ fontSize: 'clamp(1.3rem, 3vw, 2.2rem)', letterSpacing: '-0.02em', textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
+                {next.red?.name ?? 'TBD'}
+                <span className="text-white/25 mx-3 font-light">vs</span>
+                {next.white?.name ?? 'TBD'}
+              </div>
+              <div className="flex items-center justify-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 rounded-full px-4 py-1.5"
+                  style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)' }}>
+                  <span className="text-green-400 text-xs font-black tracking-[0.25em] uppercase">WIN →</span>
+                  <span className="text-green-300 text-xs font-bold tracking-wider uppercase">{stakes.win}</span>
+                </div>
+                {stakes.lose && (
+                  <div className="flex items-center gap-2 rounded-full px-4 py-1.5"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <span className="text-white/40 text-xs font-black tracking-[0.25em] uppercase">LOSE →</span>
+                    <span className="text-white/50 text-xs font-bold tracking-wider uppercase">{stakes.lose}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
-        <div className="mt-6 text-center text-white/20 text-[10px] tracking-[0.4em] uppercase">
-          SFRC · STARTUP FEST ROBOTICS CHALLENGE
-        </div>
+      )}
+
+      {/* Footer watermark */}
+      <div className="relative z-10 shrink-0 pb-2 text-center text-white/15 text-[10px] tracking-[0.5em] uppercase font-mono">
+        SFRC · STARTUP FEST ROBOTICS CHALLENGE
       </div>
     </div>
   )

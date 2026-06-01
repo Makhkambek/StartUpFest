@@ -7,6 +7,8 @@ import StandingsTableB from './StandingsTableB'
 import StandingsTableC from './StandingsTableC'
 import StandingsTableD from './StandingsTableD'
 import PublicMatchesList from './PublicMatchesList'
+import FinalsBracketB from './FinalsBracketB'
+import FinalsBracketD, { type FinalMatchD } from './FinalsBracketD'
 
 type Standings =
   | { category: 'a'; data: StandingA[] }
@@ -14,7 +16,6 @@ type Standings =
   | { category: 'c'; data: StandingC[] }
   | { category: 'd'; data: StandingD[] }
 
-// Tables to watch per category
 const WATCHED: Record<Category, string[]> = {
   a: ['teams', 'results_a'],
   b: ['teams', 'matches_b'],
@@ -30,7 +31,9 @@ export default function RealtimeStandings(props: Standings) {
   const t = useTranslations('realtime')
   const [standings, setStandings] = useState(props.data as never[])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
-  const [view, setView] = useState<'standings' | 'matches'>('standings')
+  const [view, setView] = useState<'standings' | 'matches' | 'finals'>('standings')
+  const [finalsData, setFinalsData] = useState<Parameters<typeof FinalsBracketB>[0]['matches'] | null>(null)
+  const [finalsDataD, setFinalsDataD] = useState<FinalMatchD[] | null>(null)
 
   const refetch = useCallback(async () => {
     const res = await fetch(`/api/standings/${props.category}`, { cache: 'no-store' })
@@ -42,7 +45,6 @@ export default function RealtimeStandings(props: Standings) {
 
   useEffect(() => {
     if (!hasSupabase) return
-
     let cancelled = false
     let channel: ReturnType<import('@supabase/supabase-js').SupabaseClient['channel']> | undefined
     let supabaseRef: import('@supabase/supabase-js').SupabaseClient | undefined
@@ -55,17 +57,11 @@ export default function RealtimeStandings(props: Standings) {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
       supabaseRef = supabase
-
       channel = supabase.channel(`standings-${props.category}-${Date.now()}`)
-
       for (const table of WATCHED[props.category]) {
-        channel.on(
-          'postgres_changes' as never,
-          { event: '*', schema: 'public', table },
-          () => { if (!cancelled) refetch() },
-        )
+        channel.on('postgres_changes' as never, { event: '*', schema: 'public', table },
+          () => { if (!cancelled) refetch() })
       }
-
       channel.subscribe()
     }
 
@@ -75,6 +71,31 @@ export default function RealtimeStandings(props: Standings) {
       if (channel && supabaseRef) supabaseRef.removeChannel(channel)
     }
   }, [props.category, refetch])
+
+  useEffect(() => {
+    if (props.category !== 'b' && props.category !== 'd') return
+    const endpoint = props.category === 'b' ? '/api/field/b/state' : '/api/field/d/state'
+    const fetchFinals = async () => {
+      const res = await fetch(endpoint, { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.state?.finals_visible && Array.isArray(data.finalsData)) {
+        if (props.category === 'b') {
+          setFinalsData(data.finalsData)
+        } else {
+          setFinalsDataD(data.finalsData as FinalMatchD[])
+        }
+        setView(v => v === 'standings' ? 'finals' : v)
+      } else {
+        if (props.category === 'b') setFinalsData(null)
+        else setFinalsDataD(null)
+        setView(v => v === 'finals' ? 'standings' : v)
+      }
+    }
+    fetchFinals()
+    const interval = setInterval(fetchFinals, 5000)
+    return () => clearInterval(interval)
+  }, [props.category])
 
   const table = () => {
     if (props.category === 'a') return <StandingsTableA standings={standings as StandingA[]} />
@@ -99,12 +120,27 @@ export default function RealtimeStandings(props: Standings) {
             }`}>
             {t('tabMatches')}
           </button>
+          {(finalsData || finalsDataD) && (
+            <button onClick={() => setView('finals')}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-px uppercase tracking-wider transition-colors ${
+                view === 'finals' ? 'text-amber-600 border-amber-500' : 'text-amber-500 border-transparent hover:text-amber-600'
+              }`}>
+              🏆 Finals
+            </button>
+          )}
         </div>
         {lastUpdate && (
           <span className="text-[10px] text-green-600 font-semibold animate-pulse">{t('live')}</span>
         )}
       </div>
-      {view === 'standings' ? table() : <PublicMatchesList category={props.category} />}
+      {view === 'finals' && finalsData
+        ? <FinalsBracketB matches={finalsData} />
+        : view === 'finals' && finalsDataD
+          ? <FinalsBracketD matches={finalsDataD} />
+          : view === 'matches'
+            ? <PublicMatchesList category={props.category} />
+            : table()
+      }
     </div>
   )
 }

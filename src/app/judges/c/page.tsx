@@ -10,6 +10,7 @@ import LiveControlsC from '@/components/judges/LiveControlsC'
 import { useEventSettings } from '@/lib/use-event-settings'
 import { useConfirm } from '@/components/judges/useConfirm'
 import { ThemeToggle } from '@/components/judges/ThemeToggle'
+import FinalsBracketB from '@/components/public/FinalsBracketB'
 
 type View = 'schedule' | 'teams'
 
@@ -28,17 +29,29 @@ export default function JudgeCPage() {
   const [tName, setTName] = useState(''); const [tSchool, setTSchool] = useState(''); const [addingTeam, setAddingTeam] = useState(false)
   const [smId, setSmId] = useState(''); const [smT1, setSmT1] = useState(''); const [smT2, setSmT2] = useState(''); const [addingSm, setAddingSm] = useState(false); const [smErr, setSmErr] = useState('')
   const [genN, setGenN] = useState('2'); const [generating, setGenerating] = useState(false); const [resetting, setResetting] = useState(false); const [genError, setGenError] = useState('')
+  const [genSemis, setGenSemis] = useState(false); const [genSemisErr, setGenSemisErr] = useState('')
+  const [genFinal, setGenFinal] = useState(false); const [genFinalErr, setGenFinalErr] = useState('')
+  const [matchFilter, setMatchFilter] = useState<'all' | 'qualification' | 'semi' | 'final'>('all')
 
   const [activeMatch, setActiveMatch] = useState<ScheduledMatch | null>(null)
   const [finalsVisible, setFinalsVisible] = useState(false)
+  const [standbyMode, setStandbyMode] = useState(false)
 
   useEffect(() => {
-    fetch('/api/judges/c/live').then(r => r.json()).then(s => setFinalsVisible(s.finals_visible ?? false))
+    fetch('/api/judges/c/live').then(r => r.json()).then(s => {
+      setFinalsVisible(s.finals_visible ?? false)
+      setStandbyMode(s.standby_mode ?? false)
+    })
   }, [])
 
   const toggleFinals = async () => {
     const res = await fetch('/api/judges/c/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_finals' }) })
     if (res.ok) { const s = await res.json(); setFinalsVisible(s.finals_visible ?? false) }
+  }
+
+  const toggleStandby = async () => {
+    const res = await fetch('/api/judges/c/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'toggle_standby' }) })
+    if (res.ok) { const s = await res.json(); setStandbyMode(s.standby_mode ?? false) }
   }
 
   const teamName = (id: string) => teams.find(t => t.id === id)?.name ?? id
@@ -71,6 +84,22 @@ export default function JudgeCPage() {
     const res = await fetch('/api/judges/schedule/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', n }) })
     if (!res.ok) { const e = await res.json(); setGenError(e.error ?? 'Failed'); setGenerating(false); return }
     await load(); setGenerating(false)
+  }
+
+  const handleGenerateSemis = async () => {
+    if (!await confirm('Generate SEMI-FINALS from current Top-4 standings? FC-SF1 (1v4) and FC-SF2 (2v3) will be created.')) return
+    setGenSemis(true); setGenSemisErr('')
+    const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', step: 'semi', confirm: true }) })
+    if (!res.ok) { const e = await res.json(); setGenSemisErr(e.error ?? 'Failed'); setGenSemis(false); return }
+    await load(); setGenSemis(false)
+  }
+
+  const handleGenerateFinal = async () => {
+    if (!await confirm('Generate FINAL + 3RD PLACE from semi-final results?')) return
+    setGenFinal(true); setGenFinalErr('')
+    const res = await fetch('/api/judges/schedule/finals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: 'c', step: 'final', confirm: true }) })
+    if (!res.ok) { const e = await res.json(); setGenFinalErr(e.error ?? 'Failed'); setGenFinal(false); return }
+    await load(); setGenFinal(false)
   }
 
   const handleReset = async () => {
@@ -154,6 +183,10 @@ export default function JudgeCPage() {
               {v === 'schedule' ? 'Fights' : 'Teams'}
             </button>
           ))}
+          <button onClick={toggleStandby}
+            className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${standbyMode ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400'}`}>
+            {standbyMode ? '⏸ Standby ON' : '⏸ Standby'}
+          </button>
           <button onClick={toggleFinals}
             className={`ml-2 text-xs font-bold px-3 py-1.5 rounded border transition-colors ${finalsVisible ? 'bg-amber-500 text-white border-amber-500' : 'text-gray-500 dark:text-zinc-400 border-gray-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'}`}>
             {finalsVisible ? '🏆 Finals ON' : '🏆 Finals'}
@@ -227,6 +260,37 @@ export default function JudgeCPage() {
                 {genError && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{genError}</p>}
               </div>
 
+              {/* Finals panel */}
+              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 shadow-sm p-4 space-y-3">
+                <h2 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">🏆 Finals Bracket</h2>
+                <div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 1 — generate semifinals from Top-4.</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={handleGenerateSemis} disabled={!isAdmin || genSemis}
+                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                      {genSemis ? 'Generating…' : 'Generate Semifinals'}
+                    </button>
+                    {schedule.filter(m => (m as {round?:string}).round === 'semi').length > 0 && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">✓ FC-SF1, FC-SF2 exist</span>
+                    )}
+                  </div>
+                  {genSemisErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genSemisErr}</p>}
+                </div>
+                <div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2">Step 2 — after both semifinals played, generate final + 3rd place.</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={handleGenerateFinal} disabled={!isAdmin || genFinal}
+                      className="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold disabled:opacity-40 hover:bg-amber-700 transition-colors">
+                      {genFinal ? 'Generating…' : 'Generate Final + 3rd Place'}
+                    </button>
+                    {schedule.filter(m => (m as {round?:string}).round === 'final').length > 0 && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">✓ FC-F1, FC-3RD exist</span>
+                    )}
+                  </div>
+                  {genFinalErr && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{genFinalErr}</p>}
+                </div>
+              </div>
+
               <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4">
                 <h2 className="text-xs font-bold text-gray-400 dark:text-zinc-400 uppercase tracking-wide mb-3">Add Fight to Schedule</h2>
                 <div className="flex flex-wrap gap-2">
@@ -256,6 +320,73 @@ export default function JudgeCPage() {
                 {smErr && <p className="text-xs text-red-500 dark:text-red-400 mt-2">{smErr}</p>}
               </div>
 
+              {/* Match filter tabs */}
+              {schedule.length > 0 && (() => {
+                const tabs: { key: typeof matchFilter; label: string; count: number }[] = [
+                  { key: 'all',           label: 'All',            count: schedule.length },
+                  { key: 'qualification', label: 'Qualification',  count: schedule.filter(m => m.phase !== 'finals').length },
+                  { key: 'semi',          label: 'Semifinals',     count: schedule.filter(m => (m as {round?:string}).round === 'semi').length },
+                  { key: 'final',         label: 'Finals',         count: schedule.filter(m => ['final','third_place'].includes((m as {round?:string}).round ?? '')).length },
+                ]
+                return (
+                  <div className="flex gap-1 overflow-x-auto pb-1">
+                    {tabs.map(tab => (
+                      <button key={tab.key} onClick={() => setMatchFilter(tab.key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                          matchFilter === tab.key
+                            ? tab.key === 'final' ? 'bg-amber-500 text-white' : 'bg-gray-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                            : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100'
+                        }`}>
+                        {tab.label}
+                        <span className={`text-[10px] px-1 py-0.5 rounded ${matchFilter === tab.key ? 'bg-white/20' : 'bg-gray-100 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500'}`}>{tab.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              {/* Finals bracket — shown when Finals tab is active */}
+              {matchFilter === 'final' && (() => {
+                const byId = (id: string) => schedule.find(m => m.match_id === id) ?? null
+                const sf1 = byId('FC-SF1'); const sf2 = byId('FC-SF2')
+                const fin = byId('FC-F1');  const trd = byId('FC-3RD')
+
+                const toCard = (m: typeof sf1) => {
+                  if (!m) return null
+                  const r = resultFor(m)
+                  return {
+                    match_id: m.match_id, status: m.status,
+                    red:   { id: m.team1_id, name: teamName(m.team1_id), school: null },
+                    white: m.team2_id ? { id: m.team2_id, name: teamName(m.team2_id), school: null } : null,
+                    winner: (r?.winner ?? null) as 1 | 2 | 0 | null,
+                    rounds1: r?.judge_score1 ?? null,
+                    rounds2: r?.judge_score2 ?? null,
+                  }
+                }
+                const sf1c = toCard(sf1); const sf2c = toCard(sf2)
+
+                const nameOf = (c: ReturnType<typeof toCard>, side: 'winner' | 'loser') => {
+                  if (!c?.winner) return null
+                  const w = c.winner === 1 ? c.red?.name : c.white?.name
+                  const l = c.winner === 1 ? c.white?.name : c.red?.name
+                  return side === 'winner' ? (w ?? null) : (l ?? null)
+                }
+                const tbd = (id: string, n: string | null) => ({ id, name: n ?? '', school: null })
+
+                const bracketMatches = [
+                  ...(sf1c ? [sf1c] : []),
+                  ...(sf2c ? [sf2c] : []),
+                  toCard(fin) ?? { match_id: 'FC-F1', status: 'pending', red: tbd('f-r', nameOf(sf1c, 'winner')), white: tbd('f-w', nameOf(sf2c, 'winner')), winner: null, rounds1: null, rounds2: null },
+                  toCard(trd) ?? { match_id: 'FC-3RD', status: 'pending', red: tbd('t-r', nameOf(sf1c, 'loser')), white: tbd('t-w', nameOf(sf2c, 'loser')), winner: null, rounds1: null, rounds2: null },
+                ]
+
+                return (
+                  <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-4 overflow-x-auto">
+                    <FinalsBracketB matches={bracketMatches} scale={0.9} />
+                  </div>
+                )
+              })()}
+
               <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm overflow-hidden">
                 {schedule.length === 0
                   ? <p className="text-center text-sm text-gray-300 dark:text-zinc-400 py-10">No fights scheduled yet</p>
@@ -273,8 +404,15 @@ export default function JudgeCPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-zinc-800">
                         {(() => {
+                          const filtered = schedule.filter(m => {
+                            if (matchFilter === 'all') return true
+                            if (matchFilter === 'qualification') return m.phase !== 'finals'
+                            if (matchFilter === 'semi') return (m as {round?:string}).round === 'semi'
+                            if (matchFilter === 'final') return ['final','third_place'].includes((m as {round?:string}).round ?? '')
+                            return true
+                          })
                           const nextUpId = schedule.find(m => !resultFor(m))?.id
-                          return schedule.map(m => {
+                          return filtered.map(m => {
                           const r = resultFor(m)
                           const done = !!r
                           const isNext = m.id === nextUpId

@@ -101,6 +101,7 @@ function defaultLiveState(category: string, cityCode = 'TSH'): LiveStateB {
     fouls_white: 0,
     round_history: [],
     finals_visible: false,
+    standby_mode: false,
     updated_at: new Date().toISOString(),
   }
 }

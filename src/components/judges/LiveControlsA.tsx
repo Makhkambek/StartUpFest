@@ -225,7 +225,7 @@ export default function LiveControlsA({ schedule, teamName, onChange }: Props) {
               Reset
             </button>
           </div>
-        ) : !activeMatch ? (
+        ) : !activeMatch && !isMatchOver ? (
           <div className="space-y-2">
             {nextPending && (
               <div className="rounded-md bg-cyan-50 dark:bg-cyan-950/30 border-2 border-cyan-300 dark:border-cyan-800 p-3">

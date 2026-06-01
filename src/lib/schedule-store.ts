@@ -4,7 +4,7 @@
 export type MatchPhasePrefix = 'Q' | 'F' | 'SF' | 'E'
 
 export type MatchPhase = 'qualification' | 'finals'
-export type MatchRound = 'group' | 'r1' | 'r2' | 'quarter' | 'semi' | 'third_place' | 'final' | 'triangle'
+export type MatchRound = 'group' | 'r1' | 'r2' | 'quarter' | 'semi' | 'third_place' | 'final' | 'triangle' | 'round_robin'
 
 export interface ScheduledMatch {
   id: string
@@ -76,6 +76,15 @@ export function setMatchStatus(id: string, status: ScheduledMatch['status']) {
   const m = store.get(id)
   if (!m) return
   store.set(id, { ...m, status })
+}
+
+// For Cat D finals: set partner slot for a captain across all their finals matches.
+export function setMatchPartnerD(category: string, captainId: string, partnerId: string | null) {
+  for (const [id, m] of store) {
+    if (m.category !== category || (m as ScheduledMatch & { phase?: string }).phase !== 'finals') continue
+    if (m.team1_id === captainId) store.set(id, { ...m, team1b_id: partnerId })
+    else if (m.team2_id === captainId) store.set(id, { ...m, team2b_id: partnerId })
+  }
 }
 
 export function deleteScheduledMatch(id: string) {

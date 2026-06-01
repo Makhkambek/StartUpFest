@@ -203,8 +203,62 @@ export default function FieldAClient() {
       {data.state.finals_visible && data.finalsData && data.finalsData.length > 0 && (
         <FinalsOverlayA items={data.finalsData} />
       )}
+      {data.state.standby_mode && <StandbyOverlay />}
       {stale && <ReconnectingBanner />}
     </>
+  )
+}
+
+function StandbyOverlay() {
+  const { watermark, settings } = useEventSettings('en')
+  const eventName = settings.event_name ?? 'Startup Fest Robotics Challenge'
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-hidden flex flex-col items-center justify-center select-none"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 30%, #061025 0%, #02050e 60%, #000204 100%)',
+        fontFamily: '"SF Mono", "JetBrains Mono", Menlo, Consolas, monospace',
+      }}
+    >
+      <CrtScanlines />
+      <GridFloor />
+      <div className="relative z-10 text-center px-8 flex flex-col items-center">
+        {/* Event name */}
+        <div
+          className="font-black tracking-[0.3em] uppercase text-pink-400/70 mb-2"
+          style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)', animation: 'sfrcMagentaPulse 3s ease-in-out infinite' }}
+        >
+          {eventName}
+        </div>
+        {/* City + year */}
+        <div
+          className="font-mono text-cyan-300/50 mb-8"
+          style={{ fontSize: 'clamp(1rem, 2.5vw, 2rem)', letterSpacing: '0.3em' }}
+        >
+          {watermark}
+        </div>
+
+        {/* Category */}
+        <div
+          className="font-black tracking-[0.4em] uppercase text-cyan-300/90 mb-3"
+          style={{ fontSize: 'clamp(2.5rem, 7vw, 6rem)', animation: 'sfrcArcadeFlicker 4s linear infinite' }}
+        >
+          Line Follower
+        </div>
+        <div className="w-48 h-px bg-cyan-400/40 mx-auto mb-8" />
+
+        {/* BREAK */}
+        <div
+          className="font-black tracking-tight text-cyan-300/70 mb-5"
+          style={{ fontSize: 'clamp(5rem, 18vw, 14rem)', lineHeight: 0.9, animation: 'sfrcArcadeFlicker 3s linear infinite' }}
+        >
+          BREAK
+        </div>
+        <div className="text-cyan-300/40 tracking-[0.4em] uppercase" style={{ fontSize: 'clamp(0.9rem, 2vw, 1.4rem)' }}>
+          Please wait…
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -625,7 +679,7 @@ function BottomTicker({
     state.phase === 'waiting' || state.phase === 'positioning' ? 'bg-cyan-300' :
     'bg-white/30'
 
-  const ticker = `» SFRC · STARTUP FEST ROBOTICS CHALLENGE · ${eventWatermark} · LINE FOLLOWER ·${matchId ? ` MATCH ${matchId} ·` : ''} `
+  const ticker = `» SFRC · STARTUP FEST ROBOTICS CHALLENGE · ASSOCIATION OF ROBOTICS AND ENGINEERING OF UZBEKISTAN · ${eventWatermark} · LINE FOLLOWER ·${matchId ? ` MATCH ${matchId} ·` : ''} `
 
   return (
     <footer className="absolute bottom-0 inset-x-0 z-20 h-9 flex items-center border-t border-cyan-400/25 bg-black/80 backdrop-blur-sm px-4 sm:px-8 gap-4">

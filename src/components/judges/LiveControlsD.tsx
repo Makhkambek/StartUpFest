@@ -407,7 +407,7 @@ export default function LiveControlsD({ schedule, teamName, onChange }: Props) {
               {' · '}🔴 {state.wins_red} − {state.wins_white} 🔵
             </div>
           </div>
-        ) : !activeMatch ? (
+        ) : !activeMatch && !isMatchOver ? (
           <div className="space-y-2">
             {/* Hero: auto-suggested next match — one-click start */}
             {nextSuggested && (

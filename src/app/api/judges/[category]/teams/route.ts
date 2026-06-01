@@ -54,6 +54,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cat
   return NextResponse.json(addTeam({ name, school: school ?? '', category }))
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ category: string }> }) {
+  const { category } = await params
+  const authz = await requireCategory(category)
+  if (!authz.ok) return NextResponse.json({ error: authz.error }, { status: authz.status })
+
+  const body = await req.json()
+  const { id } = body
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  // alliance_name update (Cat D)
+  if ('alliance_name' in body) {
+    const alliance_name: string | null = body.alliance_name ?? null
+    if (hasSupabase) {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabase = await createClient()
+      const { error } = await supabase.from('teams').update({ alliance_name }).eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ ok: true })
+    }
+    const { updateTeamAllianceName } = await import('@/lib/mock-store')
+    updateTeamAllianceName(id, alliance_name)
+    return NextResponse.json({ ok: true })
+  }
+
+  // group_letter update
+  const { group_letter } = body
+  const validGroups = ['A', 'B', 'C', 'D', 'E', 'F', null]
+  if (!validGroups.includes(group_letter)) return NextResponse.json({ error: 'group_letter must be A–F or null' }, { status: 400 })
+
+  if (hasSupabase) {
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabase = await createClient()
+    const { error } = await supabase.from('teams').update({ group_letter }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  const { updateTeamGroup } = await import('@/lib/mock-store')
+  updateTeamGroup(id, group_letter)
+  return NextResponse.json({ ok: true })
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ category: string }> }) {
   const { category } = await params
   const authz = await requireCategory(category)
