@@ -193,7 +193,7 @@ export default function RecordDPage() {
         </div>
 
         {/* Timer (2 min half) */}
-        <MatchTimer duration={120} />
+        <MatchTimer duration={120} onStart={() => { if (matchStatus === 'pending') updateMatchStatus('active') }} />
 
         {/* Form */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-gray-100 dark:border-zinc-800 shadow-sm p-5 space-y-5">
@@ -207,7 +207,7 @@ export default function RecordDPage() {
                 { value: 'penalties', label: 'Penalties' },
               ] as const).map(p => (
                 <button key={p.value} onClick={() => setMatchPhase(p.value)}
-                  className={`flex-1 py-3 rounded-lg text-sm font-bold border transition-colors ${matchPhase === p.value ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}>
+                  className={`flex-1 py-3 rounded-lg text-sm font-bold border transition-colors ${matchPhase === p.value ? 'bg-amber-500 text-white border-amber-500 dark:bg-amber-500 dark:border-amber-500' : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'}`}>
                   {p.label}
                 </button>
               ))}

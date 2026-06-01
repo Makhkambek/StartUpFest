@@ -5,9 +5,10 @@ interface MatchTimerProps {
   duration: number
   warnAt?: number
   onEnd?: () => void
+  onStart?: () => void
 }
 
-export function MatchTimer({ duration, warnAt = 10, onEnd }: MatchTimerProps) {
+export function MatchTimer({ duration, warnAt = 10, onEnd, onStart }: MatchTimerProps) {
   const [remaining, setRemaining] = useState(duration)
   const [running, setRunning] = useState(false)
   const [muted, setMuted] = useState(false)
@@ -82,7 +83,7 @@ export function MatchTimer({ duration, warnAt = 10, onEnd }: MatchTimerProps) {
       </div>
       <div className="flex gap-2">
         {!running ? (
-          <button onClick={() => setRunning(true)} disabled={isEnded}
+          <button onClick={() => { setRunning(true); onStart?.() }} disabled={isEnded}
             className="flex-1 bg-green-600 text-white font-black py-4 rounded-xl text-base hover:bg-green-700 disabled:opacity-30 disabled:hover:bg-green-600">
             ▶ Start
           </button>

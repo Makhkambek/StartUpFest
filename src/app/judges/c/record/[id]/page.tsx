@@ -182,7 +182,7 @@ export default function RecordCPage() {
         </div>
 
         {/* Timer (3 min fight — rulebook §5.2) */}
-        <MatchTimer duration={180} />
+        <MatchTimer duration={180} onStart={() => { if (matchStatus === 'pending') updateMatchStatus('active') }} />
 
 
         {/* Form */}
